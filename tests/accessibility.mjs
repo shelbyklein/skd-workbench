@@ -1,0 +1,68 @@
+import { chromium } from 'playwright';
+import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync, mkdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { createServer } from '../server.js';
+const directory=mkdtempSync(path.join(tmpdir(),'flow-access-'));
+const server=createServer({directory});await new Promise(r=>server.listen(0,'127.0.0.1',r));
+const browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL||'chrome',headless:true});
+try {
+ const page=await browser.newPage({viewport:{width:1440,height:1050},reducedMotion:'reduce'});page.setDefaultTimeout(7000);
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
+ await page.goto(`http://127.0.0.1:${server.address().port}`);
+ await page.locator('[data-step]').first().waitFor();
+ await page.keyboard.press('Tab');
+ assert.equal(await page.evaluate(()=>document.activeElement.tagName),'A');
+ assert.notEqual(await page.evaluate(()=>getComputedStyle(document.activeElement).outlineStyle),'none');
+ await page.getByRole('button',{name:'Create new flow',exact:true}).focus();
+ await page.keyboard.press('Enter');
+ await page.getByLabel('Flow name',{exact:true}).waitFor();
+ for(let i=0;i<10;i++){await page.keyboard.press('Tab');assert.equal(await page.evaluate(()=>document.querySelector('#dialog').contains(document.activeElement)),true);}
+ await page.keyboard.press('Escape');assert.equal(await page.locator('#dialog').isVisible(),false);
+ assert.equal(await page.evaluate(()=>document.activeElement.getAttribute('aria-label')),'Create new flow');
+ await page.locator('[data-step]').first().focus();await page.keyboard.press('Enter');
+ await page.getByLabel('Step name',{exact:true}).fill('Unsaved keyboard edit');
+ await page.getByRole('button',{name:/Run history/}).click();
+ await page.getByRole('heading',{name:'Keep your changes?',exact:true}).waitFor();
+ await page.getByRole('button',{name:'Keep editing',exact:true}).click();
+ assert.equal(await page.getByLabel('Step name',{exact:true}).inputValue(),'Unsaved keyboard edit');
+ await page.getByRole('button',{name:'Save flow',exact:true}).click();
+ await page.waitForFunction(()=>document.querySelector('#save').disabled);
+ // Review note must survive selecting a different output.
+ await page.getByRole('button',{name:'▷ Try flow',exact:true}).click();
+ await page.getByLabel('Task',{exact:true}).fill('Keyboard task');
+ await page.getByRole('button',{name:'Start simulation',exact:true}).click();
+ await page.getByRole('button',{name:'Simulate this step →',exact:true}).click();
+ await page.getByLabel('Review note',{exact:true}).fill('Keep this draft while I inspect the output.');
+ await page.locator('[data-run-step]').first().click();
+ assert.equal(await page.getByLabel('Review note',{exact:true}).inputValue(),'Keep this draft while I inspect the output.');
+ await page.getByRole('button',{name:'Open flow',exact:true}).click();
+ await page.setViewportSize({width:390,height:844});
+ await page.getByRole('button',{name:'+ New flow',exact:true}).click();
+ await page.getByLabel('Flow name',{exact:true}).fill('Mobile flow');
+ await page.getByRole('button',{name:'Create flow',exact:true}).click();
+ await page.getByRole('button',{name:'+ Add a step',exact:true}).click();
+ await page.locator('[data-type="agent"]').click();
+ await page.getByLabel('Instructions',{exact:true}).fill('Check the mobile layout.');
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+ assert.equal(await page.evaluate(()=>getComputedStyle(document.querySelector('.step-card')).transitionDuration),'0s');
+ mkdirSync('output',{recursive:true});
+ await page.screenshot({path:'output/inspector-mobile.png',fullPage:true});
+ await page.getByRole('button',{name:'Save flow',exact:true}).click();
+ await page.waitForFunction(()=>document.querySelector('#save').disabled);
+ await page.getByRole('button',{name:'Close step settings',exact:true}).click();
+ // Fresh screenshots without notifications or fixture edits.
+ await page.getByRole('button',{name:'Plan, review, build',exact:true}).click();
+ await page.locator('[data-step]').first().click();
+ await page.getByLabel('Step name',{exact:true}).fill('Make a plan');
+ await page.getByRole('button',{name:'Save flow',exact:true}).click();
+ await page.waitForFunction(()=>document.querySelector('#save').disabled);
+ await page.getByRole('button',{name:'Close step settings',exact:true}).click();
+ await page.evaluate(()=>document.querySelector('#toast').classList.remove('visible'));
+ await page.screenshot({path:'output/final-mobile.png',fullPage:true});
+ await page.setViewportSize({width:1440,height:1050});
+ await page.screenshot({path:'output/final-desktop.png',fullPage:true});
+ assert.deepEqual(errors,[]);
+ console.log('Keyboard/mobile checks passed: focus ring, Enter activation, dialog focus trap/Escape/return, dirty navigation, retained review draft, narrow creation/inspector, reduced motion, no console errors.');
+}finally{await browser.close();server.closeAllConnections();await new Promise(r=>server.close(r));rmSync(directory,{recursive:true,force:true});}
