@@ -2,7 +2,9 @@ const $ = s => document.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const clone = v=>structuredClone(v);
 const uid = ()=>crypto.randomUUID();
-let data={flows:[],runs:[]}, draft=null, selected=null, view='flow', runID=null, dirty=false, busy=false, compareIDs=[];
+let projectID='unassigned';
+const connections=new Map();
+let data={projects:[],flows:[],runs:[]}, draft=null, selected=null, view='flow', runID=null, dirty=false, busy=false, compareIDs=[];
 const typeName={agent:'Agent',human:'My review',check:'Check'};
 const symbol={agent:'✳',human:'◉',check:'✓'};
 let toastTimer;
@@ -13,12 +15,15 @@ async function api(route,method='GET',body) {
   const result=await response.json(); if(!response.ok) throw new Error(result.error||'Request failed.'); return result;
 }
 async function reload() { data=await api('state'); }
+const scopedFlows=()=>data.flows.filter(f=>f.projectID===projectID);
+const scopedRuns=()=>data.runs.filter(r=>r.projectID===projectID);
+const currentProject=()=>data.projects.find(p=>p.id===projectID)||data.projects[0];
 function markDirty() { dirty=true; const save=$('#save'); if(save) save.disabled=false; const note=$('#saved-note'); if(note) note.textContent='Unsaved changes'; }
 function confirmLeave(action) {
   if(!dirty) return action();
   modal('Keep your changes?', '<p>This flow has unsaved changes. Save them or discard them before leaving.</p>', [{label:'Keep editing',close:true},{label:'Discard changes',run:()=>{dirty=false;action();}}]);
 }
-function openFlow(flowID) { confirmLeave(()=>{const flow=data.flows.find(f=>f.id===flowID); if(!flow)return; draft=clone(flow);selected=null;view='flow';dirty=false;render();}); }
+function openFlow(flowID) { confirmLeave(()=>{const flow=data.flows.find(f=>f.id===flowID); if(!flow)return; projectID=flow.projectID;draft=clone(flow);selected=null;view='flow';dirty=false;render();}); }
 function modal(title,content,buttons=[],onSubmit=null) {
   const d=$('#dialog');
   d.innerHTML=`<form id="dialog-form"><div class="dialog-head"><h2>${esc(title)}</h2><button type="button" class="icon-button" data-close aria-label="Close dialog">×</button></div>${content}<p class="form-error" id="dialog-error" role="alert"></p><div class="dialog-actions">${buttons.map((b,i)=>`<button type="${b.submit?'submit':'button'}" data-modal="${i}" class="${b.primary?'primary':''}">${esc(b.label)}</button>`).join('')}</div></form>`;
@@ -39,30 +44,36 @@ function modal(title,content,buttons=[],onSubmit=null) {
 }
 function shell(content) {
   const current=view==='flow'?draft?.id:null;
-  $('#app').innerHTML=`<aside class="sidebar"><a class="brand" href="/" aria-label="Flow Bench home"><img src="/icon.svg" alt=""><span>flow bench<span class="brand-sub">A LITTLE ROOM TO EXPERIMENT</span></span></a><div class="side-label">YOUR WORKBENCH</div><button class="nav-button ${view==='history'?'active':''}" data-action="history"><span>◷</span> Run history <span class="count">${data.runs.length}</span></button><div class="side-row"><div class="side-label">SAVED FLOWS</div><button class="icon-button" data-action="new" aria-label="Create new flow">+</button></div><nav aria-label="Saved flows">${data.flows.map(f=>`<button class="flow-nav ${current===f.id?'active':''}" data-flow="${f.id}"><span class="flow-dot"></span><span>${esc(f.name)}</span></button>`).join('')||'<p class="side-hint">Your first flow starts here.</p>'}</nav><button class="new-flow" data-action="new">+ New flow</button><div class="side-bottom"><span class="local-dot"></span> Local on your Mac<p>Small flows. Useful experiments.</p></div></aside><main><header class="topbar"><span>WORKBENCH <span class="crumb">/</span> ${view==='flow'?'FLOW EDITOR':view==='run'?'SIMULATION':view==='compare'?'COMPARISON':'RUN HISTORY'}</span><span class="mode-tag">SIMULATION ONLY</span></header>${content}</main>`;
+  $('#app').innerHTML=`<aside class="sidebar"><a class="brand" href="/" aria-label="SKD Workbench home"><img src="/icon.svg" alt=""><span>SKD Workbench<span class="brand-sub">YOUR DEVELOPMENT WORKSPACE</span></span></a><section class="project-picker"><label for="project-picker" class="side-label">PROJECT</label><select id="project-picker" aria-label="Project">${data.projects.map(p=>`<option value="${p.id}" ${p.id===projectID?'selected':''}>${esc(p.name)}</option>`).join('')}</select><div class="project-actions"><button class="text-button" id="add-project">+ Add project</button><button class="text-button" id="project-details">Details</button></div><p id="project-summary" class="project-summary"></p></section><div class="side-label">YOUR WORKBENCH</div><button class="nav-button ${view==='history'?'active':''}" data-action="history"><span>◷</span> Run history <span class="count">${scopedRuns().length}</span></button><div class="side-row"><div class="side-label">WORKFLOWS</div><button class="icon-button" data-action="new" aria-label="Create new flow">+</button></div><nav aria-label="Saved flows">${scopedFlows().map(f=>`<button class="flow-nav ${current===f.id?'active':''}" data-flow="${f.id}"><span class="flow-dot"></span><span>${esc(f.name)}</span></button>`).join('')||'<p class="side-hint">Your first flow starts here.</p>'}</nav><button class="new-flow" data-action="new">+ New flow</button><div class="side-bottom"><span class="local-dot"></span> Local on your Mac<p>Your projects. Your way of working.</p></div></aside><main><header class="topbar"><span class="breadcrumb">${esc(currentProject()?.name||'Unassigned')} <span class="crumb">/</span> ${view==='flow'?'FLOW EDITOR':view==='run'?'SIMULATION':view==='compare'?'COMPARISON':'RUN HISTORY'}</span><span class="mode-tag">SIMULATION ONLY</span></header>${content}</main>`;
   bindCommon();
+  updateProjectSummary();
+  if(currentProject()?.folderPath&&!connections.has(projectID+':'+currentProject().version))refreshConnection();
 }
 function bindCommon() {
+  $('#project-picker').onchange=e=>{const target=e.target.value;e.target.value=projectID;confirmLeave(()=>switchProject(target));};
+  $('#add-project').onclick=()=>confirmLeave(()=>projectDialog());
+  $('#project-details').onclick=()=>projectDialog(currentProject());
   document.querySelectorAll('[data-flow]').forEach(b=>b.onclick=()=>openFlow(b.dataset.flow));
   document.querySelectorAll('[data-action="new"]').forEach(b=>b.onclick=newFlow);
   $('[data-action="history"]').onclick=()=>confirmLeave(()=>{view='history';selected=null;render();});
 }
 function render() {
-  history.replaceState(null,'','#'+(view==='compare'?'compare/'+compareIDs.join(','):view==='run'?'run/'+runID:view==='flow'&&draft?'flow/'+draft.id:view));
+  history.replaceState(null,'','#'+(view==='compare'?'compare/'+compareIDs.join(','):view==='run'?'run/'+runID:view==='flow'&&draft?'flow/'+draft.id:view==='history'?'history/'+projectID:'project/'+projectID));
   if(view==='flow')renderFlow(); else if(view==='run')renderRun(); else if(view==='compare')renderCompare();else renderHistory();
 }
 function renderFlow() {
   if(!draft) { shell('<section class="empty"><h1>A good experiment<br>starts with a flow.</h1><p>Create a few steps and see how they fit together.</p><button class="primary" id="first-flow">Create a flow</button></section>');$('#first-flow').onclick=newFlow;return; }
   const agents=draft.steps.filter(s=>s.type==='agent').length;
-  shell(`<section class="page-heading"><div><div class="eyebrow">MAKE IT YOUR OWN</div><h1 id="flow-title">${esc(draft.name)}</h1><p>${draft.steps.length} steps <span class="middot">·</span> ${agents} agent${agents===1?'':'s'} <span class="middot">·</span> v${draft.version}</p></div><div class="heading-actions"><button data-action="duplicate">Duplicate</button><button id="save" ${dirty?'':'disabled'}>Save flow</button><button class="primary" id="run-flow" ${draft.steps.length?'':'disabled'}>▷ Try flow</button></div></section><div class="editor-layout ${selected?'has-inspector':''}"><section class="canvas" aria-label="Flow steps"><div class="canvas-top"><span>YOUR FLOW</span><button class="text-button" id="rename">Rename</button></div><div class="step-list">${draft.steps.map((s,i)=>`<div class="step-wrap"><span class="step-number">${String(i+1).padStart(2,'0')}</span><button class="step-card ${s.type} ${selected===s.id?'selected':''}" data-step="${s.id}" aria-pressed="${selected===s.id}"><span class="step-icon">${symbol[s.type]}</span><span class="step-copy"><strong>${esc(s.name)}</strong><span>${s.type==='agent'?esc(s.model)+' <span class="middot">·</span> '+esc(s.effort)+' effort':s.type==='human'?'You decide when to continue':'A place to verify the result'}</span></span><span class="step-more">↗</span></button>${s.type==='human'&&s.maxRetries?`<span class="loop-note">↶ Up to ${s.maxRetries} change requests</span>`:''}</div>`).join('')||'<div class="empty-flow"><span>＋</span><h2>What happens first?</h2><p>Add an agent, your review, or a check.</p></div>'}<button id="add-step" class="add-step">+ Add a step</button></div><footer class="canvas-footer"><span id="saved-note">${dirty?'Unsaved changes':'Saved on this Mac'}</span><span>Connected in order ↓</span></footer></section>${selected?'<aside class="inspector" id="inspector" aria-label="Step settings"></aside>':`<aside class="quiet-note"><span class="note-symbol">↗</span><h2>A little structure.<br>Room to explore.</h2><p>Select a step to choose its model and give it instructions.</p><div class="note-rule"></div><p>Try the flow to walk through its handoffs. No models are called in this first version.</p><button class="text-button danger" id="delete-flow">Delete flow</button></aside>`}</div>`);
+  shell(`<section class="page-heading"><div><div class="eyebrow">MAKE IT YOUR OWN</div><h1 id="flow-title">${esc(draft.name)}</h1><p>${draft.steps.length} steps <span class="middot">·</span> ${agents} agent${agents===1?'':'s'} <span class="middot">·</span> v${draft.version}</p></div><div class="heading-actions"><button data-action="duplicate">Duplicate</button><button id="move-flow">Move</button><button id="save" ${dirty?'':'disabled'}>Save flow</button><button class="primary" id="run-flow" ${draft.steps.length?'':'disabled'}>▷ Try flow</button></div></section><div class="editor-layout ${selected?'has-inspector':''}"><section class="canvas" aria-label="Flow steps"><div class="canvas-top"><span>YOUR FLOW</span><button class="text-button" id="rename">Rename</button></div><div class="step-list">${draft.steps.map((s,i)=>`<div class="step-wrap"><span class="step-number">${String(i+1).padStart(2,'0')}</span><button class="step-card ${s.type} ${selected===s.id?'selected':''}" data-step="${s.id}" aria-pressed="${selected===s.id}"><span class="step-icon">${symbol[s.type]}</span><span class="step-copy"><strong>${esc(s.name)}</strong><span>${s.type==='agent'?esc(s.model)+' <span class="middot">·</span> '+esc(s.effort)+' effort':s.type==='human'?'You decide when to continue':'A place to verify the result'}</span></span><span class="step-more">↗</span></button>${s.type==='human'&&s.maxRetries?`<span class="loop-note">↶ Up to ${s.maxRetries} change requests</span>`:''}</div>`).join('')||'<div class="empty-flow"><span>＋</span><h2>What happens first?</h2><p>Add an agent, your review, or a check.</p></div>'}<button id="add-step" class="add-step">+ Add a step</button></div><footer class="canvas-footer"><span id="saved-note">${dirty?'Unsaved changes':'Saved on this Mac'}</span><span>Connected in order ↓</span></footer></section>${selected?'<aside class="inspector" id="inspector" aria-label="Step settings"></aside>':`<aside class="quiet-note"><span class="note-symbol">↗</span><h2>A little structure.<br>Room to explore.</h2><p>Select a step to choose its model and give it instructions.</p><div class="note-rule"></div><p>Try the flow to walk through its handoffs. No models are called in this first version.</p><button class="text-button danger" id="delete-flow">Delete flow</button></aside>`}</div>`);
   $('[data-action="duplicate"]').onclick=duplicateFlow;
+  $('#move-flow').onclick=moveFlow;
   $('#save').onclick=()=>saveFlow().catch(e=>toast(e.message));
   $('#rename').onclick=()=>modal('Name your flow',`<label>Flow name<input name="name" value="${esc(draft.name)}" maxlength="100" required autofocus></label>`,[{label:'Cancel',close:true},{label:'Rename',submit:true,primary:true}],async f=>{draft.name=f.get('name').trim();if(!draft.name)throw Error('Give the flow a name.');markDirty();renderFlow();});
   $('#add-step').onclick=addStep;
-  $('#run-flow').onclick=startDialog;
+  $('#run-flow').onclick=()=>startDialog();
   document.querySelectorAll('[data-step]').forEach(b=>b.onclick=()=>{selected=b.dataset.step;renderFlow();$('#step-name').focus({preventScroll:true});});
   if(selected)renderInspector();
-  if($('#delete-flow'))$('#delete-flow').onclick=()=>modal('Delete this flow?','<p>Saved runs will keep their original flow. This removes the editable flow.</p>',[{label:'Keep flow',close:true},{label:'Delete flow',run:async()=>{try{await api('flows/'+draft.id,'DELETE',{version:draft.version});await reload();draft=data.flows[0]?clone(data.flows[0]):null;dirty=false;render();}catch(e){toast(e.message);}}}]);
+  if($('#delete-flow'))$('#delete-flow').onclick=()=>modal('Delete this flow?','<p>Saved runs will keep their original flow. This removes the editable flow.</p>',[{label:'Keep flow',close:true},{label:'Delete flow',run:async()=>{try{await api('flows/'+draft.id,'DELETE',{version:draft.version});await reload();draft=scopedFlows()[0]?clone(scopedFlows()[0]):null;dirty=false;render();}catch(e){toast(e.message);}}}]);
 }
 function renderInspector() {
   const s=draft.steps.find(s=>s.id===selected),index=draft.steps.indexOf(s);
@@ -99,7 +110,7 @@ function addStep() {
   });
 }
 function newFlow() {
-  confirmLeave(()=>modal('Start a new flow',`<label>Flow name<input name="name" placeholder="e.g. Plan high, build low" maxlength="100" required autofocus></label><p class="field-help">Start with a clean canvas. Add only the steps you need.</p>`,[{label:'Cancel',close:true},{label:'Create flow',submit:true,primary:true}],async form=>{const f=await api('flows','POST',{name:form.get('name'),steps:[]});await reload();dirty=false;openFlow(f.id);}));
+  confirmLeave(()=>modal('Start a new flow',`<label>Flow name<input name="name" placeholder="e.g. Plan high, build low" maxlength="100" required autofocus></label><p class="field-help">Start with a clean canvas. Add only the steps you need.</p>`,[{label:'Cancel',close:true},{label:'Create flow',submit:true,primary:true}],async form=>{const f=await api('flows','POST',{name:form.get('name'),steps:[],projectID});await reload();dirty=false;openFlow(f.id);}));
 }
 async function saveFlow() {const saved=await api('flows/'+draft.id,'PUT',draft);await reload();draft=clone(saved);dirty=false;render();toast('Flow saved.');return saved;}
 function duplicateFlow() {
@@ -112,7 +123,7 @@ function startDialog(task='',acceptance='') {
     await reload();openRun(r.id);
   });
 }
-function openRun(id) {confirmLeave(()=>{runID=id;selected=null;view='run';render();});}
+function openRun(id) {confirmLeave(()=>{runID=id;projectID=data.runs.find(r=>r.id===id)?.projectID||'unassigned';selected=null;view='run';render();});}
 const statusLabel={ready:'Ready for next step',waiting:'Waiting for you',completed:'Simulation complete',cancelled:'Stopped'};
 const dateLabel=value=>new Date(value).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
 function runStats(r) {
@@ -126,7 +137,7 @@ function renderRun() {
   if(!selected)selected=current?.id||r.flow.steps.at(-1)?.id;
   const chosen=r.flow.steps.find(s=>s.id===selected)||current;
   const attempts=r.attempts.filter(a=>a.stepID===chosen?.id);
-  shell(`<section class="page-heading"><div><div class="eyebrow">SIMULATION / FLOW v${r.flow.version}</div><h1>${esc(r.flow.name)}</h1><p>${dateLabel(r.createdAt)} <span class="middot">·</span> ${esc(statusLabel[r.status])}</p></div><div class="heading-actions"><button id="back-history">All runs</button>${ended?'':`<button id="stop-run">Stop simulation</button>`}<button id="edit-original" ${data.flows.some(f=>f.id===r.flow.id)?'':'disabled'}>Open flow</button></div></section><section class="run-intro"><div class="simulation-note">A walkthrough, not model work. Outputs are simulated; checks have not been executed.</div>${runStats(r)}<details class="task-details"><summary>Task & acceptance checks</summary><h3>Task</h3><p class="preserve">${esc(r.task)}</p><h3>Acceptance checks</h3><p class="preserve">${esc(r.acceptance||'Not supplied')}</p></details></section><div class="run-layout"><section class="canvas" aria-label="Simulation steps"><div class="canvas-top"><span>YOUR FLOW / SNAPSHOT</span><span>${r.attempts.length} RECORDED EVENTS</span></div><div class="step-list">${r.flow.steps.map((s,i)=>{
+  shell(`<section class="page-heading"><div><div class="eyebrow">SIMULATION / FLOW v${r.flow.version}</div><h1>${esc(r.flow.name)}</h1><p>${dateLabel(r.createdAt)} <span class="middot">·</span> ${esc(statusLabel[r.status])}</p></div><div class="heading-actions"><button id="back-history">All runs</button>${ended?'':`<button id="stop-run">Stop simulation</button>`}<button id="edit-original" ${data.flows.some(f=>f.id===r.flow.id)?'':'disabled'}>Open flow</button></div></section><section class="run-intro"><div class="simulation-note">A walkthrough, not model work. Outputs are simulated; checks have not been executed.</div>${runStats(r)}${runContext(r)}<details class="task-details"><summary>Task & acceptance checks</summary><h3>Task</h3><p class="preserve">${esc(r.task)}</p><h3>Acceptance checks</h3><p class="preserve">${esc(r.acceptance||'Not supplied')}</p></details></section><div class="run-layout"><section class="canvas" aria-label="Simulation steps"><div class="canvas-top"><span>YOUR FLOW / SNAPSHOT</span><span>${r.attempts.length} RECORDED EVENTS</span></div><div class="step-list">${r.flow.steps.map((s,i)=>{
     const state=i<r.cursor?'done':i===r.cursor&&!ended?'current':'pending';
     return `<div class="step-wrap"><span class="step-number">${String(i+1).padStart(2,'0')}</span><button class="step-card ${s.type} ${selected===s.id?'selected':''} ${state}" data-run-step="${s.id}"><span class="step-icon">${state==='done'?'✓':symbol[s.type]}</span><span class="step-copy"><strong>${esc(s.name)}</strong><span>${state==='current'?esc(statusLabel[r.status]):state==='done'?'Recorded in simulation':ended?'Not reached':'Up next'}${s.model?' · '+esc(s.model):''}</span></span></button></div>`;
   }).join('')}</div></section><aside class="run-panel">${ended?`<div class="review-panel"><span class="eyebrow">${r.status==='completed'?'WALKTHROUGH FINISHED':'SIMULATION STOPPED'}</span><h2>${r.status==='completed'?'How did the flow feel?':'You can start fresh.'}</h2><p>${r.status==='completed'?'All steps were visited. This does not indicate the task was completed by a model.':'Your recorded steps and review notes are saved.'}</p><button id="try-another">Try another flow with this task</button></div>`:r.status==='waiting'?`<div class="review-panel"><span class="eyebrow">YOUR TURN</span><h2>${esc(current.name)}</h2><p>${esc(current.instructions||'Review the preceding output and decide what happens next.')}</p><label>Review note<textarea id="review-note" aria-label="Review note" rows="3" maxlength="5000" placeholder="What should change, or what looks good?">${esc(reviewDrafts.get(r.id)||'')}</textarea></label><div class="review-actions"><button class="primary" id="approve-run">Continue</button><button id="request-changes" ${(r.retries[current.id]||0)>=current.maxRetries?'disabled':''}>Request changes</button></div><p class="field-help">${current.maxRetries?`${r.retries[current.id]||0} of ${current.maxRetries} change requests used. Returns to “${esc(r.flow.steps.find(s=>s.id===current.retryFrom)?.name)}”.`:'Change requests are off for this step.'}</p></div>`:`<div class="review-panel"><span class="eyebrow">NEXT STEP</span><h2>${esc(current.name)}</h2><p>Record a placeholder output and move to the next step. No model will be called.</p><button class="primary" id="advance-run">Simulate this step →</button></div>`}<section class="output-panel"><span class="eyebrow">STEP DETAILS</span><h2>${esc(chosen?.name)}</h2>${chosen?.model?`<p class="small">${esc(chosen.model)} · ${esc(chosen.effort)} effort · requested label</p>`:''}${attempts.length?attempts.map(a=>`<details class="attempt" ${a===attempts.at(-1)?'open':''}><summary>${a.kind==='human'?'Review':'Simulated attempt'} ${a.number} <span>${dateLabel(a.at)}</span></summary><pre>${esc(a.output)}</pre></details>`).join(''):'<p>No output yet. This step has not been visited.</p>'}<details class="task-details"><summary>Saved instructions</summary><p class="preserve">${esc(chosen?.instructions||'No instructions supplied.')}</p></details></section></aside></div>`);
@@ -138,7 +149,7 @@ function renderRun() {
   if($('#approve-run'))$('#approve-run').onclick=()=>runAction('approve',$('#review-note').value);
   if($('#request-changes'))$('#request-changes').onclick=()=>runAction('changes',$('#review-note').value);
   document.querySelectorAll('[data-run-step]').forEach(b=>b.onclick=()=>{selected=b.dataset.runStep;renderRun();});
-  if($('#try-another'))$('#try-another').onclick=()=>modal('Try the same task',`<p>Choose a flow. The task and acceptance checks will be copied exactly.</p><label>Flow<select name="flow" aria-label="Flow">${data.flows.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('')}</select></label>`,[{label:'Cancel',close:true},{label:'Start simulation',submit:true,primary:true}],async form=>{
+  if($('#try-another'))$('#try-another').onclick=()=>modal('Try the same task',`<p>Choose a flow. The task and acceptance checks will be copied exactly.</p><label>Flow<select name="flow" aria-label="Flow">${scopedFlows().map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('')}</select></label>`,[{label:'Cancel',close:true},{label:'Start simulation',submit:true,primary:true}],async form=>{
     const f=data.flows.find(f=>f.id===form.get('flow'));if(!f)throw Error('Create a flow first.');
     const next=await api('runs','POST',{flowID:f.id,flowVersion:f.version,task:r.task,acceptance:r.acceptance});await reload();openRun(next.id);
   });
@@ -154,14 +165,15 @@ async function runAction(action,note='') {
 function renderCompare(){
   const runs=compareIDs.map(id=>data.runs.find(r=>r.id===id)).filter(Boolean);
   if(runs.length!==2){view='history';render();return;}
-  const same=runs[0].comparisonKey===runs[1].comparisonKey;
-  shell(`<section class="page-heading"><div><div class="eyebrow">TWO WAYS THROUGH THE SAME WORK</div><h1>Compare flows</h1><p>Inspect the structure before spending on a real run.</p></div><button id="back-history">All runs</button></section><section class="comparison"><div class="comparison-notice ${same?'':'mismatch'}"><strong>${same?'Same task & acceptance checks':'Different tasks — not a controlled comparison'}</strong><p>${same?'These simulations used identical task inputs. They do not measure model quality or real execution time.':'Task or acceptance inputs differ. You can inspect these runs, but their outcomes should not be treated as a fair comparison.'}</p></div><div class="compare-grid">${runs.map((r,i)=>`<article class="compare-card"><span class="eyebrow">FLOW ${i+1} / v${r.flow.version} / SIMULATION</span><h2>${esc(r.flow.name)}</h2><p class="compare-task">${esc(r.task)}</p><dl><div><dt>Result</dt><dd>${esc(statusLabel[r.status])}</dd></div><div><dt>Model tokens</dt><dd>Not measured</dd></div><div><dt>Model cost</dt><dd>Not measured</dd></div><div><dt>Simulation time</dt><dd>${r.finishedAt?Math.max(0,Math.round((Date.parse(r.finishedAt)-Date.parse(r.createdAt))/1000))+'s':'In progress'}</dd></div><div><dt>Agent steps</dt><dd>${r.flow.steps.filter(s=>s.type==='agent').length}</dd></div><div><dt>Change requests</dt><dd>${Object.values(r.retries).reduce((a,b)=>a+b,0)}</dd></div><div><dt>Recorded events</dt><dd>${r.attempts.length}</dd></div></dl><div class="mini-flow">${r.flow.steps.map(s=>`<div><span class="mini-dot ${s.type}">${symbol[s.type]}</span><span>${esc(s.name)}<small>${s.model?esc(s.model)+' · '+esc(s.effort):typeName[s.type]}</small></span></div>`).join('')}</div><button data-open-run="${r.id}">Inspect run ↗</button></article>`).join('')}</div><p class="comparison-footnote">Simulation time includes your pauses and review time. No tokens, model charges, tests, or quality scores have been measured.</p></section>`);
+  const same=runs[0].task===runs[1].task&&runs[0].acceptance===runs[1].acceptance;
+  const codeWarning=comparisonWarning(runs[0],runs[1]);
+  shell(`<section class="page-heading"><div><div class="eyebrow">TWO WAYS THROUGH THE SAME WORK</div><h1>Compare flows</h1><p>Inspect the structure before spending on a real run.</p></div><button id="back-history">All runs</button></section><section class="comparison"><div class="comparison-notice ${same?'':'mismatch'}"><strong>${same?'Same task & acceptance checks':'Different tasks — not a controlled comparison'}</strong><p>${same?'These simulations used identical task inputs. They do not measure model quality or real execution time.':'Task or acceptance inputs differ. You can inspect these runs, but their outcomes should not be treated as a fair comparison.'}</p></div>${codeWarning?`<div class="comparison-notice mismatch"><strong>Code context</strong><p>${esc(codeWarning)}</p></div>`:''}<div class="compare-grid">${runs.map((r,i)=>`<article class="compare-card"><span class="eyebrow">FLOW ${i+1} / v${r.flow.version} / SIMULATION</span><h2>${esc(r.flow.name)}</h2><p class="compare-task">${esc(r.task)}</p><dl><div><dt>Result</dt><dd>${esc(statusLabel[r.status])}</dd></div><div><dt>Model tokens</dt><dd>Not measured</dd></div><div><dt>Model cost</dt><dd>Not measured</dd></div><div><dt>Simulation time</dt><dd>${r.finishedAt?Math.max(0,Math.round((Date.parse(r.finishedAt)-Date.parse(r.createdAt))/1000))+'s':'In progress'}</dd></div><div><dt>Agent steps</dt><dd>${r.flow.steps.filter(s=>s.type==='agent').length}</dd></div><div><dt>Change requests</dt><dd>${Object.values(r.retries).reduce((a,b)=>a+b,0)}</dd></div><div><dt>Recorded events</dt><dd>${r.attempts.length}</dd></div></dl><div class="mini-flow">${r.flow.steps.map(s=>`<div><span class="mini-dot ${s.type}">${symbol[s.type]}</span><span>${esc(s.name)}<small>${s.model?esc(s.model)+' · '+esc(s.effort):typeName[s.type]}</small></span></div>`).join('')}</div><button data-open-run="${r.id}">Inspect run ↗</button></article>`).join('')}</div><p class="comparison-footnote">Simulation time includes your pauses and review time. No tokens, model charges, tests, or quality scores have been measured.</p></section>`);
   $('#back-history').onclick=()=>{view='history';render();};
   document.querySelectorAll('[data-open-run]').forEach(b=>b.onclick=()=>openRun(b.dataset.openRun));
 }
 function renderHistory(){
-  compareIDs=compareIDs.filter(id=>data.runs.some(r=>r.id===id));
-  shell(`<section class="page-heading"><div><div class="eyebrow">YOUR EXPERIMENTS</div><h1>Run history</h1><p>Every simulation keeps its own flow and review notes.</p></div><button id="compare-runs" ${compareIDs.length===2?'':'disabled'}>Compare ${compareIDs.length}/2</button></section><section class="history-list">${data.runs.length?`<p class="history-help">Select two runs to compare. Open any run to inspect its steps.</p>`+[...data.runs].reverse().map(r=>`<div class="history-item"><label class="run-select"><input type="checkbox" aria-label="Select ${esc(r.flow.name)} run ${r.id.slice(0,6)}" data-compare="${r.id}" ${compareIDs.includes(r.id)?'checked':''}></label><button class="history-row" data-open-run="${r.id}"><span><strong>${esc(r.flow.name)}</strong><small>${esc(r.task.slice(0,100))}</small></span><span class="history-meta">${esc(statusLabel[r.status])}<small>${dateLabel(r.createdAt)} · v${r.flow.version} · Simulation</small></span><span>↗</span></button></div>`).join(''):'<div class="empty"><h2>Try your first flow.</h2><p>Choose a saved flow to get started.</p></div>'}</section>`);
+  compareIDs=compareIDs.filter(id=>scopedRuns().some(r=>r.id===id));
+  shell(`<section class="page-heading"><div><div class="eyebrow">YOUR EXPERIMENTS</div><h1>Run history</h1><p>Every simulation keeps its own flow and review notes.</p></div><button id="compare-runs" ${compareIDs.length===2?'':'disabled'}>Compare ${compareIDs.length}/2</button></section><section class="history-list">${scopedRuns().length?`<p class="history-help">Select two runs to compare. Open any run to inspect its steps.</p>`+[...scopedRuns()].reverse().map(r=>`<div class="history-item"><label class="run-select"><input type="checkbox" aria-label="Select ${esc(r.flow.name)} run ${r.id.slice(0,6)}" data-compare="${r.id}" ${compareIDs.includes(r.id)?'checked':''}></label><button class="history-row" data-open-run="${r.id}"><span><strong>${esc(r.flow.name)}</strong><small>${esc(r.task.slice(0,100))}</small></span><span class="history-meta">${esc(statusLabel[r.status])}<small>${dateLabel(r.createdAt)} · v${r.flow.version} · Simulation</small></span><span>↗</span></button></div>`).join(''):'<div class="empty"><h2>Try your first flow.</h2><p>Choose a saved flow to get started.</p></div>'}</section>`);
   document.querySelectorAll('[data-open-run]').forEach(b=>b.onclick=()=>openRun(b.dataset.openRun));
   document.querySelectorAll('[data-compare]').forEach(input=>input.onchange=()=>{
     if(input.checked&&compareIDs.length>=2){input.checked=false;toast('Choose two runs. Uncheck one to select another.');return;}
@@ -171,4 +183,78 @@ function renderHistory(){
   $('#compare-runs').onclick=()=>{view='compare';render();};
 }
 window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue='';}});
-(async()=>{try{await reload();const route=location.hash.slice(1).split('/');if(route[0]==='run'&&data.runs.some(r=>r.id===route[1])){runID=route[1];view='run';}else if(route[0]==='history'){view='history';}else if(route[0]==='compare'){compareIDs=(route[1]||'').split(',');view='compare';}draft=clone(data.flows.find(f=>f.id===route[1])||data.flows[0]||null);render();}catch(e){$('#app').innerHTML=`<section class="empty"><h1>Couldn’t open the workbench.</h1><p>${esc(e.message)}</p><button id="retry-load">Try again</button></section>`;$('#retry-load').onclick=()=>location.reload();}})();
+(async()=>{try{
+  await reload();const route=location.hash.slice(1).split('/');
+  if(route[0]==='run'&&data.runs.some(r=>r.id===route[1])){runID=route[1];view='run';projectID=data.runs.find(r=>r.id===runID).projectID;}
+  else if(route[0]==='history'){view='history';projectID=route[1]||'unassigned';}
+  else if(route[0]==='compare'){compareIDs=(route[1]||'').split(',');view='compare';projectID=data.runs.find(r=>r.id===compareIDs[0])?.projectID||'unassigned';}
+  else if(route[0]==='project'){projectID=route[1]||'unassigned';}
+  else if(route[0]==='flow'){projectID=data.flows.find(f=>f.id===route[1])?.projectID||'unassigned';}
+  if(!data.projects.some(p=>p.id===projectID))projectID='unassigned';
+  draft=clone(data.flows.find(f=>f.id===route[1]&&f.projectID===projectID)||scopedFlows()[0]||null);render();
+}catch(e){$('#app').innerHTML=`<section class="empty"><h1>Couldn’t open the workbench.</h1><p>${esc(e.message)}</p><button id="retry-load">Try again</button></section>`;$('#retry-load').onclick=()=>location.reload();}})();
+
+function switchProject(id){
+  projectID=id;compareIDs=[];selected=null;dirty=false;view='flow';draft=clone(scopedFlows()[0]||null);render();
+  if(currentProject()?.folderPath)refreshConnection(true);
+}
+function updateProjectSummary(){
+  const el=$('#project-summary'),p=currentProject();if(!el||!p)return;
+  const ctx=connections.get(p.id+':'+p.version);
+  el.textContent=!p.folderPath?'Workflows without a project folder.':!ctx?'Checking local folder…':!ctx.available?ctx.message:ctx.git?.status==='connected'?`${ctx.git.branch|| (ctx.git.detached?'Detached HEAD':'No branch')} · ${ctx.git.dirty===true?'Uncommitted changes':ctx.git.dirty===false?'Clean':'Status unknown'}`:ctx.git?.message||'Folder connected';
+  el.classList.toggle('connection-warning',Boolean(ctx&&!ctx.available));
+}
+async function refreshConnection(force=false){
+  const p=currentProject();if(!p?.folderPath)return;
+  const key=p.id+':'+p.version;
+  if(!force&&connections.has(key))return connections.get(key);
+  try{const ctx=await api('projects/'+p.id+'/connection');connections.set(key,ctx);if(projectID===p.id)updateProjectSummary();return ctx;}
+  catch(e){const ctx={available:false,message:e.message};connections.set(key,ctx);if(projectID===p.id)updateProjectSummary();return ctx;}
+}
+function connectionMarkup(ctx){
+  if(!ctx)return '<p>Checking local folder…</p>';
+  if(!ctx.available)return `<p class="connection-warning">${esc(ctx.message||'Folder unavailable. Reconnect it before running.')}</p>`;
+  const g=ctx.git;
+  if(g?.status!=='connected')return `<p>${esc(g?.message||'Folder connected.')}</p><p class="field-help">You can organize workflows here without Git.</p>`;
+  return `<dl class="connection-list"><div><dt>Repository folder</dt><dd>${esc(g.root)}</dd></div><div><dt>Branch</dt><dd>${esc(g.branch||(g.detached?'Detached HEAD':'Unknown'))}</dd></div><div><dt>Commit</dt><dd>${esc(g.commit||'No commits yet')}</dd></div><div><dt>Working tree</dt><dd>${g.dirty===true?'Uncommitted changes':g.dirty===false?'Clean':'Unknown'}</dd></div><div><dt>Remote repositories</dt><dd>${g.remotes?.length?g.remotes.map(r=>`<div class="remote"><strong>${esc(r.name)}</strong> ${r.webURL?`<a href="${esc(r.webURL)}" target="_blank" rel="noopener noreferrer">${esc(r.url)} ↗</a>`:esc(r.url)}</div>`).join(''):'No remote configured'}</dd></div></dl><details class="task-details"><summary>Worktree details</summary><p>Common Git directory</p><p class="preserve">${esc(g.commonDirectory||'Unknown')}</p></details>${g.partial?'<p class="connection-warning">Some Git details could not be read.</p>':''}<p class="field-help">Checked ${esc(dateLabel(ctx.checkedAt))}. Git information is read-only.</p>`;
+}
+function projectDialog(project=null){
+  if(project?.id==='unassigned'){
+    modal('Unassigned', '<p>These workflows do not have a project folder yet. Create a project, then use Move on a workflow to put it there. Earlier runs stay in Unassigned.</p>',[{label:'Close',close:true},{label:'Add project',primary:true,run:()=>projectDialog()}]);return;
+  }
+  const edit=Boolean(project);
+  modal(edit?'Project details':'Add a project',`<label>Project name<input name="name" maxlength="100" required autofocus value="${esc(project?.name||'')}" placeholder="e.g. Newton"></label><label>Local folder<input name="folderPath" maxlength="4096" required value="${esc(project?.folderPath||'')}" placeholder="/Users/you/Projects/newton"></label><p class="field-help">Paste the project’s folder path. A Git worktree or a folder inside a repository works too. Files will not be changed.</p>${edit?'<div class="settings-divider"></div><div class="connection-heading"><h3>Git connection</h3><button type="button" class="text-button" id="refresh-git">Refresh</button></div><p class="field-help">Information for the saved folder. Save to connect a different folder.</p><div id="connection-details"></div>':''}`, [{label:'Cancel',close:true},{label:edit?'Save project':'Add project',submit:true,primary:true}],async form=>{
+    const saved=await api(edit?'projects/'+project.id:'projects',edit?'PUT':'POST',{name:form.get('name'),folderPath:form.get('folderPath'),...(edit?{version:project.version}:{})});
+    await reload();
+    if(edit){connections.delete(saved.id+':'+saved.version);render();refreshConnection(true);}else switchProject(saved.id);
+    toast(edit?'Project saved.':'Project connected. Add a workflow or move one here.');
+  });
+  if(edit){
+    const container=$('#connection-details');container.innerHTML=connectionMarkup(connections.get(project.id+':'+project.version));
+    const refresh=async()=>{
+      const button=$('#refresh-git');if(button)button.disabled=true;
+      try{const ctx=await api('projects/'+project.id+'/connection');connections.set(project.id+':'+project.version,ctx);if(container.isConnected)container.innerHTML=connectionMarkup(ctx);updateProjectSummary();}
+      catch(e){if(container.isConnected)container.textContent=e.message;}
+      finally{if(button?.isConnected)button.disabled=false;}
+    };
+    $('#refresh-git').onclick=refresh;refresh();
+  }
+}
+function moveFlow(){
+  modal('Move workflow',`<label>Destination project<select name="projectID" aria-label="Destination project">${data.projects.map(p=>`<option value="${p.id}" ${p.id===draft.projectID?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label><p>Moves this workflow, including current edits. Earlier runs keep their original project.</p>`,[{label:'Cancel',close:true},{label:'Move workflow',submit:true,primary:true}],async form=>{
+    const saved=await api('flows/'+draft.id,'PUT',{...draft,projectID:form.get('projectID')});await reload();dirty=false;openFlow(saved.id);toast('Workflow moved.');
+  });
+}
+function runContext(r){
+  const p=r.projectSnapshot,c=r.sourceContext;
+  return `<details class="task-details run-context"><summary>Project & code at run start</summary><h3>${esc(p?.name||'Unassigned')}</h3>${p?.folderPath?`<p class="preserve">${esc(p.folderPath)}</p>${connectionMarkup(c)}`:'<p>No project folder or Git context was recorded for this run.</p>'}<p class="field-help">Saved with this run. Later project or branch changes do not update this snapshot.</p></details>`;
+}
+function comparisonWarning(a,b){
+  if(a.projectID!==b.projectID)return 'These runs belong to different projects. Their code contexts are not comparable.';
+  const x=a.sourceContext,y=b.sourceContext;
+  if(!x||!y||x.git?.status!=='connected'||y.git?.status!=='connected'||!x.git.commit||!y.git.commit)return 'A repository commit was not recorded for both runs. Code equivalence is unknown.';
+  if(x.folderPath!==y.folderPath||x.git.root!==y.git.root)return 'These runs used different local folders. Check their saved code context before comparing.';
+  if(x.git.commit!==y.git.commit)return 'These runs started from different commits.';
+  if(x.git.dirty!==false||y.git.dirty!==false)return 'At least one working tree had uncommitted changes or unknown status. Matching commits do not establish identical code.';
+  return '';
+}

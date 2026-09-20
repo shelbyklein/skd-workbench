@@ -31,3 +31,14 @@ test('local server rejects cross-origin writes and does not expose store files',
  assert.equal((await request('/api/flows','POST',{name:' ',steps:[]})).status,400);
  const response=await request('/');assert.equal(response.status,200);assert.match(response.headers.get('content-security-policy'),/frame-ancestors 'none'/);
 });
+
+test('project routes validate folders and capture source context independently of client fields',async t=>{
+ const {request}=await fixture(t);
+ let response=await request('/api/projects','POST',{name:'Missing',folderPath:'/nonexistent/skd-folder'});assert.equal(response.status,400);
+ response=await request('/api/projects','POST',{name:'Local project',folderPath:process.cwd()});assert.equal(response.status,201);const p=await response.json();
+ const connection=await(await request('/api/projects/'+p.id+'/connection')).json();assert.equal(connection.available,true);assert.equal(connection.git.status,'connected');
+ const state=await(await request('/api/state')).json(),f=state.flows[0];
+ const moved=await(await request('/api/flows/'+f.id,'PUT',{...f,projectID:p.id})).json();
+ response=await request('/api/runs','POST',{flowID:f.id,flowVersion:moved.version,task:'Inspect context',sourceContext:{git:{commit:'forged'}}});assert.equal(response.status,201);
+ const r=await response.json();assert.equal(r.projectID,p.id);assert.equal(r.projectSnapshot.name,'Local project');assert.notEqual(r.sourceContext.git.commit,'forged');assert.ok(r.sourceContext.checkedAt);
+});

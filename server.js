@@ -5,6 +5,7 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { Store } from './lib/store.js';
 import { Problem, assert } from './lib/domain.js';
+import { canonicalFolder, inspectFolder } from './lib/projects.js';
 const root = path.dirname(fileURLToPath(import.meta.url));
 const files = {'/':'index.html','/app.js':'app.js','/style.css':'style.css','/icon.svg':'icon.svg'};
 async function body(req) {
@@ -28,11 +29,33 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       assert(!origin || origin===`http://${host}`,'Cross-origin requests are not allowed.',403);
       const url=new URL(req.url,`http://${host}`), pathname=url.pathname;
       if(req.method==='GET' && pathname==='/api/state') return json(store.snapshot());
+      if(req.method==='POST' && pathname==='/api/projects'){
+        const input=await body(req);input.folderPath=await canonicalFolder(input.folderPath);
+        return json(store.createProject(input),201);
+      }
+      const project=pathname.match(/^\/api\/projects\/([\w-]+)$/);
+      if(project&&req.method==='PUT'){
+        const input=await body(req);input.folderPath=await canonicalFolder(input.folderPath);
+        return json(store.updateProject(project[1],input));
+      }
+      const connection=pathname.match(/^\/api\/projects\/([\w-]+)\/connection$/);
+      if(connection&&req.method==='GET'){
+        const project=store.project(connection[1]);
+        if(!project.folderPath)return json({projectID:project.id,projectVersion:project.version,available:false,folderPath:null,git:null,message:'Choose a project folder to connect Git.'});
+        try {return json({projectID:project.id,projectVersion:project.version,...await inspectFolder(project.folderPath)});}
+        catch(e){if(!(e instanceof Problem))throw e;return json({projectID:project.id,projectVersion:project.version,available:false,folderPath:project.folderPath,git:null,message:e.message});}
+      }
       if(req.method==='POST' && pathname==='/api/flows') return json(store.createFlow(await body(req)),201);
       const flow=pathname.match(/^\/api\/flows\/([\w-]+)$/);
       if(flow && req.method==='PUT') return json(store.updateFlow(flow[1],await body(req)));
       if(flow && req.method==='DELETE') return json(store.deleteFlow(flow[1],(await body(req)).version));
-      if(req.method==='POST' && pathname==='/api/runs') return json(store.createRun(await body(req)),201);
+      if(req.method==='POST' && pathname==='/api/runs'){
+        const input=await body(req),flow=store.snapshot().flows.find(f=>f.id===input.flowID);
+        assert(flow,'Flow not found.',404);
+        const project=store.project(flow.projectID);
+        const context=project.folderPath?await inspectFolder(project.folderPath):null;
+        return json(store.createRun(input,context,project.version),201);
+      }
       const run=pathname.match(/^\/api\/runs\/([\w-]+)\/action$/);
       if(run && req.method==='POST') return json(store.transition(run[1],await body(req)));
       if(req.method==='GET' && files[pathname]) {
@@ -51,7 +74,7 @@ if(process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta.
   server.on('error',e=>{console.error(e.code==='EADDRINUSE'?`Port ${port} is busy. Choose another with PORT=4391 npm start.`:e.message);process.exitCode=1;});
   server.listen(port,'127.0.0.1',()=>{
     const url=`http://127.0.0.1:${port}`;
-    console.log(`Flow Bench → ${url}`);
+    console.log(`SKD Workbench → ${url}`);
     if(process.argv.includes('--open')) execFile(process.platform==='darwin'?'open':'xdg-open',[url],err=>{if(err)console.log('Open the URL above in your browser.');});
   });
 }

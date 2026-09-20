@@ -54,7 +54,7 @@ try {
  await page.locator('[data-compare]').nth(1).check();
  await page.getByRole('button',{name:'Compare 2/2',exact:true}).click();
  await page.getByRole('heading',{name:'Compare flows',exact:true}).waitFor();
- assert.match(await page.locator('.comparison-notice').textContent(),/Same task & acceptance checks/);
+ assert.match(await page.locator('.comparison-notice').first().textContent(),/Same task & acceptance checks/);
  assert.equal(await page.locator('.compare-card').count(),2);
  assert.equal(await page.locator('.compare-card').getByText('Not measured',{exact:true}).count(),4);
  await page.screenshot({path:'output/compare-desktop.png',fullPage:true});
@@ -62,7 +62,7 @@ try {
  const different=await (await fetch(url+'/api/runs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({flowID:snapshot.flows[0].id,flowVersion:1,task:'A different task',acceptance:'Different checks'})})).json();
  await page.goto(url+'/#compare/'+snapshot.runs[0].id+','+different.id);
  await page.reload();
- assert.match(await page.locator('.comparison-notice').textContent(),/Different tasks/);
+ assert.match(await page.locator('.comparison-notice').first().textContent(),/Different tasks/);
  await page.getByRole('button',{name:'All runs',exact:true}).click();
 
  await page.setViewportSize({width:390,height:844});
