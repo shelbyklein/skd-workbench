@@ -1,3 +1,5 @@
+import {openSessionImport} from './session-import-ui.js';
+import {mountQuickActions} from './quick-actions-ui.js';
 import {mountGitStatus} from './git-status-ui.js';
 import {agentCard,requireAgentCards,primeAgentCache} from './agent-card.js';
 import {mountPlanning} from './planning-ui.js';
@@ -19,6 +21,7 @@ let planningView=null,planningRunID=null;
 let knowledgeView=null;
 let skillsView=null,connectionsView=null,playbooksView=null;
 let workflowView=null,workflowRunID=null;
+let quickActionsView=null;
 let codexView=null,codexRunID=null,codexPrefill='';
 let projectID='unassigned';
 const connections=new Map();
@@ -27,7 +30,7 @@ const typeName={agent:'Agent',human:'My review',check:'Check'};
 const symbol={agent:'✳',human:'◉',check:'✓'};
 let toastTimer;
 const reviewDrafts=new Map();
-function toast(message) { $('#toast').textContent=message; $('#toast').classList.add('visible'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('#toast').classList.remove('visible'),4200); }
+function toast(message) { const el=$('#toast');if(!el)return;el.textContent=message;el.classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('visible'),4200); }
 async function api(route,method='GET',body) {
   let response;
   try{response=await fetch('/api/'+route,{method,headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});}
@@ -40,7 +43,8 @@ const scopedRuns=()=>data.runs.filter(r=>r.projectID===projectID);
 const currentProject=()=>data.projects.find(p=>p.id===projectID)||data.projects[0];
 function markDirty() { dirty=true; const save=$('#save'); if(save) save.disabled=false; }
 function confirmLeave(action) {
-  if(issuesView?.isPending()||codexView?.isPending()||workflowView?.isPending()||skillsView?.isPending()||connectionsView?.isPending()||playbooksView?.isPending()){toast('Wait for the current request to finish before leaving.');return;}
+  if($('#dialog').dataset.sessionImport){toast('Finish or close the import dialog before leaving.');return;}
+  if(quickActionsView?.isPending()||issuesView?.isPending()||codexView?.isPending()||workflowView?.isPending()||skillsView?.isPending()||connectionsView?.isPending()||playbooksView?.isPending()){toast('Wait for the current request to finish before leaving.');return;}
   if(!dirty&&!issuesView?.isDirty()&&!codexView?.isDirty()&&!workflowView?.isDirty()&&!skillsView?.isDirty()&&!connectionsView?.isDirty()&&!playbooksView?.isDirty()) return action();
   modal('Keep your changes?', '<p>You have unsaved changes. Save them or discard them before leaving.</p>', [{label:'Keep editing',close:true},{label:'Discard changes',run:()=>{dirty=false;action();}}]);
 }
@@ -160,6 +164,7 @@ function bindCommon() {
   if($('[data-action="history"]'))$('[data-action="history"]').onclick=()=>confirmLeave(()=>{view='history';selected=null;render();});
 }
 function render() {
+  quickActionsView=null;
   connectionsView?.dispose();connectionsView=null;skillsView?.dispose();skillsView=null;playbooksView?.dispose();playbooksView=null;knowledgeView?.dispose();knowledgeView=null;planningView?.dispose();planningView=null;issuesView?.dispose();issuesView=null;codexView?.dispose();codexView=null;workflowView?.dispose();workflowView=null;
   const nextHash='#'+routePath();if(location.hash!==nextHash)history.pushState(null,'',nextHash);lastRenderedHash=nextHash;
   if(view==='invalid')renderInvalidRoute();else if(view==='projects')renderProjects();else if(view==='knowledge-global')renderKnowledgeHome();else if(view==='knowledge')renderKnowledgeProject();else if(view==='skills-global'||view==='skills')renderSkills();else if(view==='connections-global'||view==='connections')renderConnections();else if(view==='playbooks-global'||view==='playbooks')renderPlaybooks();else if(view==='project')renderProjectOverview();else if(view==='planning')renderPlanning();else if(view==='system')renderSystem();else if(view==='issues')renderIssues();else if(view==='overview')renderOverview();else if(view==='workflow')renderWorkflow();else if(view==='codex')renderCodex();else if(view==='flow')renderFlow(); else if(view==='run')renderRun(); else if(view==='compare')renderCompare();else renderHistory();
@@ -237,6 +242,7 @@ async function loadLastSession(project){
   const sessions=await api('sessions?projectID='+encodeURIComponent(project.id));if(!host?.isConnected)return;
   const session=[...sessions].sort((a,b)=>b.createdAt.localeCompare(a.createdAt))[0];
   if(!session){host.innerHTML='<p class="widget-empty">No sessions yet.</p><button type="button" id="start-project-session">Start a session</button>';$('#start-project-session').onclick=()=>openProjectSession(null);return;}
+  if(session.kind==='imported'){host.innerHTML=`<div class="session-report-heading"><span class="session-state">Imported chat</span></div><strong class="session-report-task">${esc(session.task)}</strong><p class="field-help">Saved project context · execution status unknown</p><div class="widget-footer"><span>${esc(new Date(session.createdAt).toLocaleString())}</span><button type="button" id="open-last-session">Open transcript <span aria-hidden="true">↗</span></button></div>`;$('#open-last-session').onclick=()=>openProjectSession(session.id);return;}
   const status=sessionStatus(session),blockers=status.blocker?esc(status.blocker):status.active?'Not reported yet':'None reported';
   host.innerHTML=`<div class="session-report-heading"><span class="session-state session-state-${esc(session.status)}">${esc(status.label)}</span><span>${esc(session.agent==='claude'?'Claude':'Codex')} · ${esc(session.model)}</span></div><strong class="session-report-task">${esc(session.task||'Interactive session')}</strong><dl class="session-report-facts"><div><dt>Finished</dt><dd>${status.finished?'Yes':status.active?'No · still running':'No · '+esc(status.label.toLowerCase())}</dd></div><div><dt>Blockers</dt><dd class="${status.blocker?'has-blocker':''}">${blockers}</dd></div></dl><div class="widget-footer"><span>${esc(new Date(session.createdAt).toLocaleString())}</span><button type="button" id="open-last-session">Open session <span aria-hidden="true">↗</span></button></div>`;
   $('#open-last-session').onclick=()=>openProjectSession(session.id);
@@ -244,11 +250,13 @@ async function loadLastSession(project){
 }
 function mountProjectWidgets(project){
  const views=$('.project-views')?.closest('.workflow-overview');if(!views)return;
- views.insertAdjacentHTML('beforebegin',`<section class="project-dashboard" aria-label="Project overview widgets"><article class="project-widget priority-issues-widget"><header><div><span class="eyebrow">GITHUB</span><h2>Priority issues</h2></div><span id="priority-issues-meta">Loading…</span></header><ol id="priority-issues-list" class="priority-issue-list" aria-live="polite"><li class="widget-empty">Loading issues…</li></ol><div class="widget-footer"><span id="priority-issues-note">Highest priority first</span><button type="button" id="open-all-issues">All issues <span aria-hidden="true">↗</span></button></div></article><article class="project-widget session-report-widget"><header><div><span class="eyebrow">SESSION REPORT</span><h2>Last session</h2></div></header><div id="last-session-report" aria-live="polite"><p class="widget-empty">Loading session…</p></div></article></section>`);
+ views.insertAdjacentHTML('beforebegin',`<section class="project-dashboard" aria-label="Project overview widgets"><article class="project-widget priority-issues-widget"><header><div><span class="eyebrow">GITHUB</span><h2>Priority issues</h2></div><span id="priority-issues-meta">Loading…</span></header><ol id="priority-issues-list" class="priority-issue-list" aria-live="polite"><li class="widget-empty">Loading issues…</li></ol><div class="widget-footer"><span id="priority-issues-note">Highest priority first</span><button type="button" id="open-all-issues">All issues <span aria-hidden="true">↗</span></button></div></article><article class="project-widget session-report-widget"><header><div><span class="eyebrow">SESSION REPORT</span><h2>Last session</h2></div><button type="button" class="text-button" id="import-project-chat">Import</button></header><div id="last-session-report" aria-live="polite"><p class="widget-empty">Loading session…</p></div></article></section>`);
+ $('#import-project-chat').onclick=()=>openSessionImport({project,api,onSaved:()=>{loadLastSession(project);toast('Chat imported.');}});
  $('#open-all-issues').onclick=()=>{issueNumber=null;issueProposalID=null;issueEditMode=false;view='issues';render();};
  const dashboard=views.previousElementSibling;
  const gitWidget=document.createElement('article');gitWidget.className='project-widget git-status-widget';dashboard.prepend(gitWidget);
  mountGitStatus(gitWidget,project,api);
+ const quickHost=document.createElement('section');dashboard.prepend(quickHost);quickActionsView=mountQuickActions(quickHost,{project,api,confirmLeave,onOpen:openProjectSession});
  loadPriorityIssues(project);loadLastSession(project);
 }
 function renderProjectOverview(){
@@ -484,7 +492,7 @@ function renderHistory(){
   });
   $('#compare-runs').onclick=()=>{view='compare';render();};
 }
-const hasUnsaved=()=>dirty||issuesView?.isDirty()||issuesView?.isPending()||codexView?.isDirty()||workflowView?.isDirty()||skillsView?.isDirty()||skillsView?.isPending()||connectionsView?.isDirty()||connectionsView?.isPending()||playbooksView?.isDirty()||playbooksView?.isPending()||[...reviewDrafts.values()].some(Boolean)||$('#dialog').open||busy;
+const hasUnsaved=()=>dirty||quickActionsView?.isPending()||issuesView?.isDirty()||issuesView?.isPending()||codexView?.isDirty()||workflowView?.isDirty()||skillsView?.isDirty()||skillsView?.isPending()||connectionsView?.isDirty()||connectionsView?.isPending()||playbooksView?.isDirty()||playbooksView?.isPending()||[...reviewDrafts.values()].some(Boolean)||$('#dialog').open||busy;
 let loaded=false;
 window.addEventListener('beforeunload',e=>{if(hasUnsaved()){e.preventDefault();e.returnValue='';}});
 let lastRenderedHash='';
@@ -609,8 +617,9 @@ function installHelp(){
 }
 
 function renderCodex(){
- shell(`<section class="page-heading"><div><div class="eyebrow">SINGLE AGENT</div><h1>Sessions</h1></div>${codexRunID?'<button id="codex-back">All sessions</button>':''}</section><section id="codex-view" class="codex-view"></section>`);
+ shell(`<section class="page-heading"><div><div class="eyebrow">SINGLE AGENT</div><h1>Sessions</h1></div><div class="heading-actions"><button id="import-session-chat" class="text-button">Import</button>${codexRunID?'<button id="codex-back">All sessions</button>':''}</div></section><section id="codex-view" class="codex-view"></section>`);
  const open=id=>confirmLeave(()=>{codexRunID=id;view='codex';render();});
+ $('#import-session-chat').onclick=()=>confirmLeave(()=>openSessionImport({project:currentProject(),api,onSaved:r=>{codexRunID=r.id;view='codex';render();}}));
  const newRun=task=>confirmLeave(()=>{codexRunID=null;codexPrefill=task;view='codex';render();});
  if($('#codex-back'))$('#codex-back').onclick=()=>newRun('');
  codexView=mountCodex({host:$('#codex-view'),project:currentProject(),runID:codexRunID,api,onOpen:open,onNew:newRun,notify:toast,prefill:codexPrefill});
