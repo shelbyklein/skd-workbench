@@ -27,6 +27,11 @@
   Those now report unknown sign-in status accurately instead of claiming sign-out.
   An older import test was isolated from the installed MCP inventory, and the existing
   malformed-stream timeout fixture was given process-startup tolerance.
+- Integration attempt: main acquired concurrent icon/CSS/cache edits during
+  implementation. Git refused the fast-forward rather than overwriting those edits.
+  Source is committed on codex/sequential-delegation; activation is pending
+  reconciliation with that task. Delegation uses cache version 72 to avoid
+  reusing the icon task's pending cache version 71.
 - Accepted means model acceptance plus successful referenced command exits, not an
   independently certified checkpoint, exhaustive coverage, integration or release.
   TT references are contextual; automatic delegated-task TT synchronization and the

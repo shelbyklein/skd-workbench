@@ -35,4 +35,3 @@ Confirmed scope; solo sequential implementation now, authorized in the current t
 Use disposable Git repositories, temporary data stores and fixture providers for routine tests. Cover malformed decisions, failed commands, exhausted budgets, source changes, launch races, cancellation and restart. Exercise actual UI entry points on desktop/mobile and inspect screenshots. Run full Node and browser suites. Run one bounded real-provider smoke in a disposable repository if discovered provider availability permits; record blockers honestly. Inspect live execution before any server restart. Retain all workspaces and historical records; activation can roll back the code without deleting records.
 
 <!-- skd-sequential-delegation-2026-09-21 -->
-
