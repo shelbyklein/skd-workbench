@@ -27,11 +27,13 @@ When a new version is available, **Update app** reloads it after you save edits 
 
 ## Navigation
 
-**Home** lists project cards. Opening a project shows its **Project Overview**, with links to Workflows and standalone Codex tasks. Issues, Scratchpad and Knowledge are labeled planned and are not available yet.
+**Home** lists project cards. Opening a project shows its **Project Overview**, with links to Workflows and Sessions. Issues, Scratchpad and Knowledge are labeled planned and are not available yet.
 
 **Workflows** has its own overview of saved workflows and recent runs. Its sidebar contains Overview, the project's saved workflows, and New flow. The **Project overview** button returns to the project's views; **Home** or the app logo returns to project cards. Navigation preserves unsaved-change protection.
 
 Routes are `/#home`, `/#project/<project-id>` and `/#workflows/<project-id>`. The old `/#projects` alias and existing flow, run and history URLs still work.
+
+Sessions are provider-neutral: choose an agent when starting one (currently Codex). The current executor supports one message and result; multi-turn continuation and Claude are still to come. Session URLs use `/#sessions/<project-id>`, with old `/#codex/…` links preserved.
 
 ## Projects, folders and Git
 
@@ -111,7 +113,7 @@ Browser tests use Playwright with installed Google Chrome by default (`PLAYWRIGH
 - `lib/workflows.js`: persistent sequence, review transitions, shared workspace, limits and usage aggregation.
 - `public/workflows-ui.js`: explicit launch mapping and live workflow graph.
 - `lib/codex.js`: installed CLI discovery, persistent single-task execution, usage and process lifecycle.
-- `public/codex-ui.js`: real Codex task entry and results.
+- `public/codex-ui.js`: Sessions entry and results (currently Codex).
 - `lib/projects.js`: folder validation and bounded, read-only Git inspection.
 - `lib/domain.js`: validation, immutable run creation, bounded simulation transitions.
 - `lib/store.js`: local persistence, revisions, durable attempts.

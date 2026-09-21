@@ -1,3 +1,12 @@
+# Sessions naming — 2026-09-20
+
+- Renamed the single-agent view, project links, history and entry actions to Sessions; Agent identifies Codex. Canonical URLs use sessions; old codex links still load. APIs and records remain unchanged. Multi-turn continuation and Claude are not implemented in this naming slice, and the form states that follow-up messages are unavailable.
+- Codex fixture and overview browser suites passed. Live read-only desktop/mobile navigation, reload and legacy-route checks passed with zero API writes and unchanged state/history (`output/sessions-live-receipt.json`). Inspected `output/sessions-live.png`.
+- PWA cache bumped to skd-shell-0.5.0-7. Static assets activated locally; no backend restart needed.
+- TT local:2CB54B3D-ABCB-431C-A744-4068624B2499 / SKD-SESSION-01.
+
+---
+
 # Separate Home and Project Overview — 2026-09-20
 
 - Added the missing Project Overview between Home project cards and the Workflows overview. Each level has its own route and contextual navigation. Workflows and standalone Codex tasks are available; Issues, Scratchpad and Knowledge remain visibly planned.
