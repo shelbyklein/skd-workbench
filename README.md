@@ -2,6 +2,8 @@
 
 A standalone local workbench for development projects. Choose a project, compose its workflows, and inspect its runs. Connected steps stay in the middle; settings appear when you select a step. Drag cards to reorder them (use the grip on touch screens), or focus a card and press Alt + Up/Down. Save flow keeps the new order.
 
+Home’s **Workflows** card lists saved workflows across projects, with a project filter. Opening a workflow restores its project context; browsing does not start a run.
+
 ## Open it
 
 Requires Node.js 22 or newer. Runtime dependencies provide the embedded terminal (node-pty and xterm.js) and the local graph renderer (Cytoscape). Flow previews and Graft browsing need no account; real Codex runs require an installed, signed-in Codex CLI.
