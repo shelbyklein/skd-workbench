@@ -1,3 +1,29 @@
+# SKD Workbench 0.4.0 — real Codex execution, 2026-09-20
+
+## Implemented and activated
+
+One real task at a time, scoped to a connected project. Installed CLI model/effort discovery; read-only or isolated Git worktree mode; durable task/output/activity/provenance; reported input/cached/output/reasoning token categories; cancellation, runtime/output limits and interrupted recovery. Codex child supervisor stops the process group if the server parent disappears. Existing multi-step flows remain explicit simulations. No automatic merge, push, multi-provider review, real-run comparison UI or dollar estimate.
+
+## Verified evidence
+
+- Full Node run: 26 tests passed. After adding the server-parent-loss test, all 8 focused Codex tests passed (27 tests in the combined suite). Covers subprocess output/usage persistence, model/concurrency guards, clean worktree isolation and source preservation, cancellation, failure, restart interruption, timeout and orphan-process prevention.
+- All six Chrome suites passed: editor, simulation runs, accessibility, projects, PWA, Codex. Codex fixture tests exercise project requirement, model/effort controls, HTTP submission, escaped output, measured usage, reload/history, repeat task, cancellation, narrow viewport and no page errors.
+- Two manual **real installed Codex CLI 0.155.1 / ChatGPT-authenticated** tests used the browser form and HTTP runner with isolated fixture repositories. Both used provider-advertised default `gpt-5.6-sol`, low effort. No Newton or TT project work was executed.
+  - Read-only task: read fixture text; completed in about 7 seconds. Reported input 29,809; cached input 25,344; output 106; reasoning output 0. Exact file remained unchanged.
+  - Coding task: replace one line in an isolated worktree; completed in about 20 seconds. Reported input 77,936; cached input 71,936; output 467; reasoning output 8. Verified exact new bytes, captured diff, original checkout unchanged. Provider output records a failed patch attempt followed by successful correction; usage includes the whole turn.
+- Cached input is included in input; reasoning output is reported separately but is not added to the input-plus-output total. These are smoke-test observations, not a model-efficiency comparison or billed dollar amounts.
+- Real receipts remain in ignored `output/codex-live-receipt.json` and `output/codex-worktree-receipt.json`. Fixture stores/worktrees are retained under the receipt paths. Screenshots inspected: `output/codex-real-worktree.png`, `output/codex-fixture-mobile.png`, and deployed `output/codex-live-entry.png`.
+- Live port 4390 reports v0.4.0; CLI/login/model discovery also succeeds from the launchctl-started server. Live UI has no page errors. Existing store SHA-256 immediately before and after activation: `f39bdfcf4967285e187ddbb8a42858e75e67eff2248a31df956cd32b2f421f67`. No user-data migration or replacement.
+- PWA cache bumped to `skd-shell-0.4.0`, including the new UI module. Existing installed windows use the explicit Update app action.
+
+## Tracking and limitations
+
+TT local plan `local:746CE59D-A26D-4718-8364-1F4CAFF0A9BE`; run `199324FC-2B07-4D67-A6D7-C91F26326D0B`; todos `TT-CODEX-01`–`TT-CODEX-03`. Own session verified; watcher reports Watching session output. Explicit milestones and completion evidence recorded.
+
+Model catalog is advertised availability, not guaranteed entitlement. Only the two recorded Sol/low invocations are live-provider verified. Codex credentials remain in the CLI, not the app store. Partial/failed runs without a completion usage event display unknown tokens. Runtime/output limits are not spending caps. Worktrees and modifications are retained for human review; dependencies, network access and task-specific tests depend on the project and CLI sandbox. Old source/data are preserved; reverting the PWA requires a newer cache version/cleanup worker, not merely deleting its assets.
+
+---
+
 # SKD Workbench 0.3.0 — installable PWA, 2026-09-20
 
 ## Delivered and verified

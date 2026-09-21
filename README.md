@@ -4,7 +4,7 @@ A standalone local workbench for development projects. Choose a project, compose
 
 ## Open it
 
-Requires Node.js 22 or newer. No runtime packages, account, or API key required.
+Requires Node.js 22 or newer. No runtime npm packages required. Flow previews need no account; real Codex runs require an installed, signed-in Codex CLI.
 
 Double-click **Launch SKD Workbench.command**, or run:
 
@@ -47,17 +47,28 @@ Existing workflows and runs migrate to **Unassigned**. A byte-exact schema-1 bac
 6. **Simulate this step** records a placeholder handoff. A review waits for **Continue** or a change request with a note. Previous attempts remain available. Stop at any point; reloading does not advance the run.
 7. After finishing or stopping, **Try another flow with this task** reuses exactly the same task and checks. Select two runs in **Run history** to compare their structure and review loops.
 
-## What this version measures
+## Run a real task with Codex
 
-This is the **flow-authoring and simulation slice**. It calls no models, edits no task repositories, runs no task checks, and incurs no provider charges. Model names are editable requested labels, not a verified provider catalog. Agent/Check outputs are clearly labeled placeholders. Human review continues a simulation, not acceptance of completed model work.
+Choose a connected project, then **Codex runs** in the sidebar. Select a model and effort from the installed CLI's advertised catalog, choose a workspace mode, enter a task and its acceptance checks, and click **Run Codex**. This uses your signed-in Codex account allowance. Model access is confirmed by execution, not assumed from catalog presence.
 
-Tokens and model cost are **Not measured**, never fabricated or reported as zero. Simulation time is elapsed wall time, including time you spend reviewing. It is not model latency. Matching task inputs permit comparing structure; they do not establish a quality or efficiency winner. Real CLI/API adapters and provider usage capture are a future increment.
+- **Read only:** inspect and plan in the connected folder, including its current uncommitted files. No write permission is granted by SKD.
+- **Separate Git worktree:** requires a clean repository with a commit. Starts a new `codex/skd-…` branch at that exact commit under `.data/worktrees/`. Codex can edit and run commands there with the workspace-write sandbox. Dependencies/build setup are task-specific and may need preparation. The resulting tracked diff and changed-file list are shown for review. New/untracked files are listed; inspect their content in the retained worktree. No automatic merge, push or cleanup occurs.
+
+Runs retain task, model, effort, CLI version, starting code context, output, recent activity and reported token usage. Cached input is a subset of input; total tokens are input plus output. Missing usage remains **Unknown**, including cancelled/failed runs that never reported it. Token totals can include repeated model requests and large instruction context even for a tiny task. Codex account dollar cost is **Not reported**; there is no invented pricing estimate.
+
+One task runs at a time. **Stop run** stops its process group; a 10-minute runtime limit and 2 MiB event-stream limit also stop execution. These are not token or dollar budgets. Closing the browser does not stop a run while the server stays running. Normal server shutdown terminates active Codex; a supervisor also terminates the child process group if its server parent disappears. On startup, unfinished records are marked interrupted and never automatically relaunched. Use **Run this task again** to prefill the same task for another explicitly started run.
+
+Execution uses `codex exec --json`, explicit sandbox/approval settings, `--ephemeral`, `--ignore-user-config` and `--ignore-rules`. It reuses saved CLI authentication without copying credentials into the app. Personal global config integrations are not inherited; project instructions and installed Codex behavior still apply. This is a separate task runner, not a Codex desktop task. Set `SKD_CODEX_BIN` in the server environment only if the executable is outside the usual local/Homebrew locations.
+
+**Scope:** real single-task Codex runs now work. Multi-step flow handoffs, opposing-provider reviews, automatic retry loops, merging, and real-run comparison UI are future increments. **Try flow** remains a simulation: its outputs are placeholders, its model labels are not provider selections, and its tokens/cost remain not measured. Simulation time is not model latency.
+
+Implementation reference: [official Codex non-interactive documentation](https://learn.chatgpt.com/docs/non-interactive-mode). Installed CLI help and model discovery were verified against 0.155.1.
 
 ## Your data
 
-Projects, flows and run snapshots are stored in `.data/store.json` on this Mac. Flows have stable IDs and versions; runs keep immutable copies. Saves use atomic file replacement and revisions reject stale edits from another tab. Failed JSON parsing stops startup rather than replacing data. Stop the server before copying this file to back it up. `.data/` is ignored by Git.
+Projects, flows and simulation snapshots are stored in `.data/store.json` on this Mac. Real Codex runs are separately stored in `.data/codex-runs.json`; worktrees are retained under `.data/worktrees/`. Back up the entire `.data/` directory while the server is stopped; do not delete worktrees containing changes you need. Flows have stable IDs and versions; runs keep immutable copies. Saves use atomic file replacement and revisions reject stale edits from another tab. Failed JSON parsing stops startup rather than replacing data. Stop the server before copying this file to back it up. `.data/` is ignored by Git.
 
-The server binds only to `127.0.0.1`, rejects cross-origin writes and unrecognized Host headers, and serves an explicit list of UI assets. This is a local single-user app, not a hosted service. No telemetry, external fonts, or runtime network calls.
+The server binds only to `127.0.0.1`, rejects cross-origin writes and unrecognized Host headers, and serves an explicit list of UI assets. This is a local single-user app, not a hosted service. The workbench adds no telemetry or external fonts. Real Codex execution communicates with its provider and may use network capabilities permitted by Codex.
 
 ## Development and verification
 
@@ -69,6 +80,8 @@ npm run test:browser
 
 Browser tests use Playwright with installed Google Chrome by default (`PLAYWRIGHT_CHANNEL=chrome`). They create temporary stores, leaving your own flows untouched. Screenshots go to `output/`. Runtime has no dependency on Playwright; it is a development dependency only.
 
+- `lib/codex.js`: installed CLI discovery, persistent single-task execution, usage and process lifecycle.
+- `public/codex-ui.js`: real Codex task entry and results.
 - `lib/projects.js`: folder validation and bounded, read-only Git inspection.
 - `lib/domain.js`: validation, immutable run creation, bounded simulation transitions.
 - `lib/store.js`: local persistence, revisions, durable attempts.
@@ -85,3 +98,5 @@ The project lives independently at `/Users/shelbyklein/Vibes/skd-workbench`. `La
 
 
 For this delivery the server is running as a transient macOS job (`com.shelbyklein.skd-workbench`), independent of the Codex terminal. No login-item plist was installed. Stop that background instance with `launchctl remove com.shelbyklein.skd-workbench`; then use the launcher or `npm start` to run it again. Current logs are `output/server.log` and `output/server-error.log`.
+
+Manual real-provider checks (consume account usage): `node scripts/smoke-codex.mjs` and `node scripts/smoke-codex.mjs --worktree`. They use isolated fixture projects under ignored `output/`, retain receipts and screenshots, and never run against your development projects.
