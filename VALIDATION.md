@@ -1,3 +1,29 @@
+# Tiny Tasks GitHub sandbox and live Apply — 2026-09-21
+
+- Created private https://github.com/shelbyklein/tiny-tasks with explicit user approval.
+  Connected the existing /Users/shelbyklein/Vibes/skd-test-project checkout, pushed main
+  and benchmark-start at 711d5bbec34d61a64b0d8dc274a42fec765d1e37, and created two
+  disposable issue-editing fixtures. The benchmark source, tag, project settings and
+  pinned commit remain unchanged; its working tree is clean.
+- Verified through the actual localhost Workbench UI: Codex gpt-5.6-sol/low drafted
+  issue #1 and Claude haiku/low drafted issue #2. Checked each remote issue stayed
+  unchanged during drafting, inspected the proposal, explicitly clicked Apply, then
+  independently verified exact saved title/body via gh issue view. Both remain open
+  for repeat testing. The UI reported Applied and verified on GitHub.
+- The initial test script switched only the hash between cases, leaving the previous
+  view active; its target assertion prevented applying the extra Claude proposal to
+  issue #1. That unapplied draft is retained as test history. The corrected check reloads
+  and asserts the issue number before drafting; the correct Claude issue #2 passed.
+- Inspected output/tiny-codex-applied.png and output/tiny-claude-applied.png. Full before,
+  proposed-run metadata and independent remote read-back are retained in
+  output/tiny-issues-live-receipt.json. No browser page errors. These checks used real
+  provider inference and real GitHub writes only on the authorized disposable issues.
+- This closes the live-Apply validation gap documented in the earlier feature receipt
+  below. No application code changes or additional full regression run were needed.
+  Setup/test progress: TT local:A85CCBE1-818D-474A-8C35-957A5983B5DB.
+
+---
+
 # GitHub Issues and headless edit proposals — 2026-09-21
 
 - Added project Issues navigation, current GitHub origin detection, open/closed/all
