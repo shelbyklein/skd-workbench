@@ -23,7 +23,7 @@ let knowledgeView=null;
 let skillsView=null,connectionsView=null,playbooksView=null;
 let workflowView=null,workflowRunID=null;
 let delegationView=null,delegationRunID=null;
-let quickActionsView=null;
+let quickActionsView=null,gitStatusView=null;
 let codexView=null,codexRunID=null,codexPrefill='';
 let projectID='unassigned';
 const connections=new Map();
@@ -46,8 +46,8 @@ const currentProject=()=>data.projects.find(p=>p.id===projectID)||data.projects[
 function markDirty() { dirty=true; const save=$('#save'); if(save) save.disabled=false; }
 function confirmLeave(action) {
   if($('#dialog').dataset.sessionImport){toast('Finish or close the import dialog before leaving.');return;}
-  if(delegationView?.isPending()||quickActionsView?.isPending()||issuesView?.isPending()||codexView?.isPending()||workflowView?.isPending()||skillsView?.isPending()||connectionsView?.isPending()||playbooksView?.isPending()){toast('Wait for the current request to finish before leaving.');return;}
-  if(!dirty&&!delegationView?.isDirty()&&!issuesView?.isDirty()&&!codexView?.isDirty()&&!workflowView?.isDirty()&&!skillsView?.isDirty()&&!connectionsView?.isDirty()&&!playbooksView?.isDirty()) return action();
+  if(gitStatusView?.isPending()||delegationView?.isPending()||quickActionsView?.isPending()||issuesView?.isPending()||codexView?.isPending()||workflowView?.isPending()||skillsView?.isPending()||connectionsView?.isPending()||playbooksView?.isPending()){toast('Wait for the current request to finish before leaving.');return;}
+  if(!dirty&&!gitStatusView?.isDirty()&&!delegationView?.isDirty()&&!issuesView?.isDirty()&&!codexView?.isDirty()&&!workflowView?.isDirty()&&!skillsView?.isDirty()&&!connectionsView?.isDirty()&&!playbooksView?.isDirty()) return action();
   modal('Keep your changes?', '<p>You have unsaved changes. Save them or discard them before leaving.</p>', [{label:'Keep editing',close:true},{label:'Discard changes',run:()=>{dirty=false;action();}}]);
 }
 function openFlow(flowID) { confirmLeave(()=>{const flow=data.flows.find(f=>f.id===flowID); if(!flow)return; projectID=flow.projectID;draft=clone(flow);selected=null;view='flow';dirty=false;render();}); }
@@ -171,6 +171,7 @@ function bindCommon() {
   if($('[data-action="history"]'))$('[data-action="history"]').onclick=()=>confirmLeave(()=>{view='history';selected=null;render();});
 }
 function render() {
+  gitStatusView?.dispose();gitStatusView=null;
   quickActionsView=null;
   delegationView?.dispose();delegationView=null;connectionsView?.dispose();connectionsView=null;skillsView?.dispose();skillsView=null;playbooksView?.dispose();playbooksView=null;knowledgeView?.dispose();knowledgeView=null;planningView?.dispose();planningView=null;issuesView?.dispose();issuesView=null;codexView?.dispose();codexView=null;workflowView?.dispose();workflowView=null;
   const nextHash='#'+routePath();if(location.hash!==nextHash)history.pushState(null,'',nextHash);lastRenderedHash=nextHash;
@@ -262,7 +263,7 @@ function mountProjectWidgets(project){
  $('#open-all-issues').onclick=()=>{issueNumber=null;issueProposalID=null;issueEditMode=false;view='issues';render();};
  const dashboard=views.previousElementSibling;
  const gitWidget=document.createElement('article');gitWidget.className='project-widget git-status-widget';dashboard.prepend(gitWidget);
- mountGitStatus(gitWidget,project,api);
+ gitStatusView=mountGitStatus(gitWidget,project,api,{onSession:id=>{if(projectID!==project.id)return;openProjectSession(id);}});
  const quickHost=document.createElement('section');dashboard.prepend(quickHost);quickActionsView=mountQuickActions(quickHost,{project,api,confirmLeave,onOpen:openProjectSession});
  loadPriorityIssues(project);loadLastSession(project);
 }
@@ -509,7 +510,7 @@ function renderHistory(){
   });
   $('#compare-runs').onclick=()=>{view='compare';render();};
 }
-const hasUnsaved=()=>dirty||delegationView?.isDirty()||delegationView?.isPending()||quickActionsView?.isPending()||issuesView?.isDirty()||issuesView?.isPending()||codexView?.isDirty()||workflowView?.isDirty()||skillsView?.isDirty()||skillsView?.isPending()||connectionsView?.isDirty()||connectionsView?.isPending()||playbooksView?.isDirty()||playbooksView?.isPending()||[...reviewDrafts.values()].some(Boolean)||$('#dialog').open||busy;
+const hasUnsaved=()=>dirty||gitStatusView?.isDirty()||gitStatusView?.isPending()||delegationView?.isDirty()||delegationView?.isPending()||quickActionsView?.isPending()||issuesView?.isDirty()||issuesView?.isPending()||codexView?.isDirty()||workflowView?.isDirty()||skillsView?.isDirty()||skillsView?.isPending()||connectionsView?.isDirty()||connectionsView?.isPending()||playbooksView?.isDirty()||playbooksView?.isPending()||[...reviewDrafts.values()].some(Boolean)||$('#dialog').open||busy;
 let loaded=false;
 window.addEventListener('beforeunload',e=>{if(hasUnsaved()){e.preventDefault();e.returnValue='';}});
 let lastRenderedHash='';

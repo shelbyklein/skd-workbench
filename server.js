@@ -1,3 +1,4 @@
+import {WorkspaceTasks} from './lib/workspace-tasks.js';
 import {randomUUID} from 'node:crypto';
 import {ImportedSessions} from './lib/imported-sessions.js';
 import {QuickActions} from './lib/quick-actions.js';
@@ -26,7 +27,7 @@ import {withRegistrations,changeRegistration} from './lib/workspace-registration
 import {GitStatus} from './lib/git-status.js';
 import {Playbooks} from './lib/playbooks.js';
 const root = path.dirname(fileURLToPath(import.meta.url));
-const files = {'/delegations-ui.js':'delegations-ui.js','/quick-actions-ui.js':'quick-actions-ui.js','/session-import-ui.js':'session-import-ui.js','/git-status-ui.js':'git-status-ui.js','/agent-card.js':'agent-card.js','/planning-ui.js':'planning-ui.js','/knowledge-ui.js':'knowledge-ui.js','/skills-ui.js':'skills-ui.js','/connections-ui.js':'connections-ui.js','/playbooks-ui.js':'playbooks-ui.js','/settings-ui.js':'settings-ui.js','/markdown.js':'markdown.js','/theme.js':'theme.js','/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
+const files = {'/workspace-tasks-ui.js':'workspace-tasks-ui.js','/delegations-ui.js':'delegations-ui.js','/quick-actions-ui.js':'quick-actions-ui.js','/session-import-ui.js':'session-import-ui.js','/git-status-ui.js':'git-status-ui.js','/agent-card.js':'agent-card.js','/planning-ui.js':'planning-ui.js','/knowledge-ui.js':'knowledge-ui.js','/skills-ui.js':'skills-ui.js','/connections-ui.js':'connections-ui.js','/playbooks-ui.js':'playbooks-ui.js','/settings-ui.js':'settings-ui.js','/markdown.js':'markdown.js','/theme.js':'theme.js','/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
   '/icons/icon-192.png':'icons/icon-192.png','/icons/icon-512.png':'icons/icon-512.png','/icons/maskable-512.png':'icons/maskable-512.png','/icons/apple-touch-icon.png':'icons/apple-touch-icon.png'};
 const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
 async function body(req,limit=1024*1024) {
@@ -50,6 +51,14 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
   const workflows = new Workflows(directory,codex,{captureIssues});
   const delegations = new Delegations(directory,codex);
   const terminals = new TerminalSessions(directory,codex,{...terminalOptions,skills,connections:mcpConnections,playbooks});
+  const workspaceTasks=new WorkspaceTasks(directory,{notes:codex.workspaceNotes,gitStatus,executor:codex,terminals,project:id=>store.project(id),projects:()=>store.snapshot().projects,originContext:registration=>{
+    const origin=registration.origin;
+    const records=origin.kind==='workflow'?workflows.runs:origin.kind==='delegation'?delegations.runs:origin.kind==='terminal'?terminals.runs:origin.kind==='session'?codex.runs:[];
+    const record=records.find(r=>r.id===origin.id&&r.projectID===registration.projectID);
+    // Terminal labels can be generic (for example, Issue work); retain the frozen launch instructions.
+    const task=origin.kind==='terminal'&&record?.initialPrompt?record.initialPrompt:record?.task;
+    return task&&!['Codex session','Claude session'].includes(task)?{task,acceptance:record.acceptance||''}:null;
+  }});
   const quickActions=new QuickActions(directory,{terminals,github,project:id=>store.project(id),...quickActionOptions});
   const proposals=new IssueProposals(directory,codex,github);
   const issueWork=new IssueWork(directory,{github,terminals,providers:agent=>agent==='claude'?codex.discoverClaude():codex.discover()});
@@ -203,7 +212,15 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
         assert(store.project(project.id).version===project.version,'Project changed. Refresh local status.',409);
         const enriched=req.method==='GET'?await withRegistrations(result,project,codex.workspaceNotes):result;
         assert(store.project(project.id).version===project.version,'Project changed. Refresh local status.',409);
+        if(req.method==='GET'&&enriched.worktrees){const {tasks}=workspaceTasks.list(project);for(const row of enriched.worktrees){const task=tasks.find(t=>t.registrationID===row.registration?.id&&t.state==='attached');if(task)row.taskID=task.id;}}
         return json(enriched);
+      }
+      const workspaceTaskRoute=pathname.match(/^\/api\/projects\/([\w-]+)\/workspace-tasks(?:\/(preview|adopt|continue))?$/);
+      if(workspaceTaskRoute){
+        const project=store.project(workspaceTaskRoute[1]),action=workspaceTaskRoute[2];
+        if(req.method==='GET'&&!action)return json(workspaceTasks.list(project));
+        assert(req.method==='POST'&&action,'Not found.',404);
+        return json(await workspaceTasks[action](project,await body(req)),action==='continue'?202:200);
       }
       const registrationRoute=pathname.match(/^\/api\/projects\/([\w-]+)\/workspace-registration(?:\/(recover))?$/);
       if(registrationRoute){
