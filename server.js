@@ -19,8 +19,9 @@ import {projectGraft} from './lib/graft-view.js';
 import {Skills} from './lib/skills.js';
 import {Connections} from './lib/connections.js';
 import {GitStatus} from './lib/git-status.js';
+import {Playbooks} from './lib/playbooks.js';
 const root = path.dirname(fileURLToPath(import.meta.url));
-const files = {'/git-status-ui.js':'git-status-ui.js','/agent-card.js':'agent-card.js','/planning-ui.js':'planning-ui.js','/knowledge-ui.js':'knowledge-ui.js','/skills-ui.js':'skills-ui.js','/connections-ui.js':'connections-ui.js','/settings-ui.js':'settings-ui.js','/markdown.js':'markdown.js','/theme.js':'theme.js','/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
+const files = {'/git-status-ui.js':'git-status-ui.js','/agent-card.js':'agent-card.js','/planning-ui.js':'planning-ui.js','/knowledge-ui.js':'knowledge-ui.js','/skills-ui.js':'skills-ui.js','/connections-ui.js':'connections-ui.js','/playbooks-ui.js':'playbooks-ui.js','/settings-ui.js':'settings-ui.js','/markdown.js':'markdown.js','/theme.js':'theme.js','/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
   '/icons/icon-192.png':'icons/icon-192.png','/icons/icon-512.png':'icons/icon-512.png','/icons/maskable-512.png':'icons/maskable-512.png','/icons/apple-touch-icon.png':'icons/apple-touch-icon.png'};
 const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
 async function body(req) {
@@ -36,11 +37,12 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
   const globalSettings=new Settings(directory);
   const skills=new Skills(directory,skillsOptions);
   const mcpConnections=new Connections(directory,{...connectionsOptions,...(codexOptions.binary?{codexBinary:codexOptions.binary}:{})});
-  const codex = new CodexRuns(directory,{...codexOptions,claudeOptions,skills,connections:mcpConnections});
+  const playbooks=new Playbooks(directory,{skills,connections:mcpConnections});
+  const codex = new CodexRuns(directory,{...codexOptions,claudeOptions,skills,connections:mcpConnections,playbooks});
   const github=new GitHubIssues(githubOptions);
   const captureIssues=async(flow,project)=>{const snapshots=await captureIssueSteps(flow,project,github);assert(store.snapshot().flows.some(f=>f.id===flow.id&&f.version===flow.version&&f.projectID===project.id)&&store.project(project.id).version===project.version,'Flow or project changed while reading issues. Reload before running.',409);return snapshots;};
   const workflows = new Workflows(directory,codex,{captureIssues});
-  const terminals = new TerminalSessions(directory,codex,{...terminalOptions,skills,connections:mcpConnections});
+  const terminals = new TerminalSessions(directory,codex,{...terminalOptions,skills,connections:mcpConnections,playbooks});
   const proposals=new IssueProposals(directory,codex,github);
   const issueWork=new IssueWork(directory,{github,terminals,providers:agent=>agent==='claude'?codex.discoverClaude():codex.discover()});
   const server = http.createServer(async (req,res)=>{
@@ -69,6 +71,15 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       if(skill&&req.method==='POST'&&skill[2])return json(skills.archive(skill[1],await body(req)));
       if(pathname==='/api/connections'&&req.method==='GET')return json(await mcpConnections.inventory(store.snapshot().projects,url.searchParams.get('scope')==='project'?{kind:'project',projectID:url.searchParams.get('projectID')}:{kind:'global'}));
       if(pathname==='/api/connections/policies'&&req.method==='PUT')return json(await mcpConnections.savePolicy(await body(req),store.snapshot().projects));
+      if(pathname==='/api/playbooks'&&req.method==='GET')return json(playbooks.inventory(store.snapshot().projects,url.searchParams.get('scope')==='project'?{kind:'project',projectID:url.searchParams.get('projectID')}:{kind:'global'}));
+      if(pathname==='/api/playbooks'&&req.method==='POST')return json(await playbooks.create(await body(req),store.snapshot().projects),201);
+      if(pathname==='/api/playbooks/defaults'&&req.method==='PUT'){const input=await body(req);return json(input.playbookID?await playbooks.saveDefault(input,store.snapshot().projects):playbooks.clearDefault(input,store.snapshot().projects));}
+      const playbook=pathname.match(/^\/api\/playbooks\/([\w-]+)(?:\/(archive|duplicate))?$/);
+      if(playbook&&req.method==='PUT'&&!playbook[2])return json(await playbooks.update(playbook[1],await body(req),store.snapshot().projects));
+      if(playbook&&req.method==='POST'&&playbook[2]==='archive')return json(playbooks.archive(playbook[1],await body(req)));
+      if(playbook&&req.method==='POST'&&playbook[2]==='duplicate')return json(await playbooks.duplicate(playbook[1],await body(req),store.snapshot().projects),201);
+      const playbookPreview=pathname.match(/^\/api\/projects\/([\w-]+)\/playbook-preview$/);
+      if(playbookPreview&&req.method==='POST'){const input=await body(req);return json(await playbooks.preview(store.project(playbookPreview[1]),input.agent,input.playbook||{mode:'inherit'},{purpose:'session',mode:input.mode||'worktree'}));}
       const connectionCheck=pathname.match(/^\/api\/projects\/([\w-]+)\/connections\/([a-f0-9]{64})\/checks$/);
       if(connectionCheck&&req.method==='POST'){await body(req);return json(await mcpConnections.startCheck(store.project(connectionCheck[1]),connectionCheck[2]),202);}
       const checkStatus=pathname.match(/^\/api\/projects\/([\w-]+)\/connection-checks\/([\w-]+)$/);
@@ -120,6 +131,8 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       if(codexRun&&req.method==='POST'&&codexRun[2]){await body(req);return json(codex.stop(codexRun[1]));}
       const issueCount=pathname.match(/^\/api\/projects\/([\w-]+)\/issue-count$/);
       if(issueCount&&req.method==='GET')return json(await github.count(store.project(issueCount[1])));
+      const sessionPlaybook=pathname.match(/^\/api\/sessions\/([\w-]+)\/playbooks(?:\/(draft))?$/);
+      if(sessionPlaybook){const session=terminals.has(sessionPlaybook[1])?terminals.get(sessionPlaybook[1]):codex.get(sessionPlaybook[1]);if(req.method==='GET'&&sessionPlaybook[2])return json(await playbooks.sessionDraft(session,store.snapshot().projects));if(req.method==='POST'&&!sessionPlaybook[2])return json(await playbooks.createFromSession(await body(req),session,store.snapshot().projects),201);}
       const issues=pathname.match(/^\/api\/projects\/([\w-]+)\/issues(?:\/(\d+))?(\/proposals)?$/);
       if(issues){const project=store.project(issues[1]);
         if(req.method==='GET'&&issues[3])return json(proposals.list(project,issues[2]));

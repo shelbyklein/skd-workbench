@@ -2,7 +2,7 @@
 
 ## Prompt for Claude
 
-Status: first slice implemented and fixture-validated on `codex/project-git-status`; integrated verification against current `main` remains pending. Preserve unrelated uncommitted work.
+Status: first slice implemented and integrated with the current `main` line. Full Node and browser verification passed; live local-app verification is recorded in `VALIDATION.md`. Preserve unrelated uncommitted work.
 
 ### Outcome
 

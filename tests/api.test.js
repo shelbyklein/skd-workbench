@@ -42,3 +42,14 @@ test('project routes validate folders and capture source context independently o
  response=await request('/api/runs','POST',{flowID:f.id,flowVersion:moved.version,task:'Inspect context',sourceContext:{git:{commit:'forged'}}});assert.equal(response.status,201);
  const r=await response.json();assert.equal(r.projectID,p.id);assert.equal(r.projectSnapshot.name,'Local project');assert.notEqual(r.sourceContext.git.commit,'forged');assert.ok(r.sourceContext.checkedAt);
 });
+
+test('playbook HTTP CRUD, defaults and preview are revisioned and never start execution',async t=>{
+ const {request}=await fixture(t);let response=await request('/api/projects','POST',{name:'Playbook project',folderPath:process.cwd()});assert.equal(response.status,201);const project=await response.json();
+ response=await request('/api/playbooks','POST',{revision:0,name:'Exact none',description:'No managed capabilities',scope:{kind:'project',projectID:project.id},providers:['codex','claude'],skillIDs:[],connectionIDs:[],creationRequestKey:'api-create-1'});assert.equal(response.status,201);const playbook=await response.json();assert.equal(playbook.version,1);
+ let library=await(await request(`/api/playbooks?scope=project&projectID=${project.id}`)).json();assert.equal(library.entries.length,1);assert.deepEqual(library.entries[0].skillIDs,[]);
+ response=await request('/api/playbooks/defaults','PUT',{revision:1,defaultRevision:0,projectID:project.id,provider:'codex',playbookID:playbook.id});assert.equal(response.status,200);
+ const preview=await(await request(`/api/projects/${project.id}/playbook-preview`,'POST',{agent:'codex',mode:'worktree',playbook:{mode:'inherit'}})).json();assert.equal(preview.id,playbook.id);assert.equal(preview.source,'project-default');assert.equal(preview.skills.status,'empty');assert.equal(preview.connections.status,'empty');assert.match(preview.signature,/^[a-f0-9]{64}$/);
+ response=await request(`/api/playbooks/${playbook.id}`,'PUT',{revision:2,version:1,name:'Renamed',description:'',scope:{kind:'project',projectID:project.id},providers:['codex'],skillIDs:[],connectionIDs:[]});assert.equal(response.status,200);assert.equal((await response.json()).version,2);
+ response=await request(`/api/playbooks/${playbook.id}`,'PUT',{revision:2,version:1,name:'Stale',description:'',scope:{kind:'project',projectID:project.id},providers:['codex'],skillIDs:[],connectionIDs:[]});assert.equal(response.status,409);
+ library=await(await request(`/api/playbooks?scope=project&projectID=${project.id}`)).json();assert.equal(library.revision,3);
+});
