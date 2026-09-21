@@ -1,3 +1,17 @@
+# Resettable benchmark delivery — 2026-09-20
+
+- Implemented and locally activated opt-in pinned baselines, archive-before-reset, per-attempt files/evidence, command output capture, review retention, download links and PWA cache update `skd-shell-0.5.0-3`.
+- Existing 35 Node tests passed, plus 8 new benchmark tests. Final benchmark suite passed after archive-checksum and binary-diff preservation changes. Covers repeated baseline runs after HEAD advances, file/binary/link/ignored contents, usage/evidence, review/completion/stop, failed workflow retention, oversized/changed/missing archives, source and symlink rejection, settings preservation and interrupted cleanup.
+- All eight Chrome browser suites passed, including the new benchmark suite: pin settings, stale revision protection, required worktree mode, review pause, final reset, archive download, reload and 390px layout. Tests use a fake Codex executable and temporary repositories.
+- Inspected `output/benchmark-cleared-desktop.png`, `output/benchmark-cleared-mobile.png` and the actual local app screenshot `output/benchmark-live-ready.png`.
+- Live server restarted at `http://127.0.0.1:4390` after confirming zero active runs. Tiny Tasks project `437a6a1e-1d0c-430b-be2d-44b87fa7f671` now pins `711d5bbec34d61a64b0d8dc274a42fec765d1e37` (`benchmark-start`). UI displays reset mode and enforces a worktree. Opened then cancelled launch dialog; no model execution was requested.
+- Verified Tiny Tasks source is clean, HEAD/tag unchanged, and its only worktree is its original source. All saved workflows, other projects and run histories survived activation unchanged. Receipt: `output/reset-activation-receipt.json`.
+- **No real Tiny Tasks benchmark or paid Codex run was started.** Installed-provider discovery populated the live launch form only. End-to-end reset validation used fixtures; first real benchmark remains for the user to start.
+- Archives retain complete final file contents up to 32 MiB / 10,000 entries; exceeding limits or failing verification retains the worktree visibly. Restart does not resume cleanup automatically. Benchmark mode is enabled only for Tiny Tasks. No automatic model-quality scoring, cost estimate or new comparison dashboard is claimed.
+- TT plan `local:E02FA78C-9138-42F3-BAC6-9CEA3D87544C`; todos `SKD-RESET-01`, `SKD-RESET-02`. Implementation solo; no agents delegated.
+
+---
+
 # SKD Workbench 0.5.0 — real Codex workflows, 2026-09-20
 
 ## Delivered

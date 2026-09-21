@@ -76,9 +76,17 @@ Failures pause the sequence. Inspect the last attempt and workspace before **Ret
 
 Implementation reference: [official Codex non-interactive documentation](https://learn.chatgpt.com/docs/non-interactive-mode). Installed CLI help and model discovery were verified against 0.155.1.
 
+## Resettable benchmarks
+
+In **Project details → Set up benchmark**, enable reset and pin a Git commit or tag. Each real run then starts from that exact commit in a fresh worktree. Reviews and retryable workflow failures keep the shared worktree open. Completing or stopping the workflow saves its results and clears the worktree; standalone completed, failed or cancelled tasks do the same. Interrupted work stays available for inspection.
+
+Run details show **Workspace cleared · results saved** and a download for files and evidence. History retains reported tokens, timing, output, all attempts and review notes. JSON archives include file contents in base64 (including new, ignored and binary files), modes, symlink targets, a binary diff and reported command outputs/exit codes. They live in `.data/artifacts/`. This is a real execution benchmark: costs/usage occur only when you start Codex. **Try flow** remains the separate no-model simulation.
+
+An archive must succeed before deletion. Above 32 MiB / 10,000 entries, or if files/ownership change, the workspace is retained with an explanation. Restart never resumes interrupted cleanup automatically. Normal projects continue retaining worktrees. The baseline source checkout is never reset or cleaned. Pinning settings itself does not execute a model or test.
+
 ## Your data
 
-Projects, flows and simulation snapshots are stored in `.data/store.json` on this Mac. Real Codex attempts are separately stored in `.data/codex-runs.json`; workflow snapshots, gates and attempt links are in `.data/workflows.json`; worktrees are retained under `.data/worktrees/`. Back up the entire `.data/` directory while the server is stopped; do not delete worktrees containing changes you need. Flows have stable IDs and versions; runs keep immutable copies. Saves use atomic file replacement and revisions reject stale edits from another tab. Failed JSON parsing stops startup rather than replacing data. Stop the server before copying this file to back it up. `.data/` is ignored by Git.
+Projects, flows and simulation snapshots are stored in `.data/store.json` on this Mac. Real Codex attempts are separately stored in `.data/codex-runs.json`; workflow snapshots, gates and attempt links are in `.data/workflows.json`; active and retained worktrees live under `.data/worktrees/`; completed benchmark workspaces are archived under `.data/artifacts/` before removal. Back up the entire `.data/` directory while the server is stopped; do not delete worktrees containing changes you need. Flows have stable IDs and versions; runs keep immutable copies. Saves use atomic file replacement and revisions reject stale edits from another tab. Failed JSON parsing stops startup rather than replacing data. Stop the server before copying this file to back it up. `.data/` is ignored by Git.
 
 The server binds only to `127.0.0.1`, rejects cross-origin writes and unrecognized Host headers, and serves an explicit list of UI assets. This is a local single-user app, not a hosted service. The workbench adds no telemetry or external fonts. Real Codex execution communicates with its provider and may use network capabilities permitted by Codex.
 

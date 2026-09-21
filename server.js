@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
+import {pinBenchmark} from './lib/benchmarks.js';
 import { Workflows } from './lib/workflows.js';
 import { CodexRuns } from './lib/codex.js';
 import { Store } from './lib/store.js';
@@ -35,6 +36,19 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       assert(!origin || origin===`http://${host}`,'Cross-origin requests are not allowed.',403);
       const url=new URL(req.url,`http://${host}`), pathname=url.pathname;
       if(req.method==='GET'&&pathname==='/api/health')return json({app:'skd-workbench',ok:true,version:'0.5.0'});
+      const artifact=pathname.match(/^\/api\/artifacts\/([a-f0-9-]{36})$/);
+      if(artifact&&req.method==='GET'){
+        const records=[...codex.runs,...workflows.runs];assert(records.some(r=>r.artifact?.id===artifact[1]||r.reset?.artifact?.id===artifact[1]),'Archive not found.',404);
+        res.setHeader('Content-Type','application/json');res.setHeader('Content-Disposition',`attachment; filename="skd-${artifact[1]}.json"`);
+        return res.end(readFileSync(path.join(directory,'artifacts',artifact[1]+'.json')));
+      }
+      const benchmark=pathname.match(/^\/api\/projects\/([\w-]+)\/benchmark$/);
+      if(benchmark&&req.method==='PUT'){
+        const input=await body(req),p=store.project(benchmark[1]);
+        assert(typeof input.enabled==='boolean','Choose whether benchmark reset is enabled.');
+        const pinned=input.enabled?await pinBenchmark(p.folderPath,input.ref||'HEAD'):null;
+        return json(store.setBenchmark(p.id,input.version,pinned));
+      }
       if(req.method==='GET'&&pathname==='/api/workflows')return json(workflows.list(url.searchParams.get('projectID')));
       if(req.method==='POST'&&pathname==='/api/workflows'){
         const input=await body(req),flow=store.snapshot().flows.find(f=>f.id===input.flowID);assert(flow,'Flow not found.',404);
