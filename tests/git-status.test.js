@@ -26,7 +26,7 @@ test('inventory distinguishes unchecked branches, worktrees, upstream and target
 });
 test('conflicts and merge operations are reported independently of dirty branches',async t=>{
  const {root}=fixture(t);git(root,'checkout','-b','feature');commit(root,'feature');git(root,'checkout','main');commit(root,'main');assert.throws(()=>git(root,'merge','feature'));
- const s=await inspectRepository(root);assert.equal(s.current.changes.conflicts,1);assert.deepEqual(s.current.operations,['Merge']);assert.equal(s.branches.find(b=>b.name==='feature').comparison.state,'diverged');
+ const s=await inspectRepository(root);assert.equal(s.current.changes.conflicts,1);assert.equal(s.summary.conflictedWorktrees,1);assert.equal(s.summary.operationWorktrees,1);assert.deepEqual(s.current.operations,['Merge']);assert.equal(s.branches.find(b=>b.name==='feature').comparison.state,'diverged');
  git(root,'add','file');const resolved=await inspectRepository(root);assert.equal(resolved.current.changes.conflicts,0);assert.deepEqual(resolved.current.operations,['Merge']);
 });
 test('detached, locked, missing, contained and capped inventory never implies complete coverage',async t=>{
