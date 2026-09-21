@@ -122,14 +122,15 @@
 /* One compact header for title, navigation and page actions. */
 main>.topbar:has(.view-header){height:auto;min-height:80px;padding:18px 32px;margin-bottom:24px;letter-spacing:normal}
 .topbar>.page-heading.view-header{display:flex;flex-direction:row;align-items:center;gap:24px;flex-wrap:wrap;width:100%;max-width:none;padding:0;margin:0}
+.view-header .view-context{display:flex;align-items:center;flex-wrap:wrap;gap:10px 24px;flex:1 1 360px;min-width:0;max-width:100%}
 .view-header .view-title{min-width:0;max-width:100%;flex:0 1 auto}
 .view-header .view-title h1{font-size:30px;margin:0;color:var(--ink);overflow-wrap:anywhere}
 .view-header .view-title p{font-weight:400;font-size:11px;margin:6px 0 0}
 .view-header .view-title .eyebrow{margin-bottom:6px}
-.view-header .breadcrumbs{flex:1 1 220px;min-width:0}
+.view-header .breadcrumbs{flex:1 1 max-content;width:auto;min-width:0;max-width:100%}
 .view-header .view-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto;max-width:100%;font-size:12px}
 .view-header .view-actions .heading-actions{justify-content:flex-end}
-@media(max-width:800px){main>.topbar:has(.view-header){padding:16px 20px;margin-bottom:20px}.topbar>.page-heading.view-header{gap:14px}.view-header .view-title h1{font-size:26px}.view-header .breadcrumbs{flex-basis:160px}.view-header .view-actions .heading-actions{justify-content:flex-start}}
+@media(max-width:800px){main>.topbar:has(.view-header){padding:16px 20px;margin-bottom:20px}.topbar>.page-heading.view-header{gap:14px}.view-header .view-title h1{font-size:26px}.view-header .view-context{gap:10px 14px}.view-header .view-actions .heading-actions{justify-content:flex-start}}
 @media(max-width:560px){.view-header .breadcrumbs{flex-basis:100%;order:3}.view-header .view-actions{flex:0 1 auto}.view-header .view-title{flex:1 1 120px}}
 
 /* Global and project knowledge navigation. */

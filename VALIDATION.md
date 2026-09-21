@@ -891,3 +891,9 @@ delivery to the launch adapter. No real inference or GitHub write was performed.
 - Added Home → Workflows (`#workflows`) with saved workflows grouped by project, a project filter, and links to project workflow tools. Opening a saved workflow restores its project context. Existing project routes remain unchanged; browsing launches nothing.
 - All 150 Node tests and all 26 Chrome browser suites passed. Initial Node validation required repairing the fresh checkout's node-pty helper permissions with the existing prepare script. Extended overview coverage verifies keyboard entry, aggregate count, reload, filtering, workflow navigation and mobile overflow with zero execution requests.
 - Inspected desktop/mobile captures in `output/global-workflows-desktop.png` and `output/global-workflows-mobile.png`. PWA cache is 0.5.0-73; installed clients require the normal explicit Update app action. No real-provider inference or saved test workflow execution was performed.
+
+## 2026-09-21 — Long-title breadcrumb wrapping
+
+- Grouped the title and breadcrumb in a wrapping header context, independent of the action buttons. Breadcrumbs use their natural width and move below the title when the combined content no longer fits; short titles retain inline navigation.
+- Overview, editor, accessibility and PWA Chrome suites passed. Live read-only checks verified the reported long workflow title at 2048, 1440, 900 and 390px without horizontal overflow, plus inline breadcrumbs for a short heading. Inspected desktop/mobile captures in `output/breadcrumb-wrap-2048.png` and `output/breadcrumb-wrap-390.png`. No saved workflows were run or live API writes made.
+- Shell cache is 0.5.0-74; installed clients require explicit Update app.

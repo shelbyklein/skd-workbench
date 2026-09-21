@@ -131,7 +131,9 @@ function shell(content) {
     while(title.nextElementSibling)actions.append(title.nextElementSibling);
     heading.classList.add('view-header');
     const trail=topbar.querySelector('.breadcrumbs');
-    if(home)trail.remove();else heading.append(trail);
+    const context=document.createElement('div');context.className='view-context';
+    heading.prepend(context);context.append(title);
+    if(home)trail.remove();else context.append(trail);
     if(actions.childElementCount)heading.append(actions);
     topbar.append(heading);
   }
