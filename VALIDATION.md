@@ -27,11 +27,17 @@
   Those now report unknown sign-in status accurately instead of claiming sign-out.
   An older import test was isolated from the installed MCP inventory, and the existing
   malformed-stream timeout fixture was given process-startup tolerance.
-- Integration attempt: main acquired concurrent icon/CSS/cache edits during
-  implementation. Git refused the fast-forward rather than overwriting those edits.
-  Source is committed on codex/sequential-delegation; activation is pending
-  reconciliation with that task. Delegation uses cache version 72 to avoid
-  reusing the icon task's pending cache version 71.
+- Integrated on main at dda04fe, preserving the verified red glass icon in
+  separate commit 86cace2. Both validation histories and icon object-fit styling
+  survived conflict resolution; the combined shell uses cache version 72.
+  The unrelated quick-action edit and lifecycle draft were verified byte-for-byte
+  unchanged and remain uncommitted.
+- After confirming zero active sessions/workflows, restarted the existing loopback
+  service. Live Workflows → Delegate task showed Astra and Fable, no provider error
+  and no page errors. Desktop and 390px screenshots were inspected at
+  output/delegation-live-main.png and output/delegation-live-main-mobile.png.
+  This read-only live UI check created no execution. Integrated main passed
+  150/150 Node tests and the complete 26-script Chrome suite after the merge.
 - Accepted means model acceptance plus successful referenced command exits, not an
   independently certified checkpoint, exhaustive coverage, integration or release.
   TT references are contextual; automatic delegated-task TT synchronization and the

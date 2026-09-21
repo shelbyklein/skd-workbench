@@ -28,10 +28,14 @@ Confirmed scope; solo sequential implementation now, authorized in the current t
   Acceptance: Browser checks exercise creation and results, keyboard access and mobile layout; screenshots inspected.
 - [x] **DEL-05** Validate provider execution and full integration
   Acceptance: Full Node/browser suites pass; a bounded real-provider smoke records actual availability and execution separately from fixtures.
-- [ ] **DEL-06** Document delivery and activate the verified development version
+- [x] **DEL-06** Document delivery and activate the verified development version
   Acceptance: README and VALIDATION reflect behavior and limitations; isolated changes integrated safely and running UI inspected, with issue left open for closure approval.
 
 ## Validation and activation
 Use disposable Git repositories, temporary data stores and fixture providers for routine tests. Cover malformed decisions, failed commands, exhausted budgets, source changes, launch races, cancellation and restart. Exercise actual UI entry points on desktop/mobile and inspect screenshots. Run full Node and browser suites. Run one bounded real-provider smoke in a disposable repository if discovered provider availability permits; record blockers honestly. Inspect live execution before any server restart. Retain all workspaces and historical records; activation can roll back the code without deleting records.
 
 <!-- skd-sequential-delegation-2026-09-21 -->
+
+## Integrated delivery
+
+Merged into main at dda04fe with icon preservation commit 86cace2. Integrated checks: 150 Node tests and 26 Chrome scripts passed. Activated the existing loopback service after confirming no active execution; inspected the live desktop/mobile delegation form with Astra and Fable available. Issue remains open for user acceptance. Unrelated quick-action edits and the lifecycle draft remain uncommitted.
