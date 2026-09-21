@@ -13,7 +13,7 @@ try {
   const page=await browser.newPage({viewport:{width:1440,height:1050}});
   page.setDefaultTimeout(6000);page.setDefaultNavigationTimeout(6000);
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
-  console.log('open',url);await page.goto(url);await page.locator('[data-step]').first().waitFor();
+  console.log('open',url);await page.goto(url+'/#project/unassigned');await page.locator('[data-flow]').first().click();await page.locator('[data-step]').first().waitFor();
   mkdirSync('output',{recursive:true});
   await page.screenshot({path:'output/editor-desktop.png',fullPage:true});
   console.log('duplicate');await page.getByRole('button',{name:'Duplicate',exact:true}).click();

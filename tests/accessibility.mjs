@@ -10,8 +10,8 @@ const browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL||'ch
 try {
  const page=await browser.newPage({viewport:{width:1440,height:1050},reducedMotion:'reduce'});page.setDefaultTimeout(7000);
  const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
- await page.goto(`http://127.0.0.1:${server.address().port}`);
- await page.locator('[data-step]').first().waitFor();
+ await page.goto(`http://127.0.0.1:${server.address().port}/#project/unassigned`);
+ await page.locator('[data-flow]').first().click();await page.reload();await page.locator('[data-step]').first().waitFor();
  await page.keyboard.press('Tab');
  assert.equal(await page.evaluate(()=>document.activeElement.tagName),'A');
  assert.notEqual(await page.evaluate(()=>getComputedStyle(document.activeElement).outlineStyle),'none');
@@ -23,7 +23,7 @@ try {
  assert.equal(await page.evaluate(()=>document.activeElement.getAttribute('aria-label')),'Create new flow');
  await page.locator('[data-step]').first().focus();await page.keyboard.press('Enter');
  await page.getByLabel('Step name',{exact:true}).fill('Unsaved keyboard edit');
- await page.getByRole('button',{name:/Run history/}).click();
+ await page.locator('#sidebar-overview').click();
  await page.getByRole('heading',{name:'Keep your changes?',exact:true}).waitFor();
  await page.getByRole('button',{name:'Keep editing',exact:true}).click();
  assert.equal(await page.getByLabel('Step name',{exact:true}).inputValue(),'Unsaved keyboard edit');

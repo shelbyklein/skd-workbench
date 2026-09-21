@@ -14,7 +14,7 @@ try{
  // Deliberately exercise help when the browser does not expose a native prompt.
  await context.addInitScript(()=>window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();e.stopImmediatePropagation();}));
  const page=await context.newPage();page.setDefaultTimeout(10000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
- await page.goto(url);await page.locator('#project-picker').waitFor();
+ await page.goto(url+'/#project/unassigned');await page.locator('[data-flow]').first().click();await page.locator('#project-picker').waitFor();
  await page.locator('#install-app').click();await page.getByRole('heading',{name:'Install SKD Workbench'}).waitFor();await page.keyboard.press('Escape');
  await page.evaluate(()=>navigator.serviceWorker.ready);await page.waitForFunction(()=>Boolean(navigator.serviceWorker.controller));
  const cdp=await context.newCDPSession(page),manifest=await cdp.send('Page.getAppManifest');assert.equal(manifest.errors.length,0);assert.equal(JSON.parse(manifest.data).display,'standalone');
@@ -32,7 +32,7 @@ try{
  await stop();await page.getByRole('button',{name:'Save flow',exact:true}).click();await page.locator('#pwa-reconnect').waitFor();assert.equal(await page.getByLabel('Step name',{exact:true}).inputValue(),'Preserved offline edit');
  server=createServer({directory,publicDirectory});await new Promise(r=>server.listen(port,'127.0.0.1',r));await page.locator('#pwa-reconnect').click();await page.waitForFunction(()=>!document.querySelector('#pwa-reconnect'));
  assert.equal(await page.getByLabel('Step name',{exact:true}).inputValue(),'Preserved offline edit');await page.getByRole('button',{name:'Save flow',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#save').disabled);
- const other=await context.newPage();await other.goto(url);await other.locator('[data-step]').first().click();await other.getByLabel('Step name',{exact:true}).fill('Other window draft');
+ const other=await context.newPage();await other.goto(url+'/#project/unassigned');await other.locator('[data-flow]').first().click();await other.locator('[data-step]').first().click();await other.getByLabel('Step name',{exact:true}).fill('Other window draft');
  const sw=path.join(publicDirectory,'sw.js');writeFileSync(sw,readFileSync(sw,'utf8').replace(/skd-shell-0\.5\.0[^']*/, 'skd-shell-test-update'));
  await page.getByLabel('Step name',{exact:true}).fill('Draft during update');
  await page.evaluate(async()=>{const reg=await navigator.serviceWorker.getRegistration();await reg.update();});await page.locator('#pwa-update').waitFor();
@@ -43,6 +43,6 @@ try{
  await other.locator('#pwa-update').waitFor();assert.equal(await other.getByLabel('Step name',{exact:true}).inputValue(),'Other window draft');
  assert.equal((await(await fetch(url+'/api/state')).json()).flows[0].steps[0].name,'Draft during update');assert.deepEqual(errors,[]);
  // Standalone CSS and UI are checked separately from actual OS installation.
- const standalone=browser;await standalone.addInitScript(()=>{const original=window.matchMedia;window.matchMedia=q=>q==='(display-mode: standalone)'?{matches:true}:original(q);});const sp=await standalone.newPage();await sp.goto(url);await sp.locator('#project-picker').waitFor();assert.equal(await sp.locator('#install-app').count(),0);
+ const standalone=browser;await standalone.addInitScript(()=>{const original=window.matchMedia;window.matchMedia=q=>q==='(display-mode: standalone)'?{matches:true}:original(q);});const sp=await standalone.newPage();await sp.goto(url);await sp.getByRole('heading',{name:'Projects',exact:true}).waitFor();assert.equal(await sp.locator('#install-app').count(),0);
  console.log('PWA Chrome checks passed: offline shell, uncached/unqueued APIs, server restart, retained drafts, explicit update, standalone UI.');
 }finally{await browser.close();await stop();rmSync(root,{recursive:true,force:true});}

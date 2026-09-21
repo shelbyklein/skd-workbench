@@ -12,7 +12,7 @@ const browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL||'ch
 try {
  const page=await browser.newPage({viewport:{width:1440,height:1050}});page.setDefaultTimeout(7000);
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
- await page.goto(url);await page.getByRole('button',{name:'▷ Try flow',exact:true}).click();
+ await page.goto(url+'/#project/unassigned');await page.locator('[data-flow]').first().click();await page.getByRole('button',{name:'▷ Try flow',exact:true}).click();
  await page.getByLabel('Task',{exact:true}).fill('Fix search without changing the stored records.');
  await page.getByLabel('Acceptance checks',{exact:true}).fill('Empty search returns all records. Case-insensitive match works.');
  await page.getByRole('button',{name:'Start simulation',exact:true}).click();

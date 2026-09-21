@@ -1,3 +1,14 @@
+# Projects and Workflows overviews — 2026-09-20
+
+- Added Projects as the root/home view, project cards with folder/workflow counts, and a project-scoped Workflows overview with saved workflow cards and recent real runs. Sidebar navigation follows Projects, Workflows or standalone Codex. Run-history/Codex entry points moved into overview content; All projects and the logo return home through the dirty-edit guard.
+- All nine Chrome browser suites passed on the final UI. Existing fixtures now explicitly enter the workflow area; standalone PWA checks expect Projects at launch. The new overview fixture covers root/reload, project scopes, empty project, workflow/editor selection, unsaved changes, recent-run/history/Codex navigation, creation entry and 390px layout. No execution requests occurred in that fixture.
+- Inspected fixture Projects desktop and Workflows mobile screenshots and actual localhost `output/projects-overview-live.png` / `output/workflows-overview-live.png`. Live read-only traversal verified both pages, two Tiny Tasks workflows, recent history, and no mobile overflow. No launch buttons were clicked.
+- Live verification receipt: `output/overview-live-receipt.json`; zero execution requests and exact before/after equality for saved project/flow state, workflow history and standalone Codex history. Existing stopped runs were preserved. This delivery made no project-data migration or backend change and required no server restart.
+- Activated static UI with PWA cache `skd-shell-0.5.0-5`. Existing installed windows can choose Update app. No new unit suite was needed for this UI-only change; browser behavior was exercised directly.
+- TT plan `local:0168CB72-0BD8-465C-B6D7-B6034B02D7E6`, todo `SKD-NAV-01`; added Projects overview per user steering during implementation. Solo delivery, no delegated agents.
+
+---
+
 # Direct-launch fix — 2026-09-20
 
 - Configured Run with Codex / Try flow start directly. Separate Run settings persists task/acceptance/workspace/limits and agent model/effort; missing settings retain a setup fallback. Tiny Tasks task and acceptance are shared across workflows and populated from its pinned README. No agent steps were altered during activation.

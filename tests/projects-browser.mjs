@@ -14,7 +14,7 @@ const server=createServer({directory});await new Promise(r=>server.listen(0,'127
 const browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL||'chrome',headless:true});
 try{
  const page=await browser.newPage({viewport:{width:1440,height:1050}});page.setDefaultTimeout(7000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
- await page.goto(url);await page.getByRole('button',{name:'+ Add project',exact:true}).waitFor();assert.equal(await page.title(),'SKD Workbench');
+ await page.goto(url+'/#project/unassigned');await page.getByRole('button',{name:'+ Add project',exact:true}).waitFor();assert.equal(await page.title(),'SKD Workbench');
  assert.equal(await page.getByLabel('Project',{exact:true}).inputValue(),'unassigned');assert.equal(await page.locator('[data-flow]').count(),2);
  const original=await(await fetch(url+'/api/state')).json();
  const legacyRun=await(await fetch(url+'/api/runs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({flowID:original.flows[0].id,flowVersion:1,task:'Original project'})})).json();
@@ -29,12 +29,12 @@ try{
  mkdirSync('output',{recursive:true});await page.screenshot({path:'output/skd-project-details.png',fullPage:true});
  await page.keyboard.press('Escape');
  await page.getByLabel('Project',{exact:true}).selectOption('unassigned');
- await page.getByRole('button',{name:'Move',exact:true}).click();await page.getByLabel('Destination project',{exact:true}).selectOption(projectA);await page.getByRole('button',{name:'Move workflow',exact:true}).click();
+ await page.locator('[data-flow]').first().click();await page.getByRole('button',{name:'Move',exact:true}).click();await page.getByLabel('Destination project',{exact:true}).selectOption(projectA);await page.getByRole('button',{name:'Move workflow',exact:true}).click();
  await page.waitForFunction(()=>document.querySelector('#project-picker').selectedOptions[0].textContent==='Newton');assert.equal(await page.locator('[data-flow]').count(),1);
- await page.getByRole('button',{name:/Run history/}).click();assert.equal(await page.locator('[data-open-run]').count(),0);
+ await page.locator('#sidebar-overview').click();await page.getByRole('button',{name:/Run history/}).click();assert.equal(await page.locator('[data-open-run]').count(),0);
  await page.getByLabel('Project',{exact:true}).selectOption('unassigned');await page.getByRole('button',{name:/Run history/}).click();assert.equal(await page.locator('[data-open-run]').count(),1);
  await page.getByLabel('Project',{exact:true}).selectOption(projectA);
- await page.locator('[data-step]').first().click();await page.getByLabel('Step name',{exact:true}).fill('Unsaved project edit');
+ await page.locator('[data-flow]').first().click();await page.locator('[data-step]').first().click();await page.getByLabel('Step name',{exact:true}).fill('Unsaved project edit');
  await page.getByLabel('Project',{exact:true}).selectOption('unassigned');await page.getByRole('heading',{name:'Keep your changes?',exact:true}).waitFor();await page.getByRole('button',{name:'Keep editing',exact:true}).click();assert.equal(await page.getByLabel('Project',{exact:true}).inputValue(),projectA);
  await page.getByRole('button',{name:'Save flow',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#save').disabled);
  await page.getByRole('button',{name:'Close step settings',exact:true}).click();

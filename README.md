@@ -25,6 +25,12 @@ If the server stops, the app shows **Reconnect** and keeps unsaved edits in the 
 
 When a new version is available, **Update app** reloads it after you save edits and close dialogs. Other open windows are not force-reloaded. Developers must bump the cache version in `public/sw.js` whenever shell assets change; test updates against temporary assets with `npm run test:browser`. Regenerate PNGs from the existing mark with `npm run icons`.
 
+## Navigation
+
+The home page is **Projects**. Open a project card to reach its **Workflows** overview, with saved workflows and recent runs. Inside Workflows, the sidebar contains Overview, that project's saved workflows, and New flow. Workflow run history, simulation history and standalone Codex tasks are available from the overview content. Codex uses its own sidebar context. **All projects** or the app logo returns to Projects with unsaved-change protection.
+
+Existing flow, run and history URLs still work. Overview routes are `/#projects` and `/#project/<project-id>`.
+
 ## Projects, folders and Git
 
 Use **Add project** above the workflow list. Give it a name and paste its absolute local folder path (`~/…` also works). The folder must exist; a file or inaccessible path is rejected. The server resolves symlinks and prevents connecting the same canonical folder twice.

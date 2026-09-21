@@ -9,7 +9,7 @@ let workflowView=null,workflowRunID=null;
 let codexView=null,codexRunID=null,codexPrefill='';
 let projectID='unassigned';
 const connections=new Map();
-let data={projects:[],flows:[],runs:[]}, draft=null, selected=null, view='flow', runID=null, dirty=false, busy=false, compareIDs=[];
+let data={projects:[],flows:[],runs:[]}, draft=null, selected=null, view='projects', runID=null, dirty=false, busy=false, compareIDs=[];
 const typeName={agent:'Agent',human:'My review',check:'Check'};
 const symbol={agent:'✳',human:'◉',check:'✓'};
 let toastTimer;
@@ -52,26 +52,46 @@ function modal(title,content,buttons=[],onSubmit=null) {
 }
 function shell(content) {
   const current=view==='flow'?draft?.id:null;
-  $('#app').innerHTML=`<aside class="sidebar"><a class="brand" href="/" aria-label="SKD Workbench home"><img src="/icon.svg" alt=""><span>SKD Workbench<span class="brand-sub">YOUR DEVELOPMENT WORKSPACE</span></span></a><section class="project-picker"><label for="project-picker" class="side-label">PROJECT</label><select id="project-picker" aria-label="Project">${data.projects.map(p=>`<option value="${p.id}" ${p.id===projectID?'selected':''}>${esc(p.name)}</option>`).join('')}</select><div class="project-actions"><button class="text-button" id="add-project">+ Add project</button><button class="text-button" id="project-details">Details</button></div><p id="project-summary" class="project-summary"></p></section><div class="side-label">YOUR WORKBENCH</div><button class="nav-button ${view==='history'?'active':''}" data-action="history"><span>◷</span> Run history <span class="count">${scopedRuns().length}</span></button><button class="new-flow" id="open-workflows">↳ Workflow runs</button><button class="new-flow" id="open-codex">✳ Codex runs</button><div class="side-row"><div class="side-label">WORKFLOWS</div><button class="icon-button" data-action="new" aria-label="Create new flow">+</button></div><nav aria-label="Saved flows">${scopedFlows().map(f=>`<button class="flow-nav ${current===f.id?'active':''}" data-flow="${f.id}"><span class="flow-dot"></span><span>${esc(f.name)}</span></button>`).join('')||'<p class="side-hint">Your first flow starts here.</p>'}</nav><button class="new-flow" data-action="new">+ New flow</button><div class="side-bottom">${isStandalone()?'':'<button id="install-app" class="install-button">↓ Install app</button>'}<span class="local-dot"></span> Local on your Mac<p>Your projects. Your way of working.</p></div></aside><main><header class="topbar"><span class="breadcrumb">${esc(currentProject()?.name||'Unassigned')} <span class="crumb">/</span> ${view==='workflow'?'WORKFLOW RUN':view==='codex'?'CODEX':view==='flow'?'FLOW EDITOR':view==='run'?'SIMULATION':view==='compare'?'COMPARISON':'RUN HISTORY'}</span><span class="mode-tag">${['codex','workflow'].includes(view)?'REAL EXECUTION':view==='flow'?'FLOW DESIGN':'SIMULATION'}</span></header>${content}</main>`;
+  $('#app').innerHTML=`<aside class="sidebar"><a class="brand" href="/" aria-label="SKD Workbench home"><img src="/icon.svg" alt=""><span>SKD Workbench<span class="brand-sub">YOUR DEVELOPMENT WORKSPACE</span></span></a>${view==='projects'?'':`<section class="project-picker"><label for="project-picker" class="side-label">PROJECT</label><select id="project-picker" aria-label="Project">${data.projects.map(p=>`<option value="${p.id}" ${p.id===projectID?'selected':''}>${esc(p.name)}</option>`).join('')}</select><div class="project-actions"><button class="text-button" id="add-project">+ Add project</button><button class="text-button" id="project-details">Details</button></div><p id="project-summary" class="project-summary"></p></section>`}<div class="side-row"><div class="side-label">${view==='projects'?'PROJECTS':view==='codex'?'CODEX':'WORKFLOWS'}</div>${['projects','codex'].includes(view)?'':'<button class="icon-button" data-action="new" aria-label="Create new flow">+</button>'}</div><button class="nav-button ${['projects','overview'].includes(view)||view==='codex'&&!codexRunID?'active':''}" id="sidebar-overview" ${['projects','overview'].includes(view)||view==='codex'&&!codexRunID?'aria-current="page"':''}>Overview</button>${view==='projects'?'<p class="side-hint">Your development projects.</p>':view==='codex'?'<p class="side-hint">Standalone tasks and their saved results.</p>':`<nav aria-label="Saved flows">${scopedFlows().map(f=>`<button class="flow-nav ${current===f.id?'active':''}" ${current===f.id?'aria-current="page"':''} data-flow="${f.id}"><span class="flow-dot"></span><span>${esc(f.name)}</span></button>`).join('')||'<p class="side-hint">Your first flow starts here.</p>'}</nav><button class="new-flow" data-action="new">+ New flow</button>`}<div class="side-bottom">${isStandalone()?'':'<button id="install-app" class="install-button">↓ Install app</button>'}<span class="local-dot"></span> Local on your Mac<p>Your projects. Your way of working.</p></div></aside><main><header class="topbar"><span class="breadcrumb">${view==='projects'?'SKD Workbench':esc(currentProject()?.name||'Unassigned')} <span class="crumb">/</span> ${view==='projects'?'PROJECTS':view==='overview'?'WORKFLOWS':view==='workflow'?'WORKFLOW RUN':view==='codex'?'CODEX':view==='flow'?'FLOW EDITOR':view==='run'?'SIMULATION':view==='compare'?'COMPARISON':'RUN HISTORY'}</span>${view==='projects'?'':'<button class="text-button" id="open-projects">All projects</button>'}${view==='codex'?'<button class="text-button" id="workspace-home">← Workflows</button>':''}<span class="mode-tag">${['codex','workflow'].includes(view)?'REAL EXECUTION':view==='projects'?'PROJECTS':view==='overview'?'WORKFLOWS':view==='flow'?'FLOW DESIGN':'SIMULATION'}</span></header>${content}</main>`;
   bindCommon();
   updateProjectSummary();
   if(currentProject()?.folderPath&&!connections.has(projectID+':'+currentProject().version))refreshConnection();
 }
 function bindCommon() {
-  $('#open-workflows').onclick=()=>confirmLeave(()=>{workflowRunID=null;view='workflow';render();});
-  $('#open-codex').onclick=()=>confirmLeave(()=>{codexRunID=null;codexPrefill='';view='codex';render();});
+  const overview=()=>confirmLeave(()=>{if(view==='codex'){codexRunID=null;codexPrefill='';}else if(view!=='projects')view='overview';selected=null;render();});
+  $('#sidebar-overview').onclick=overview;
+  $('.brand').onclick=e=>{e.preventDefault();confirmLeave(()=>{view='projects';selected=null;render();});};
+  if($('#open-projects'))$('#open-projects').onclick=()=>confirmLeave(()=>{view='projects';selected=null;render();});
+  if($('#workspace-home'))$('#workspace-home').onclick=()=>confirmLeave(()=>{view='overview';render();});
+  if($('#open-workflows'))$('#open-workflows').onclick=()=>confirmLeave(()=>{workflowRunID=null;view='workflow';render();});
+  if($('#open-codex'))$('#open-codex').onclick=()=>confirmLeave(()=>{codexRunID=null;codexPrefill='';view='codex';render();});
   if($('#install-app'))$('#install-app').onclick=async()=>{try{if(!await installApp())installHelp();}catch(e){toast('Installation was not completed. Try your browser’s install menu.');}};
-  $('#project-picker').onchange=e=>{const target=e.target.value;e.target.value=projectID;confirmLeave(()=>switchProject(target));};
-  $('#add-project').onclick=()=>confirmLeave(()=>projectDialog());
-  $('#project-details').onclick=()=>projectDialog(currentProject());
+  if($('#project-picker'))$('#project-picker').onchange=e=>{const target=e.target.value;e.target.value=projectID;confirmLeave(()=>switchProject(target));};
+  if($('#add-project'))$('#add-project').onclick=()=>confirmLeave(()=>projectDialog());
+  if($('#project-details'))$('#project-details').onclick=()=>projectDialog(currentProject());
   document.querySelectorAll('[data-flow]').forEach(b=>b.onclick=()=>openFlow(b.dataset.flow));
   document.querySelectorAll('[data-action="new"]').forEach(b=>b.onclick=newFlow);
-  $('[data-action="history"]').onclick=()=>confirmLeave(()=>{view='history';selected=null;render();});
+  if($('[data-action="history"]'))$('[data-action="history"]').onclick=()=>confirmLeave(()=>{view='history';selected=null;render();});
 }
 function render() {
   codexView?.dispose();codexView=null;workflowView?.dispose();workflowView=null;
-  history.replaceState(null,'','#'+(view==='workflow'?'workflow/'+projectID+(workflowRunID?'/'+workflowRunID:''):view==='codex'?'codex/'+projectID+(codexRunID?'/'+codexRunID:''):view==='compare'?'compare/'+compareIDs.join(','):view==='run'?'run/'+runID:view==='flow'&&draft?'flow/'+draft.id:view==='history'?'history/'+projectID:'project/'+projectID));
-  if(view==='workflow')renderWorkflow();else if(view==='codex')renderCodex();else if(view==='flow')renderFlow(); else if(view==='run')renderRun(); else if(view==='compare')renderCompare();else renderHistory();
+  history.replaceState(null,'','#'+(view==='projects'?'projects':view==='workflow'?'workflow/'+projectID+(workflowRunID?'/'+workflowRunID:''):view==='codex'?'codex/'+projectID+(codexRunID?'/'+codexRunID:''):view==='compare'?'compare/'+compareIDs.join(','):view==='run'?'run/'+runID:view==='flow'&&draft?'flow/'+draft.id:view==='history'?'history/'+projectID:'project/'+projectID));
+  if(view==='projects')renderProjects();else if(view==='overview')renderOverview();else if(view==='workflow')renderWorkflow();else if(view==='codex')renderCodex();else if(view==='flow')renderFlow(); else if(view==='run')renderRun(); else if(view==='compare')renderCompare();else renderHistory();
+}
+function renderProjects(){
+ shell(`<section class="page-heading"><div><div class="eyebrow">YOUR DEVELOPMENT WORKSPACE</div><h1>Projects</h1><p>Open a project to see its workflows and recent work.</p></div><button class="primary" id="add-project">+ Add project</button></section><section class="workflow-overview"><div class="overview-grid">${[...data.projects.filter(p=>p.id!=='unassigned'),...data.projects.filter(p=>p.id==='unassigned')].map(p=>{const count=data.flows.filter(f=>f.projectID===p.id).length;return `<button class="overview-flow project-card" data-project="${p.id}"><span class="eyebrow">${p.folderPath?'LOCAL PROJECT':'WITHOUT A PROJECT'}</span><strong>${esc(p.name)}</strong><span>${esc(p.folderPath||'Workflows not yet connected to a project folder.')}</span><span class="overview-flow-footer">${count} workflow${count===1?'':'s'} <span aria-hidden="true">↗</span></span></button>`;}).join('')}</div></section>`);
+ document.querySelectorAll('[data-project]').forEach(b=>b.onclick=()=>confirmLeave(()=>switchProject(b.dataset.project)));
+}
+function renderOverview(){
+ const flows=scopedFlows(),scope=projectID;
+ shell(`<section class="page-heading"><div><div class="eyebrow">${esc(currentProject().name)}</div><h1>Workflows</h1><p>Choose a workflow, review its steps, and pick up where you left off.</p></div><button class="primary" data-action="new">Create a flow</button></section><section class="workflow-overview"><div class="overview-section-heading"><h2>Your workflows</h2><span>${flows.length} saved</span></div><div class="overview-grid">${flows.map(f=>`<button class="overview-flow" data-overview-flow="${f.id}"><span class="eyebrow">${f.steps.length} STEPS · V${f.version}</span><strong>${esc(f.name)}</strong><span>${f.steps.filter(s=>s.type==='agent').map(s=>esc(s.model)+' · '+esc(s.effort)).join(' → ')||'Add steps to get started'}</span><span class="overview-flow-footer">Open workflow <span aria-hidden="true">↗</span></span></button>`).join('')||'<p class="overview-empty">No workflows in this project yet. Create one to get started.</p>'}</div><section class="overview-runs"><div class="overview-section-heading"><h2>Recent workflow runs</h2><button class="text-button" id="open-workflows">All workflow runs →</button></div><div id="overview-recent"><p>Loading recent runs…</p></div></section><div class="overview-tools"><button data-action="history">Run history <small>Simulation walkthroughs</small></button><button id="open-codex">Codex runs <small>Standalone tasks</small></button></div></section>`);
+ document.querySelectorAll('[data-overview-flow]').forEach(b=>b.onclick=()=>openFlow(b.dataset.overviewFlow));
+ const host=$('#overview-recent');
+ api('workflows?projectID='+encodeURIComponent(scope)).then(runs=>{
+  if(!host.isConnected||view!=='overview'||scope!==projectID)return;
+  host.innerHTML=runs.length?[...runs].reverse().slice(0,5).map(r=>`<button class="overview-run" data-recent-run="${r.id}"><span><strong>${esc(r.flowName)}</strong><small>${esc(r.task.slice(0,120))}</small></span><span>${esc(({waiting:'Needs review',checking:'Needs verification',completed:'Finished',cancelled:'Stopped',running:'Running',launching:'Starting',failed:'Failed',interrupted:'Interrupted',stopping:'Stopping'})[r.status]||r.status)}<small>${dateLabel(r.createdAt)}</small></span></button>`).join(''):'<p>No workflow runs yet. Open a workflow to get started.</p>';
+  host.querySelectorAll('[data-recent-run]').forEach(b=>b.onclick=()=>confirmLeave(()=>{workflowRunID=b.dataset.recentRun;view='workflow';render();}));
+ }).catch(e=>{if(host.isConnected)host.textContent=e.message;});
 }
 function renderFlow() {
   if(!draft) { shell('<section class="empty"><h1>A good experiment<br>starts with a flow.</h1><p>Create a few steps and see how they fit together.</p><button class="primary" id="first-flow">Create a flow</button></section>');$('#first-flow').onclick=newFlow;return; }
@@ -207,8 +227,8 @@ async function boot(){try{
   else if(route[0]==='run'&&data.runs.some(r=>r.id===route[1])){runID=route[1];view='run';projectID=data.runs.find(r=>r.id===runID).projectID;}
   else if(route[0]==='history'){view='history';projectID=route[1]||'unassigned';}
   else if(route[0]==='compare'){compareIDs=(route[1]||'').split(',');view='compare';projectID=data.runs.find(r=>r.id===compareIDs[0])?.projectID||'unassigned';}
-  else if(route[0]==='project'){projectID=route[1]||'unassigned';}
-  else if(route[0]==='flow'){projectID=data.flows.find(f=>f.id===route[1])?.projectID||'unassigned';}
+  else if(route[0]==='project'){view='overview';projectID=route[1]||'unassigned';}
+  else if(route[0]==='flow'){view='flow';projectID=data.flows.find(f=>f.id===route[1])?.projectID||'unassigned';}
   if(!data.projects.some(p=>p.id===projectID))projectID='unassigned';
   draft=clone(data.flows.find(f=>f.id===route[1]&&f.projectID===projectID)||scopedFlows()[0]||null);loaded=true;render();
  }catch(e){$('#app').innerHTML=`<section class="empty offline-startup"><img src="/icon.svg" alt=""><h1>Start your workbench.</h1><p>The interface is ready. Your projects and workflows need the local server.</p><p>Open <strong>Launch SKD Workbench.command</strong> in the SKD Workbench folder, then reconnect.</p><button id="retry-load" class="primary">Reconnect</button><p class="offline-note">${esc(e.message)}</p></section>`;$('#retry-load').onclick=boot;}}
@@ -221,7 +241,7 @@ setupPWA({hasUnsaved,notify:toast,onReconnect:async()=>{
 boot();
 
 function switchProject(id){
-  projectID=id;compareIDs=[];selected=null;dirty=false;if(view==='workflow'){workflowRunID=null;}else if(view==='codex'){codexRunID=null;codexPrefill='';}else view='flow';draft=clone(scopedFlows()[0]||null);render();
+  projectID=id;compareIDs=[];selected=null;dirty=false;if(view==='codex'){codexRunID=null;codexPrefill='';}else{view='overview';workflowRunID=null;}draft=clone(scopedFlows()[0]||null);render();
   if(currentProject()?.folderPath)refreshConnection(true);
 }
 function updateProjectSummary(){
