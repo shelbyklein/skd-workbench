@@ -18,8 +18,9 @@ import { canonicalFolder, inspectFolder } from './lib/projects.js';
 import {projectGraft} from './lib/graft-view.js';
 import {Skills} from './lib/skills.js';
 import {Connections} from './lib/connections.js';
+import {GitStatus} from './lib/git-status.js';
 const root = path.dirname(fileURLToPath(import.meta.url));
-const files = {'/agent-card.js':'agent-card.js','/planning-ui.js':'planning-ui.js','/knowledge-ui.js':'knowledge-ui.js','/skills-ui.js':'skills-ui.js','/connections-ui.js':'connections-ui.js','/settings-ui.js':'settings-ui.js','/markdown.js':'markdown.js','/theme.js':'theme.js','/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
+const files = {'/git-status-ui.js':'git-status-ui.js','/agent-card.js':'agent-card.js','/planning-ui.js':'planning-ui.js','/knowledge-ui.js':'knowledge-ui.js','/skills-ui.js':'skills-ui.js','/connections-ui.js':'connections-ui.js','/settings-ui.js':'settings-ui.js','/markdown.js':'markdown.js','/theme.js':'theme.js','/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
   '/icons/icon-192.png':'icons/icon-192.png','/icons/icon-512.png':'icons/icon-512.png','/icons/maskable-512.png':'icons/maskable-512.png','/icons/apple-touch-icon.png':'icons/apple-touch-icon.png'};
 const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
 async function body(req) {
@@ -29,8 +30,9 @@ async function body(req) {
   try { const parsed=JSON.parse(result); assert(parsed && typeof parsed==='object' && !Array.isArray(parsed),'Expected a JSON object.'); return parsed; }
   catch(e) { if(e instanceof Problem) throw e; throw new Problem('Invalid JSON.'); }
 }
-export function createServer({directory = process.env.FLOW_BENCH_DATA || path.join(root,'.data'), publicDirectory=path.join(root,'public'), codexOptions={},claudeOptions={},terminalOptions={},githubOptions={},skillsOptions={},connectionsOptions={},folderPicker=createFolderPicker()} = {}) {
+export function createServer({directory = process.env.FLOW_BENCH_DATA || path.join(root,'.data'), publicDirectory=path.join(root,'public'), codexOptions={},claudeOptions={},terminalOptions={},githubOptions={},skillsOptions={},connectionsOptions={},gitStatusOptions={},folderPicker=createFolderPicker()} = {}) {
   const store = new Store(directory);
+  const gitStatus=new GitStatus(gitStatusOptions);
   const globalSettings=new Settings(directory);
   const skills=new Skills(directory,skillsOptions);
   const mcpConnections=new Connections(directory,{...connectionsOptions,...(codexOptions.binary?{codexBinary:codexOptions.binary}:{})});
@@ -154,6 +156,15 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       if(project&&req.method==='PUT'){
         const input=await body(req);input.folderPath=await canonicalFolder(input.folderPath);
         return json(store.updateProject(project[1],input));
+      }
+      const gitStatusRoute=pathname.match(/^\/api\/projects\/([\w-]+)\/git-status(?:\/(remote-check))?$/);
+      if(gitStatusRoute){
+        const project=store.project(gitStatusRoute[1]);let result;
+        if(req.method==='GET'&&!gitStatusRoute[2])result=await gitStatus.read(project,{targetRef:url.searchParams.get('target')||'',remoteName:url.searchParams.get('remote')||''});
+        else if(req.method==='POST'&&gitStatusRoute[2])result=await gitStatus.check(project,await body(req));
+        else throw new Problem('Not found.',404);
+        assert(store.project(project.id).version===project.version,'Project changed. Refresh local status.',409);
+        return json(result);
       }
       const connection=pathname.match(/^\/api\/projects\/([\w-]+)\/connection$/);
       if(connection&&req.method==='GET'){

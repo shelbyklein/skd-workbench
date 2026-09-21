@@ -1,3 +1,4 @@
+import {mountGitStatus} from './git-status-ui.js';
 import {agentCard,requireAgentCards,primeAgentCache} from './agent-card.js';
 import {mountPlanning} from './planning-ui.js';
 import {loadSettings,openSettings,projectTags,tagMarkup,openProjectTags,settingsButton,showInstructions,visibleModels} from './settings-ui.js';
@@ -239,6 +240,9 @@ function mountProjectWidgets(project){
  const views=$('.project-views')?.closest('.workflow-overview');if(!views)return;
  views.insertAdjacentHTML('beforebegin',`<section class="project-dashboard" aria-label="Project overview widgets"><article class="project-widget priority-issues-widget"><header><div><span class="eyebrow">GITHUB</span><h2>Priority issues</h2></div><span id="priority-issues-meta">Loading…</span></header><ol id="priority-issues-list" class="priority-issue-list" aria-live="polite"><li class="widget-empty">Loading issues…</li></ol><div class="widget-footer"><span id="priority-issues-note">Highest priority first</span><button type="button" id="open-all-issues">All issues <span aria-hidden="true">↗</span></button></div></article><article class="project-widget session-report-widget"><header><div><span class="eyebrow">SESSION REPORT</span><h2>Last session</h2></div></header><div id="last-session-report" aria-live="polite"><p class="widget-empty">Loading session…</p></div></article></section>`);
  $('#open-all-issues').onclick=()=>{issueNumber=null;issueProposalID=null;issueEditMode=false;view='issues';render();};
+ const dashboard=views.previousElementSibling;
+ const gitWidget=document.createElement('article');gitWidget.className='project-widget git-status-widget';dashboard.prepend(gitWidget);
+ mountGitStatus(gitWidget,project,api);
  loadPriorityIssues(project);loadLastSession(project);
 }
 function renderProjectOverview(){
