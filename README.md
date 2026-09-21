@@ -33,7 +33,7 @@ When a new version is available, **Update app** reloads it after you save edits 
 
 Routes are `/#home`, `/#project/<project-id>` and `/#workflows/<project-id>`. The old `/#projects` alias and existing flow, run and history URLs still work.
 
-Sessions are provider-neutral: choose an agent when starting one (currently Codex). The current executor supports one message and result; multi-turn continuation and Claude are still to come. Session URLs use `/#sessions/<project-id>`, with old `/#codex/…` links preserved.
+Sessions are provider-neutral: choose Codex or Claude when starting one. The current executor supports one message and result; multi-turn continuation is still to come. Session URLs use `/#sessions/<project-id>`, with old `/#codex/…` links preserved.
 
 ## Projects, folders and Git
 
@@ -113,7 +113,7 @@ Browser tests use Playwright with installed Google Chrome by default (`PLAYWRIGH
 - `lib/workflows.js`: persistent sequence, review transitions, shared workspace, limits and usage aggregation.
 - `public/workflows-ui.js`: explicit launch mapping and live workflow graph.
 - `lib/codex.js`: installed CLI discovery, persistent single-task execution, usage and process lifecycle.
-- `public/codex-ui.js`: Sessions entry and results (currently Codex).
+- `public/codex-ui.js`: Sessions entry and results (Codex and Claude).
 - `lib/projects.js`: folder validation and bounded, read-only Git inspection.
 - `lib/domain.js`: validation, immutable run creation, bounded simulation transitions.
 - `lib/store.js`: local persistence, revisions, durable attempts.
@@ -134,3 +134,13 @@ For this delivery the server is running as a transient macOS job (`com.shelbykle
 Manual real-provider checks (consume account usage): `node scripts/smoke-codex.mjs` and `node scripts/smoke-codex.mjs --worktree`. They use isolated fixture projects under ignored `output/`, retain receipts and screenshots, and never run against your development projects.
 
 Manual real multi-step check (consumes account usage): `node scripts/smoke-workflow.mjs`. Uses a fixture Git project, verifies no second call before review, output handoff and shared-worktree code creation, records real usage and preserves the source checkout.
+
+## Claude sessions
+
+Choose **Sessions → Agent → Claude**. Install Claude Code and run `claude auth login` in Terminal first. Reload Sessions after signing in. Workbench checks the installed CLI and login, then offers Sonnet, Opus, Fable and Haiku aliases with low/medium/high effort. Alias access is confirmed only by execution; the resolved model is retained when reported. `SKD_CLAUDE_BIN` can override the executable path.
+
+Claude shares the Sessions history, execution lock, cancellation, timeout, isolated worktrees and benchmark reset with Codex. Existing histories and Codex URLs remain valid. The session API is `/api/sessions`, with discovery under `/api/agents/codex` and `/api/agents/claude`; old Codex API aliases remain compatible.
+
+This first Claude adapter supports file inspection and isolated file edits. It requires a CLI supporting restricted and safe modes, disables customization/MCP/delegation, and does not expose shell tools. Automated commands/tests are unavailable in Claude sessions. Permission denials are shown with the result. Claude workflows and conversational follow-up messages are not implemented yet.
+
+Input usage includes uncached input plus cache reads and cache creation; cache reads are shown separately without adding them twice. Missing usage stays unknown. Claude's reported cost is labeled as an estimate, not the actual charge. See the [official programmatic CLI documentation](https://code.claude.com/docs/en/headless).

@@ -20,9 +20,9 @@ async function body(req) {
   try { const parsed=JSON.parse(result); assert(parsed && typeof parsed==='object' && !Array.isArray(parsed),'Expected a JSON object.'); return parsed; }
   catch(e) { if(e instanceof Problem) throw e; throw new Problem('Invalid JSON.'); }
 }
-export function createServer({directory = process.env.FLOW_BENCH_DATA || path.join(root,'.data'), publicDirectory=path.join(root,'public'), codexOptions={}} = {}) {
+export function createServer({directory = process.env.FLOW_BENCH_DATA || path.join(root,'.data'), publicDirectory=path.join(root,'public'), codexOptions={},claudeOptions={}} = {}) {
   const store = new Store(directory);
-  const codex = new CodexRuns(directory,codexOptions);
+  const codex = new CodexRuns(directory,{...codexOptions,claudeOptions});
   const workflows = new Workflows(directory,codex);
   const server = http.createServer(async (req,res)=>{
     const json=(value,status=200)=>{res.writeHead(status,{'Content-Type':'application/json'});res.end(JSON.stringify(value));};
@@ -58,15 +58,18 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       const workflow=pathname.match(/^\/api\/workflows\/([\w-]+)(\/action)?$/);
       if(workflow&&req.method==='GET'&&!workflow[2])return json(workflows.get(workflow[1]));
       if(workflow&&req.method==='POST'&&workflow[2])return json(workflows.action(workflow[1],await body(req)));
-      if(req.method==='GET'&&pathname==='/api/codex/provider'){
+      if(req.method==='GET'&&pathname==='/api/agents/claude'){
+        try{return json(await codex.discoverClaude());}catch(e){return json({available:false,error:e.code==='ENOENT'?'Claude CLI not found. Install Claude Code, then run claude auth login.':e.message},503);}
+      }
+      if(req.method==='GET'&&['/api/codex/provider','/api/agents/codex'].includes(pathname)){
         try{return json(await codex.discover());}catch(e){return json({available:false,error:e.code==='ENOENT'?'Codex CLI not found. Install it and sign in with codex login.':e.message},503);}
       }
-      if(req.method==='GET'&&pathname==='/api/codex/runs')return json(codex.list(url.searchParams.get('projectID')).filter(r=>!r.workflowID));
-      if(req.method==='POST'&&pathname==='/api/codex/runs'){
+      if(req.method==='GET'&&['/api/codex/runs','/api/sessions'].includes(pathname))return json(codex.list(url.searchParams.get('projectID')).filter(r=>!r.workflowID));
+      if(req.method==='POST'&&['/api/codex/runs','/api/sessions'].includes(pathname)){
         const input=await body(req),project=store.project(input.projectID);
         return json(await codex.start(input,project),202);
       }
-      const codexRun=pathname.match(/^\/api\/codex\/runs\/([\w-]+)(\/stop)?$/);
+      const codexRun=pathname.match(/^\/api\/(?:codex\/runs|sessions)\/([\w-]+)(\/stop)?$/);
       if(codexRun&&req.method==='GET'&&!codexRun[2])return json(codex.get(codexRun[1]));
       if(codexRun&&req.method==='POST'&&codexRun[2]){await body(req);return json(codex.stop(codexRun[1]));}
       if(req.method==='GET' && pathname==='/api/state') return json(store.snapshot());

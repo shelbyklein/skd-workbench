@@ -1,3 +1,14 @@
+# Claude Sessions — 2026-09-20
+
+- Added Claude to the shared Sessions agent selector and executor. Native CLI stream output, session/resolved-model identity, usage including cache creation/read, estimated cost, errors and permission denials are retained. Existing Codex records default to Codex; shared lock, worktrees, cancellation, archive/reset and history storage remain in use. Neutral session APIs coexist with legacy aliases.
+- Existing 44 Node tests passed. Six Claude tests passed for subprocess output/usage/cost, isolated writes/diff/source preservation, failure results, cancellation/timeouts, restricted tool arguments, discovery/login and sanitized metadata. All ten Chrome browser suites passed, including Claude fixture execution, provider switching, history/reload, rerun agent preservation, authentication failure recovery and mobile.
+- Restarted localhost only after confirming no active runs. Actual UI inspection verified Claude sign-in error, disabled launch, mobile fit, and successful switch back to Codex discovery. `output/claude-activation-receipt.json` records zero API writes and unchanged saved state/history. Screenshot: `output/claude-sessions-live.png`.
+- Installed Claude Code 2.1.278 reports signed out. No real Claude/model execution was started; live inference and entitlement remain unverified. Run `claude auth login` in Terminal, then reload Sessions. Fixture tests do not establish live-provider success.
+- Claude currently supports file inspection and isolated edits only; shell commands, Claude workflows and multi-turn continuation are not implemented. CLI restricted/safe modes and explicit tool lists enforce the available tools. Cost is an estimate, not a bill.
+- Activated PWA cache skd-shell-0.5.0-8. TT local:355EEBAA-8EFF-4AB2-8567-E93AE3C8D322 / SKD-CLAUDE-01.
+
+---
+
 # Sessions naming — 2026-09-20
 
 - Renamed the single-agent view, project links, history and entry actions to Sessions; Agent identifies Codex. Canonical URLs use sessions; old codex links still load. APIs and records remain unchanged. Multi-turn continuation and Claude are not implemented in this naming slice, and the form states that follow-up messages are unavailable.
