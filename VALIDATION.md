@@ -1,3 +1,27 @@
+# Full-height 3:2 editor and session-style controls — 2026-09-21
+
+- Editor fills the available viewport remainder. Flow and inspector share equal height
+  in a 3:2 grid, each with independent overflow scrolling. Selection preserves the
+  flow scroll position; mobile stacks bounded scrolling panels. Placeholder fills the
+  same right panel before selection.
+- Agent-step model selection uses session-style radio pills from the installed Codex
+  catalog, and effort uses a discrete model-dependent slider. Saved/custom model labels
+  stay intact; custom labels remain available under a disclosure. Catalog failures do
+  not erase configuration. Added valid none/minimal/xhigh effort storage so session
+  catalog selections persist without weakening provider validation at execution time.
+- 65 Node tests pass. Editor, accessibility and workflow browser suites pass. Editor
+  regression covers equal heights, 3:2 width, independent overflow, five screen widths,
+  model pill selection, keyboard slider and xhigh save/reload, plus custom labels.
+- Actual localhost inspection: width ratio 1.49998, both panels 686.21875px high.
+  At 650px viewport height the columns scrolled separately to 90px and 60px while
+  document scroll stayed zero; selecting another step retained the flow offset.
+  Mobile had no overflow, live checks made no API writes, saved-state hashes unchanged.
+  Captured/inspected output/editor-panels-desktop.png; evidence in
+  output/editor-panels-receipt.json. Restarted only after confirming no active runs.
+  PWA cache skd-shell-0.5.0-14; existing windows can choose Update app.
+
+---
+
 # Stable flow editor columns and Run label — 2026-09-21
 
 - Removed selection-dependent desktop/tablet grid widths and gaps. The canvas retains

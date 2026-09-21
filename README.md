@@ -50,7 +50,7 @@ Existing workflows and runs migrate to **Unassigned**. A byte-exact schema-1 bac
 ## First experiment
 
 1. Choose a project. Existing **Plan, review, build** and other flows are in **Unassigned**; use **Move** to assign them, or create a workflow inside your project.
-2. Select a step to edit its name, model label, effort and instructions. Use **Add a step** for an Agent, My review, or Check. Move steps with the up/down controls.
+2. Select a step to edit its name and instructions, choose a model pill, and set effort with the slider. Custom model labels remain available in the disclosure. The desktop editor uses equal-height, independently scrolling columns in a 3:2 ratio. Use **Add a step** for an Agent, My review, or Check. Move steps with the up/down controls.
 3. Configure a review's change-request limit and earlier agent to return to. Moving/removing that target turns off the invalid return and tells you.
 4. **Save flow**. Duplicate it to try a different arrangement.
 5. **Try flow** opens the task and acceptance checks. **Start simulation** freezes this version of the flow.

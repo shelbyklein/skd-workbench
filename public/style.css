@@ -43,3 +43,15 @@
 @media(max-width:600px){#issues-view{padding:0 16px 24px}.issues-filters{width:100%;flex-wrap:wrap}.proposal-card{padding:12px}.issue-heading{align-items:flex-start}.issues-layout{gap:14px}}
 
 .issue-edit .pill-field{margin:0 0 8px}.issue-edit label{margin-top:0}#issue-effort{width:100%;accent-color:var(--accent);padding:0;margin:0}#issue-effort-value{color:var(--accent)}.issue-edit .effort-ticks{margin-bottom:4px}
+
+/* The flow and inspector share the viewport remainder and scroll independently. */
+.flow-editor-main{height:100dvh;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.flow-editor-main>.topbar,.flow-editor-main>.page-heading,.flow-editor-main>.run-task-summary{flex-shrink:0}
+.flow-editor-main>.page-heading{width:100%;max-width:none}
+.flow-editor-main .editor-layout,.flow-editor-main .editor-layout.has-inspector{flex:1;min-height:0;width:100%;max-width:none;margin:0;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:28px;align-items:stretch;overflow:hidden}
+.flow-editor-main .editor-layout>.canvas,.flow-editor-main .editor-layout>.inspector,.flow-editor-main .editor-layout>.quiet-note{min-height:0;height:100%;max-width:none;align-self:stretch;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.flow-editor-main .editor-layout>.quiet-note{padding:28px;border:1px solid var(--line);border-radius:10px;background:var(--white)}
+.flow-editor-main .step-list{max-width:none;width:100%}
+#step-effort{width:100%;accent-color:var(--accent);padding:0;margin:10px 0}#step-effort-value{float:right;color:var(--accent)}
+.inspector .pill-field{margin-top:22px}.inspector .choice-pill{margin:0}.inspector .effort-ticks{gap:8px;flex-wrap:wrap;margin-bottom:16px}.custom-step-model{margin:16px 0;color:var(--muted);font-size:12px}
+@media(max-width:800px){.flow-editor-main{height:auto;overflow:visible}.flow-editor-main .editor-layout,.flow-editor-main .editor-layout.has-inspector{flex:none;grid-template-columns:minmax(0,1fr);overflow:visible}.flow-editor-main .editor-layout>.canvas,.flow-editor-main .editor-layout>.inspector{height:65dvh;min-height:320px}.flow-editor-main .editor-layout>.quiet-note{display:none}}
