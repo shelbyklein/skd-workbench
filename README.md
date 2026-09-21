@@ -289,3 +289,13 @@ runs. The terminal accepts follow-up instructions. **Open plan** returns to the 
 planning session; reloading does not launch it again. **Save draft** only stores inputs.
 Planning uses the existing clean-Git/worktree and CLI permission requirements. A
 created Markdown plan is a draft, not automatic approval or orchestration execution.
+
+### Project quick actions
+
+Three full-column cards above the Git readout start interactive CLI sessions: **Reconcile to main**, **New collaboration session**, and **Suggest what to do next**. Each has an icon, title and description. Settings saves project-scoped agent/model/effort and playbook selections; successful ordinary sessions seed the defaults until an explicit quick-action preset is saved. Reset clears the preset. Provider availability and playbook resources are checked again before launch; changed saved playbooks require review in Settings.
+
+Collaboration opens a fresh retained worktree with no submitted prompt. Suggestions start a read-only CLI with project Git inventory, available open issue summaries and recent session outcomes. Suggestions and reconciliation exclude MCP connections while retaining eligible skills. A launch key is persisted before execution; duplicate requests or a lost response recover the original session, never another process. Reopening a session only reconnects. Interrupted preparation is never restarted automatically.
+
+Reconcile is an explicit repository-writing mode, separate from ordinary worktree sessions. It runs in the existing main checkout when available, otherwise the connected repository, with access to registered worktree folders and the common Git directory. It retains Codex on-request or Claude manual permission prompts. Its prompt directs the CLI to inspect ownership and dirty work, integrate pending commits, resolve unambiguous conflicts, run relevant checks and synchronize local/remote main. It excludes force pushes, destructive resets and automatic cleanup. Existing Git operations, incomplete history/inventory, missing main and ambiguous remotes block launch. Benchmarks expose collaboration only.
+
+After a reconciliation CLI exits successfully, Workbench independently checks local/remote main equality, containment of inventoried commits and clean worktrees. This is Git evidence, not test acceptance: review the CLI check results. Dirty work present at launch, unknown state, failed checks, cancellation, remote failure or interruption remain explicitly unverified. Protected branches and external writers must be handled in the CLI. Quick-action preferences and request records live in `quick-actions.json` in the server data directory; APIs remain network-only.

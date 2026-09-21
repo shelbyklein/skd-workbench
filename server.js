@@ -1,3 +1,4 @@
+import {QuickActions} from './lib/quick-actions.js';
 import {Settings,instructionFiles} from './lib/settings.js';
 import {createFolderPicker} from './lib/folder-picker.js';
 import {captureIssueSteps} from './lib/issue-steps.js';
@@ -21,7 +22,7 @@ import {Connections} from './lib/connections.js';
 import {GitStatus} from './lib/git-status.js';
 import {Playbooks} from './lib/playbooks.js';
 const root = path.dirname(fileURLToPath(import.meta.url));
-const files = {'/git-status-ui.js':'git-status-ui.js','/agent-card.js':'agent-card.js','/planning-ui.js':'planning-ui.js','/knowledge-ui.js':'knowledge-ui.js','/skills-ui.js':'skills-ui.js','/connections-ui.js':'connections-ui.js','/playbooks-ui.js':'playbooks-ui.js','/settings-ui.js':'settings-ui.js','/markdown.js':'markdown.js','/theme.js':'theme.js','/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
+const files = {'/quick-actions-ui.js':'quick-actions-ui.js','/git-status-ui.js':'git-status-ui.js','/agent-card.js':'agent-card.js','/planning-ui.js':'planning-ui.js','/knowledge-ui.js':'knowledge-ui.js','/skills-ui.js':'skills-ui.js','/connections-ui.js':'connections-ui.js','/playbooks-ui.js':'playbooks-ui.js','/settings-ui.js':'settings-ui.js','/markdown.js':'markdown.js','/theme.js':'theme.js','/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
   '/icons/icon-192.png':'icons/icon-192.png','/icons/icon-512.png':'icons/icon-512.png','/icons/maskable-512.png':'icons/maskable-512.png','/icons/apple-touch-icon.png':'icons/apple-touch-icon.png'};
 const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
 async function body(req) {
@@ -31,7 +32,7 @@ async function body(req) {
   try { const parsed=JSON.parse(result); assert(parsed && typeof parsed==='object' && !Array.isArray(parsed),'Expected a JSON object.'); return parsed; }
   catch(e) { if(e instanceof Problem) throw e; throw new Problem('Invalid JSON.'); }
 }
-export function createServer({directory = process.env.FLOW_BENCH_DATA || path.join(root,'.data'), publicDirectory=path.join(root,'public'), codexOptions={},claudeOptions={},terminalOptions={},githubOptions={},skillsOptions={},connectionsOptions={},gitStatusOptions={},folderPicker=createFolderPicker()} = {}) {
+export function createServer({directory = process.env.FLOW_BENCH_DATA || path.join(root,'.data'), publicDirectory=path.join(root,'public'), codexOptions={},claudeOptions={},terminalOptions={},githubOptions={},skillsOptions={},connectionsOptions={},gitStatusOptions={},quickActionOptions={},folderPicker=createFolderPicker()} = {}) {
   const store = new Store(directory);
   const gitStatus=new GitStatus(gitStatusOptions);
   const globalSettings=new Settings(directory);
@@ -43,6 +44,7 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
   const captureIssues=async(flow,project)=>{const snapshots=await captureIssueSteps(flow,project,github);assert(store.snapshot().flows.some(f=>f.id===flow.id&&f.version===flow.version&&f.projectID===project.id)&&store.project(project.id).version===project.version,'Flow or project changed while reading issues. Reload before running.',409);return snapshots;};
   const workflows = new Workflows(directory,codex,{captureIssues});
   const terminals = new TerminalSessions(directory,codex,{...terminalOptions,skills,connections:mcpConnections,playbooks});
+  const quickActions=new QuickActions(directory,{terminals,github,project:id=>store.project(id),...quickActionOptions});
   const proposals=new IssueProposals(directory,codex,github);
   const issueWork=new IssueWork(directory,{github,terminals,providers:agent=>agent==='claude'?codex.discoverClaude():codex.discover()});
   const server = http.createServer(async (req,res)=>{
@@ -108,7 +110,11 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       if(workflow&&req.method==='POST'&&workflow[2])return json(workflows.action(workflow[1],await body(req)));
       const terminalProvider=pathname.match(/^\/api\/terminal-agents\/(codex|claude)$/);
       if(req.method==='GET'&&terminalProvider){try{return json(await terminals.provider(terminalProvider[1]));}catch(e){return json({error:e.code==='ENOENT'?'Agent CLI not installed.':e.message},503);}}
-      if(req.method==='POST'&&pathname==='/api/terminal-sessions'){const input=await body(req);delete input.initialPrompt;delete input.task;return json(await terminals.start(input,store.project(input.projectID)),202);}
+      const quickRequest=pathname.match(/^\/api\/projects\/([\w-]+)\/quick-actions\/requests\/([\w-]{8,100})$/);
+      if(quickRequest&&req.method==='GET')return json(quickActions.request(store.project(quickRequest[1]),quickRequest[2]));
+      const quickAction=pathname.match(/^\/api\/projects\/([\w-]+)\/quick-actions$/);
+      if(quickAction){const project=store.project(quickAction[1]);if(req.method==='GET')return json(quickActions.settings(project));if(req.method==='PUT')return json(await quickActions.save(project,await body(req)));if(req.method==='POST')return json(await quickActions.start(project,await body(req)),202);}
+      if(req.method==='POST'&&pathname==='/api/terminal-sessions'){const raw=await body(req),input=Object.fromEntries(['projectID','agent','model','effort','mode','playbook','skills','connections'].filter(key=>Object.hasOwn(raw,key)).map(key=>[key,raw[key]]));assert(['read-only','worktree'].includes(input.mode),'Choose a workspace.');const project=store.project(input.projectID),session=await terminals.start(input,project);quickActions.remember(project,input);return json(session,202);}
       const terminal=pathname.match(/^\/api\/terminal-sessions\/([\w-]+)(?:\/(output|input|resize|stop))?$/);
       if(terminal){const [,id,action]=terminal;
         if(req.method==='GET'&&action==='output')return json(terminals.output(id,Number(url.searchParams.get('cursor')||0)));

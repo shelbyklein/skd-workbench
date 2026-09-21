@@ -1,3 +1,4 @@
+import {mountQuickActions} from './quick-actions-ui.js';
 import {mountGitStatus} from './git-status-ui.js';
 import {agentCard,requireAgentCards,primeAgentCache} from './agent-card.js';
 import {mountPlanning} from './planning-ui.js';
@@ -27,7 +28,7 @@ const typeName={agent:'Agent',human:'My review',check:'Check'};
 const symbol={agent:'✳',human:'◉',check:'✓'};
 let toastTimer;
 const reviewDrafts=new Map();
-function toast(message) { $('#toast').textContent=message; $('#toast').classList.add('visible'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('#toast').classList.remove('visible'),4200); }
+function toast(message) { const el=$('#toast');if(!el)return;el.textContent=message;el.classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('visible'),4200); }
 async function api(route,method='GET',body) {
   let response;
   try{response=await fetch('/api/'+route,{method,headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});}
@@ -249,6 +250,7 @@ function mountProjectWidgets(project){
  const dashboard=views.previousElementSibling;
  const gitWidget=document.createElement('article');gitWidget.className='project-widget git-status-widget';dashboard.prepend(gitWidget);
  mountGitStatus(gitWidget,project,api);
+ const quickHost=document.createElement('section');dashboard.prepend(quickHost);mountQuickActions(quickHost,{project,api,confirmLeave,onOpen:openProjectSession});
  loadPriorityIssues(project);loadLastSession(project);
 }
 function renderProjectOverview(){
