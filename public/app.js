@@ -1,3 +1,4 @@
+import {mountDelegation} from './delegations-ui.js';
 import {openSessionImport} from './session-import-ui.js';
 import {mountQuickActions} from './quick-actions-ui.js';
 import {mountGitStatus} from './git-status-ui.js';
@@ -21,6 +22,7 @@ let planningView=null,planningRunID=null;
 let knowledgeView=null;
 let skillsView=null,connectionsView=null,playbooksView=null;
 let workflowView=null,workflowRunID=null;
+let delegationView=null,delegationRunID=null;
 let quickActionsView=null;
 let codexView=null,codexRunID=null,codexPrefill='';
 let projectID='unassigned';
@@ -44,8 +46,8 @@ const currentProject=()=>data.projects.find(p=>p.id===projectID)||data.projects[
 function markDirty() { dirty=true; const save=$('#save'); if(save) save.disabled=false; }
 function confirmLeave(action) {
   if($('#dialog').dataset.sessionImport){toast('Finish or close the import dialog before leaving.');return;}
-  if(quickActionsView?.isPending()||issuesView?.isPending()||codexView?.isPending()||workflowView?.isPending()||skillsView?.isPending()||connectionsView?.isPending()||playbooksView?.isPending()){toast('Wait for the current request to finish before leaving.');return;}
-  if(!dirty&&!issuesView?.isDirty()&&!codexView?.isDirty()&&!workflowView?.isDirty()&&!skillsView?.isDirty()&&!connectionsView?.isDirty()&&!playbooksView?.isDirty()) return action();
+  if(delegationView?.isPending()||quickActionsView?.isPending()||issuesView?.isPending()||codexView?.isPending()||workflowView?.isPending()||skillsView?.isPending()||connectionsView?.isPending()||playbooksView?.isPending()){toast('Wait for the current request to finish before leaving.');return;}
+  if(!dirty&&!delegationView?.isDirty()&&!issuesView?.isDirty()&&!codexView?.isDirty()&&!workflowView?.isDirty()&&!skillsView?.isDirty()&&!connectionsView?.isDirty()&&!playbooksView?.isDirty()) return action();
   modal('Keep your changes?', '<p>You have unsaved changes. Save them or discard them before leaving.</p>', [{label:'Keep editing',close:true},{label:'Discard changes',run:()=>{dirty=false;action();}}]);
 }
 function openFlow(flowID) { confirmLeave(()=>{const flow=data.flows.find(f=>f.id===flowID); if(!flow)return; projectID=flow.projectID;draft=clone(flow);selected=null;view='flow';dirty=false;render();}); }
@@ -90,7 +92,8 @@ function breadcrumbs() {
       if(codexRunID)items.push({name:'Session'});
     }else{
       items.push({name:'Workflows',view:'overview',href:'#workflows/'+projectID});
-      if(view==='flow')items.push({name:draft?.name||'Flow editor'});
+      if(view==='delegation')items.push({name:'Delegation'});
+      else if(view==='flow')items.push({name:draft?.name||'Flow editor'});
       else if(view==='workflow'){
         items.push({name:'Workflow runs',view:'workflow',href:'#workflow/'+projectID});
         if(workflowRunID)items.push({name:'Run'});
@@ -109,7 +112,7 @@ function viewIcon(key){
  return `<svg class="view-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[key]}</svg>`;
 }
 function projectNavigation(){
- const active=['flow','workflow','history','run','compare'].includes(view)?'overview':view==='planning'?'issues':view;
+ const active=['flow','workflow','delegation','history','run','compare'].includes(view)?'overview':view==='planning'?'issues':view;
  const routes={overview:'workflows',codex:'sessions'};
  return `<a class="sidebar-all-projects" href="#home" data-crumb-view="projects">← All projects</a><button class="sidebar-project-title" data-sidebar-project="${esc(projectID)}" aria-current="${view==='project'?'page':'false'}">${esc(currentProject().name)}</button><nav class="project-list project-view-list" aria-label="Project views">${projectViews.map(([key,name])=>key==='scratchpad'?`<button class="project-link" disabled title="Scratchpad is planned">${viewIcon(key)}<span>${name}<small>Planned</small></span></button>`:`<a class="project-link ${active===key?'active':''}" href="#${routes[key]||key}/${encodeURIComponent(projectID)}" data-sidebar-view="${key}" ${active===key?'aria-current="page"':''}>${viewIcon(key)}<span>${name}</span></a>`).join('')}</nav>`;
 }
@@ -165,9 +168,9 @@ function bindCommon() {
 }
 function render() {
   quickActionsView=null;
-  connectionsView?.dispose();connectionsView=null;skillsView?.dispose();skillsView=null;playbooksView?.dispose();playbooksView=null;knowledgeView?.dispose();knowledgeView=null;planningView?.dispose();planningView=null;issuesView?.dispose();issuesView=null;codexView?.dispose();codexView=null;workflowView?.dispose();workflowView=null;
+  delegationView?.dispose();delegationView=null;connectionsView?.dispose();connectionsView=null;skillsView?.dispose();skillsView=null;playbooksView?.dispose();playbooksView=null;knowledgeView?.dispose();knowledgeView=null;planningView?.dispose();planningView=null;issuesView?.dispose();issuesView=null;codexView?.dispose();codexView=null;workflowView?.dispose();workflowView=null;
   const nextHash='#'+routePath();if(location.hash!==nextHash)history.pushState(null,'',nextHash);lastRenderedHash=nextHash;
-  if(view==='invalid')renderInvalidRoute();else if(view==='projects')renderProjects();else if(view==='knowledge-global')renderKnowledgeHome();else if(view==='knowledge')renderKnowledgeProject();else if(view==='skills-global'||view==='skills')renderSkills();else if(view==='connections-global'||view==='connections')renderConnections();else if(view==='playbooks-global'||view==='playbooks')renderPlaybooks();else if(view==='project')renderProjectOverview();else if(view==='planning')renderPlanning();else if(view==='system')renderSystem();else if(view==='issues')renderIssues();else if(view==='overview')renderOverview();else if(view==='workflow')renderWorkflow();else if(view==='codex')renderCodex();else if(view==='flow')renderFlow(); else if(view==='run')renderRun(); else if(view==='compare')renderCompare();else renderHistory();
+  if(view==='invalid')renderInvalidRoute();else if(view==='projects')renderProjects();else if(view==='knowledge-global')renderKnowledgeHome();else if(view==='knowledge')renderKnowledgeProject();else if(view==='skills-global'||view==='skills')renderSkills();else if(view==='connections-global'||view==='connections')renderConnections();else if(view==='playbooks-global'||view==='playbooks')renderPlaybooks();else if(view==='project')renderProjectOverview();else if(view==='planning')renderPlanning();else if(view==='system')renderSystem();else if(view==='issues')renderIssues();else if(view==='overview')renderOverview();else if(view==='delegation')renderDelegation();else if(view==='workflow')renderWorkflow();else if(view==='codex')renderCodex();else if(view==='flow')renderFlow(); else if(view==='run')renderRun(); else if(view==='compare')renderCompare();else renderHistory();
 }
 function renderInvalidRoute(){shell(`<section class="empty"><h1>Page unavailable</h1><p>${esc(routeError||'This project page does not exist.')}</p><button id="invalid-home">Return home</button></section>`);$('#invalid-home').onclick=()=>{view='projects';routeError='';render();};}
 let projectTagFilters=new Set(),projectLayout='grid';
@@ -293,7 +296,8 @@ function renderPlaybooks(){
 }
 function renderOverview(){
  const flows=scopedFlows(),scope=projectID;
- shell(`<section class="page-heading"><div><div class="eyebrow">${esc(currentProject().name)}</div><h1>Workflows</h1></div><button class="primary" data-action="new">Create a flow</button></section><section class="workflow-overview"><div class="overview-section-heading"><h2>Your workflows</h2><span>${flows.length} saved</span></div><div class="overview-grid">${flows.map(f=>`<button class="overview-flow" data-overview-flow="${f.id}"><span class="eyebrow">${f.steps.length} STEPS · V${f.version}</span><strong>${esc(f.name)}</strong><span>${f.steps.filter(s=>s.type==='agent').map(s=>esc(s.model)+' · '+esc(s.effort)).join(' → ')||'Add steps to get started'}</span><span class="overview-flow-footer">Open workflow <span aria-hidden="true">↗</span></span></button>`).join('')||'<p class="overview-empty">No workflows in this project yet. Create one to get started.</p>'}</div><section class="overview-runs"><div class="overview-section-heading"><h2>Recent workflow runs</h2><button class="text-button" id="open-workflows">All workflow runs →</button></div><div id="overview-recent"><p>Loading recent runs…</p></div></section><div class="overview-tools"><button data-action="history">Run history <small>Simulation walkthroughs</small></button><button id="open-codex">Sessions <small>Work with an agent</small></button></div></section>`);
+ shell(`<section class="page-heading"><div><div class="eyebrow">${esc(currentProject().name)}</div><h1>Workflows</h1></div><div class="heading-actions"><button id="open-delegation">Delegate task</button><button class="primary" data-action="new">Create a flow</button></div></section><section class="workflow-overview"><div class="overview-section-heading"><h2>Your workflows</h2><span>${flows.length} saved</span></div><div class="overview-grid">${flows.map(f=>`<button class="overview-flow" data-overview-flow="${f.id}"><span class="eyebrow">${f.steps.length} STEPS · V${f.version}</span><strong>${esc(f.name)}</strong><span>${f.steps.filter(s=>s.type==='agent').map(s=>esc(s.model)+' · '+esc(s.effort)).join(' → ')||'Add steps to get started'}</span><span class="overview-flow-footer">Open workflow <span aria-hidden="true">↗</span></span></button>`).join('')||'<p class="overview-empty">No workflows in this project yet. Create one to get started.</p>'}</div><section class="overview-runs"><div class="overview-section-heading"><h2>Recent workflow runs</h2><button class="text-button" id="open-workflows">All workflow runs →</button></div><div id="overview-recent"><p>Loading recent runs…</p></div></section><div class="overview-tools"><button data-action="history">Run history <small>Simulation walkthroughs</small></button><button id="open-codex">Sessions <small>Work with an agent</small></button></div></section>`);
+ $('#open-delegation').onclick=()=>confirmLeave(()=>{delegationRunID=null;view='delegation';render();});
  document.querySelectorAll('[data-overview-flow]').forEach(b=>b.onclick=()=>openFlow(b.dataset.overviewFlow));
  const host=$('#overview-recent');
  api('workflows?projectID='+encodeURIComponent(scope)).then(runs=>{
@@ -492,13 +496,13 @@ function renderHistory(){
   });
   $('#compare-runs').onclick=()=>{view='compare';render();};
 }
-const hasUnsaved=()=>dirty||quickActionsView?.isPending()||issuesView?.isDirty()||issuesView?.isPending()||codexView?.isDirty()||workflowView?.isDirty()||skillsView?.isDirty()||skillsView?.isPending()||connectionsView?.isDirty()||connectionsView?.isPending()||playbooksView?.isDirty()||playbooksView?.isPending()||[...reviewDrafts.values()].some(Boolean)||$('#dialog').open||busy;
+const hasUnsaved=()=>dirty||delegationView?.isDirty()||delegationView?.isPending()||quickActionsView?.isPending()||issuesView?.isDirty()||issuesView?.isPending()||codexView?.isDirty()||workflowView?.isDirty()||skillsView?.isDirty()||skillsView?.isPending()||connectionsView?.isDirty()||connectionsView?.isPending()||playbooksView?.isDirty()||playbooksView?.isPending()||[...reviewDrafts.values()].some(Boolean)||$('#dialog').open||busy;
 let loaded=false;
 window.addEventListener('beforeunload',e=>{if(hasUnsaved()){e.preventDefault();e.returnValue='';}});
 let lastRenderedHash='';
-function routePath(){return view==='invalid'?(location.hash.slice(1)||'home'):view==='projects'?'home':view==='knowledge-global'?'knowledge':view==='knowledge'?'knowledge/'+projectID:view==='skills-global'?'skills':view==='skills'?'skills/'+projectID:view==='connections-global'?'connections':view==='connections'?'connections/'+projectID:view==='playbooks-global'?'playbooks':view==='playbooks'?'playbooks/'+projectID:view==='issues'?'issues/'+projectID+(issueNumber?'/'+issueNumber:'')+(issueProposalID?'/proposals/'+issueProposalID:issueEditMode?'/edit':''):view==='planning'?'planning/'+projectID+'/'+planningRunID:view==='system'?'system/'+projectID:view==='overview'?'workflows/'+projectID:view==='workflow'?'workflow/'+projectID+(workflowRunID?'/'+workflowRunID:''):view==='codex'?'sessions/'+projectID+(codexRunID?'/'+codexRunID:''):view==='compare'?'compare/'+compareIDs.join(','):view==='run'?'run/'+runID:view==='flow'&&draft?'flow/'+draft.id:view==='history'?'history/'+projectID:'project/'+projectID;}
+function routePath(){return view==='invalid'?(location.hash.slice(1)||'home'):view==='projects'?'home':view==='knowledge-global'?'knowledge':view==='knowledge'?'knowledge/'+projectID:view==='skills-global'?'skills':view==='skills'?'skills/'+projectID:view==='connections-global'?'connections':view==='connections'?'connections/'+projectID:view==='playbooks-global'?'playbooks':view==='playbooks'?'playbooks/'+projectID:view==='issues'?'issues/'+projectID+(issueNumber?'/'+issueNumber:'')+(issueProposalID?'/proposals/'+issueProposalID:issueEditMode?'/edit':''):view==='planning'?'planning/'+projectID+'/'+planningRunID:view==='system'?'system/'+projectID:view==='overview'?'workflows/'+projectID:view==='delegation'?'delegation/'+projectID+(delegationRunID?'/'+delegationRunID:''):view==='workflow'?'workflow/'+projectID+(workflowRunID?'/'+workflowRunID:''):view==='codex'?'sessions/'+projectID+(codexRunID?'/'+codexRunID:''):view==='compare'?'compare/'+compareIDs.join(','):view==='run'?'run/'+runID:view==='flow'&&draft?'flow/'+draft.id:view==='history'?'history/'+projectID:'project/'+projectID;}
 function applyRoute(hash=location.hash){
- const route=hash.slice(1).split('/');view='projects';routeError='';issueNumber=null;issueProposalID=null;issueEditMode=false;planningRunID=null;workflowRunID=null;codexRunID=null;runID=null;compareIDs=[];
+ const route=hash.slice(1).split('/');view='projects';routeError='';issueNumber=null;issueProposalID=null;issueEditMode=false;planningRunID=null;delegationRunID=null;workflowRunID=null;codexRunID=null;runID=null;compareIDs=[];
  if(route[0]==='planning'){projectID=route[1];planningRunID=route[2];view='planning';}
  else if(route[0]==='knowledge'&&!route[1])view='knowledge-global';
  else if(route[0]==='knowledge'&&data.projects.some(p=>p.id===route[1])){projectID=route[1];view='knowledge';}
@@ -511,6 +515,7 @@ function applyRoute(hash=location.hash){
  else if(['skills','connections','playbooks','knowledge'].includes(route[0])){view='invalid';routeError='That project resource page is unavailable. Return home and choose a connected project.';}
  else if(route[0]==='system'&&data.projects.some(p=>p.id===route[1])){projectID=route[1];view='system';}
  else if(route[0]==='issues'){view='issues';projectID=route[1]||'unassigned';issueNumber=/^[1-9][0-9]*$/.test(route[2]||'')?Number(route[2]):null;issueProposalID=issueNumber&&route[3]==='proposals'&&/^[\w-]+$/.test(route[4]||'')?route[4]:null;issueEditMode=!!issueNumber&&route[3]==='edit';}
+ else if(route[0]==='delegation'){view='delegation';projectID=route[1]||'unassigned';delegationRunID=route[2]||null;}
  else if(route[0]==='workflow'){view='workflow';projectID=route[1]||'unassigned';workflowRunID=route[2]||null;}
  else if(['sessions','codex'].includes(route[0])){view='codex';projectID=route[1]||'unassigned';codexRunID=route[2]||null;}
  else if(route[0]==='run'&&data.runs.some(r=>r.id===route[1])){runID=route[1];view='run';projectID=data.runs.find(r=>r.id===runID).projectID;}
@@ -725,4 +730,11 @@ async function fillFolderRepositories(){
 function renderPlanning(){
  shell('<section class="page-heading"><div><h1>Create plan</h1></div></section><section class="workflow-overview" id="planning-view"></section>');
  planningView=mountPlanning({host:$('#planning-view'),projectID,runID:planningRunID,api});
+}
+
+function renderDelegation(){
+ const project=data.projects.find(p=>p.id===projectID);if(!project){shell('<p>Project not found.</p>');return;}
+ shell(`<section class="page-heading"><div><h1>Delegation</h1><p>${esc(project.name)}</p></div>${delegationRunID?'<button id="delegation-history">New delegation and history</button>':''}</section><section id="delegation-view" class="codex-view"></section>`);
+ if($('#delegation-history'))$('#delegation-history').onclick=()=>confirmLeave(()=>{delegationRunID=null;render();});
+ delegationView=mountDelegation({host:$('#delegation-view'),project,runID:delegationRunID,api,notify:toast,onOpen:id=>confirmLeave(()=>{delegationRunID=id;view='delegation';render();})});
 }
