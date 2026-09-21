@@ -292,7 +292,7 @@ created Markdown plan is a draft, not automatic approval or orchestration execut
 
 ### Project quick actions
 
-Three full-column cards above the Git readout start interactive CLI sessions: **Reconcile to main**, **New collaboration session**, and **Suggest what to do next**. Each has an icon, title and description. Settings saves project-scoped agent/model/effort and playbook selections; successful ordinary sessions seed the defaults until an explicit quick-action preset is saved. Reset clears the preset. Provider availability and playbook resources are checked again before launch; changed saved playbooks require review in Settings.
+Three equal-width cards in one row above the Git readout (stacked on narrow screens) start interactive CLI sessions: **Reconcile to main**, **New collaboration session**, and **Suggest what to do next**. Each has an icon, title and description. Settings saves project-scoped agent/model/effort and playbook selections; successful ordinary sessions seed the defaults until an explicit quick-action preset is saved. Reset clears the preset. Provider availability and playbook resources are checked again before launch; changed saved playbooks require review in Settings.
 
 Collaboration opens a fresh retained worktree with no submitted prompt. Suggestions start a read-only CLI with project Git inventory, available open issue summaries and recent session outcomes. Suggestions and reconciliation exclude MCP connections while retaining eligible skills. A launch key is persisted before execution; duplicate requests or a lost response recover the original session, never another process. Reopening a session only reconnects. Interrupted preparation is never restarted automatically.
 
