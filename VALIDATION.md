@@ -1,3 +1,28 @@
+# SKD Workbench 0.5.0 — real Codex workflows, 2026-09-20
+
+## Delivered
+
+Saved workflows now execute sequentially through Codex with explicit per-step model/effort mapping, immutable launch snapshots, full prior-output/review-note handoffs, a shared isolated coding worktree, human review pauses, bounded change requests, manual verification gates, retained attempts and aggregate usage. Existing simulations and single-task runs remain separate. Flow design now offers Run with Codex as its primary action; Try flow stays a preview.
+
+Failed/interrupted steps require an explicit retry. A workflow owns the executor until it finishes or is stopped, including while waiting for human review. Stale review revisions are rejected. Overall agent-attempt cap and existing runtime/output caps are enforced; none is represented as a token/dollar limit. Oversized handoffs fail visibly without truncation. Startup retains review gates and marks active steps interrupted without relaunching paid work. Prior attempt output remains inspectable if the server stopped between child completion and workflow advancement; retry may repeat that step, so the UI directs inspection first.
+
+## Evidence
+
+- Full Node suite passed **33 tests**. Final focused workflow suite passed **8 tests**, including two subsequently added checks for active-child cancellation and oversized handoff (35 combined tests). Other workflow checks cover actual subprocess handoffs, shared-worktree edits/source preservation, bounded revisions, evidence-required Check steps, usage aggregation, immutable mapping, invalid model rejection, stale revisions, attempt caps, provider failure, review recovery and stopping during discovery before a paid launch.
+- All **seven Chrome browser suites** passed: six established suites passed in the regression run; the new workflow suite passed after correcting its asynchronous history assertion and passed again against final UI changes. Covers explicit mapping, launch, escaped output, review-note preservation, retries/retained attempts, reload at a gate, verification evidence, aggregate usage, scoped history and 390px layout. No page errors.
+- Manual **real Codex** workflow (`scripts/smoke-workflow.mjs`) executed through the browser form using installed CLI/ChatGPT auth, gpt-5.6-sol low. First agent read a code; the flow paused before any second call/file creation. After an explicit test review action, the second agent used the prior output to create `handoff.txt` in the **same worktree**. Exact bytes checked; original checkout unchanged. Final review completed the workflow.
+- Real reported usage across two attempts: **78,108 input**, **455 output**, **46,080 cached input**. Total **78,563** = input + output; cached input is already included. Both attempts reported usage. This is a smoke-test observation, not a price quote or controlled model-efficiency comparison.
+- Receipt: ignored `output/workflow-live-receipt.json`. Inspected screenshots: `output/workflow-live-review.png`, `output/workflow-live-result.png`, `output/workflow-fixture-desktop.png`, `output/workflow-fixture-mobile.png`, and deployed `output/workflow-live-entry.png`.
+- Local app activated at `http://127.0.0.1:4390`, reporting v0.5.0 with no page errors. Checked no active Codex tasks before restarting. Existing `.data/store.json` SHA-256 before/after activation: `f39bdfcf4967285e187ddbb8a42858e75e67eff2248a31df956cd32b2f421f67`. No user flow migration/replacement. New workflow history is in `.data/workflows.json`; child executions remain in `.data/codex-runs.json`.
+
+TT plan: `local:A8F03069-7FC7-46B1-9A4D-ABF7578081F5`; run `2FBADA5A-FAA6-4A99-A393-E22BD045E8BD`; TT-WORKFLOW-01 through 03. Session watcher linked to verified current session; explicit progress maintained.
+
+## Remaining increments
+
+Other providers, real-run comparison UI, dollar estimates, automatic merge and independent automated test verdicts remain unimplemented. Check steps record human-provided evidence. Codex-only model review is possible by choosing different Codex models per agent; no Opus/Fable provider support is implied. Every worktree is retained for review; no automatic cleanup removes unfinished changes. Existing PWA windows use Update app after saving drafts.
+
+---
+
 # SKD Workbench 0.4.0 — real Codex execution, 2026-09-20
 
 ## Implemented and activated

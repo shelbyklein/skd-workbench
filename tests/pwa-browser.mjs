@@ -23,7 +23,7 @@ try{
  const before=await(await fetch(url+'/api/state')).json();
  await context.setOffline(true);await page.reload();await page.getByRole('heading',{name:'Start your workbench.'}).waitFor();
  const failed=await page.evaluate(async()=>{const r=await fetch('/api/flows',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Must not be queued'})});return {status:r.status,body:await r.json()};});assert.equal(failed.status,503);assert.equal(failed.body.code,'SERVER_UNAVAILABLE');
- const keys=await page.evaluate(async()=>{const keys=[];for(const name of await caches.keys())for(const r of await(await caches.open(name)).keys())keys.push(new URL(r.url).pathname);return keys;});assert(!keys.some(k=>k.startsWith('/api/')));assert.equal(keys.length,11);
+ const keys=await page.evaluate(async()=>{const keys=[];for(const name of await caches.keys())for(const r of await(await caches.open(name)).keys())keys.push(new URL(r.url).pathname);return keys;});assert(!keys.some(k=>k.startsWith('/api/')));assert.equal(keys.length,12);
  mkdirSync('output',{recursive:true});await page.screenshot({path:'output/skd-pwa-offline.png',fullPage:true});
  await context.setOffline(false);await page.locator('#retry-load').click();await page.locator('#project-picker').waitFor();
  assert.deepEqual(await(await fetch(url+'/api/state')).json(),before);
@@ -33,7 +33,7 @@ try{
  server=createServer({directory,publicDirectory});await new Promise(r=>server.listen(port,'127.0.0.1',r));await page.locator('#pwa-reconnect').click();await page.waitForFunction(()=>!document.querySelector('#pwa-reconnect'));
  assert.equal(await page.getByLabel('Step name',{exact:true}).inputValue(),'Preserved offline edit');await page.getByRole('button',{name:'Save flow',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#save').disabled);
  const other=await context.newPage();await other.goto(url);await other.locator('[data-step]').first().click();await other.getByLabel('Step name',{exact:true}).fill('Other window draft');
- const sw=path.join(publicDirectory,'sw.js');writeFileSync(sw,readFileSync(sw,'utf8').replace(/skd-shell-0\.4\.0[^']*/, 'skd-shell-test-update'));
+ const sw=path.join(publicDirectory,'sw.js');writeFileSync(sw,readFileSync(sw,'utf8').replace(/skd-shell-0\.5\.0[^']*/, 'skd-shell-test-update'));
  await page.getByLabel('Step name',{exact:true}).fill('Draft during update');
  await page.evaluate(async()=>{const reg=await navigator.serviceWorker.getRegistration();await reg.update();});await page.locator('#pwa-update').waitFor();
  await page.locator('#pwa-update').click();assert.equal(await page.getByLabel('Step name',{exact:true}).inputValue(),'Draft during update');assert.match(await page.locator('#toast').textContent(),/Save your edits/);

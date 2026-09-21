@@ -60,13 +60,25 @@ One task runs at a time. **Stop run** stops its process group; a 10-minute runti
 
 Execution uses `codex exec --json`, explicit sandbox/approval settings, `--ephemeral`, `--ignore-user-config` and `--ignore-rules`. It reuses saved CLI authentication without copying credentials into the app. Personal global config integrations are not inherited; project instructions and installed Codex behavior still apply. This is a separate task runner, not a Codex desktop task. Set `SKD_CODEX_BIN` in the server environment only if the executable is outside the usual local/Homebrew locations.
 
-**Scope:** real single-task Codex runs now work. Multi-step flow handoffs, opposing-provider reviews, automatic retry loops, merging, and real-run comparison UI are future increments. **Try flow** remains a simulation: its outputs are placeholders, its model labels are not provider selections, and its tokens/cost remain not measured. Simulation time is not model latency.
+## Execute a saved workflow
+
+Move the flow into a connected project, then open it and choose **Run with Codex**. The launch form asks for task/acceptance checks, read-only or shared-worktree mode, actual Codex model/effort for each agent, and a maximum total agent-attempt count. Use the optional all-agents model selector to deliberately assign one model to every agent. Saved labels such as Fable or Opus are not silently mapped to another provider; the original flow and explicit execution choices are both retained.
+
+Agents run sequentially. Each receives the task, acceptance checks, current step instructions, prior outputs and review notes. Inspect **Exact step input** to see the handoff. Coding agents all use one isolated worktree, including after requested revisions. All agents in coding mode have workspace-write permission; choose read-only for planning-only experiments. No automatic merge occurs.
+
+**My review** pauses until you continue or request changes. A change request requires a note and reruns from the earlier agent configured in the flow; the per-review retry limit remains enforced. Older attempts and notes remain visible. **Check** is a manual verification gate: enter evidence of the check before continuing. It does not invent a test command or claim tests passed. Actual automatic checks must be included in an agent's instructions and their output inspected.
+
+**Workflow runs** shows the live connected steps, saved outputs, per-attempt usage, and cumulative known input/output tokens across all attempts. Missing usage makes the aggregate explicitly partial; it is never replaced with zero usage. A workflow reserves the executor even while waiting for review or after a failure; finish or stop it before starting another workflow or single task. The attempt cap includes failed starts; it is not a dollar/token cap. A handoff exceeding 128,000 characters stops with an error rather than silently dropping prior output.
+
+Failures pause the sequence. Inspect the last attempt and workspace before **Retry this step**, especially after an interruption: it may already have modified files or completed a turn before the server stopped. Restarting the server preserves review gates but never automatically relaunches interrupted paid work. **Stop workflow** terminates an active child or stops at the current gate and releases the executor.
+
+**Try flow** remains a no-model simulation; historical simulations are not relabeled as real runs. Other providers, real-run comparison UI, dollar estimates and automatic merging remain future increments.
 
 Implementation reference: [official Codex non-interactive documentation](https://learn.chatgpt.com/docs/non-interactive-mode). Installed CLI help and model discovery were verified against 0.155.1.
 
 ## Your data
 
-Projects, flows and simulation snapshots are stored in `.data/store.json` on this Mac. Real Codex runs are separately stored in `.data/codex-runs.json`; worktrees are retained under `.data/worktrees/`. Back up the entire `.data/` directory while the server is stopped; do not delete worktrees containing changes you need. Flows have stable IDs and versions; runs keep immutable copies. Saves use atomic file replacement and revisions reject stale edits from another tab. Failed JSON parsing stops startup rather than replacing data. Stop the server before copying this file to back it up. `.data/` is ignored by Git.
+Projects, flows and simulation snapshots are stored in `.data/store.json` on this Mac. Real Codex attempts are separately stored in `.data/codex-runs.json`; workflow snapshots, gates and attempt links are in `.data/workflows.json`; worktrees are retained under `.data/worktrees/`. Back up the entire `.data/` directory while the server is stopped; do not delete worktrees containing changes you need. Flows have stable IDs and versions; runs keep immutable copies. Saves use atomic file replacement and revisions reject stale edits from another tab. Failed JSON parsing stops startup rather than replacing data. Stop the server before copying this file to back it up. `.data/` is ignored by Git.
 
 The server binds only to `127.0.0.1`, rejects cross-origin writes and unrecognized Host headers, and serves an explicit list of UI assets. This is a local single-user app, not a hosted service. The workbench adds no telemetry or external fonts. Real Codex execution communicates with its provider and may use network capabilities permitted by Codex.
 
@@ -80,6 +92,8 @@ npm run test:browser
 
 Browser tests use Playwright with installed Google Chrome by default (`PLAYWRIGHT_CHANNEL=chrome`). They create temporary stores, leaving your own flows untouched. Screenshots go to `output/`. Runtime has no dependency on Playwright; it is a development dependency only.
 
+- `lib/workflows.js`: persistent sequence, review transitions, shared workspace, limits and usage aggregation.
+- `public/workflows-ui.js`: explicit launch mapping and live workflow graph.
 - `lib/codex.js`: installed CLI discovery, persistent single-task execution, usage and process lifecycle.
 - `public/codex-ui.js`: real Codex task entry and results.
 - `lib/projects.js`: folder validation and bounded, read-only Git inspection.
@@ -100,3 +114,5 @@ The project lives independently at `/Users/shelbyklein/Vibes/skd-workbench`. `La
 For this delivery the server is running as a transient macOS job (`com.shelbyklein.skd-workbench`), independent of the Codex terminal. No login-item plist was installed. Stop that background instance with `launchctl remove com.shelbyklein.skd-workbench`; then use the launcher or `npm start` to run it again. Current logs are `output/server.log` and `output/server-error.log`.
 
 Manual real-provider checks (consume account usage): `node scripts/smoke-codex.mjs` and `node scripts/smoke-codex.mjs --worktree`. They use isolated fixture projects under ignored `output/`, retain receipts and screenshots, and never run against your development projects.
+
+Manual real multi-step check (consumes account usage): `node scripts/smoke-workflow.mjs`. Uses a fixture Git project, verifies no second call before review, output handoff and shared-worktree code creation, records real usage and preserves the source checkout.

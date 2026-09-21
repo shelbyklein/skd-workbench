@@ -3,12 +3,13 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
+import { Workflows } from './lib/workflows.js';
 import { CodexRuns } from './lib/codex.js';
 import { Store } from './lib/store.js';
 import { Problem, assert } from './lib/domain.js';
 import { canonicalFolder, inspectFolder } from './lib/projects.js';
 const root = path.dirname(fileURLToPath(import.meta.url));
-const files = {'/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/codex-ui.js':'codex-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
+const files = {'/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
   '/icons/icon-192.png':'icons/icon-192.png','/icons/icon-512.png':'icons/icon-512.png','/icons/maskable-512.png':'icons/maskable-512.png','/icons/apple-touch-icon.png':'icons/apple-touch-icon.png'};
 const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
 async function body(req) {
@@ -21,6 +22,7 @@ async function body(req) {
 export function createServer({directory = process.env.FLOW_BENCH_DATA || path.join(root,'.data'), publicDirectory=path.join(root,'public'), codexOptions={}} = {}) {
   const store = new Store(directory);
   const codex = new CodexRuns(directory,codexOptions);
+  const workflows = new Workflows(directory,codex);
   const server = http.createServer(async (req,res)=>{
     const json=(value,status=200)=>{res.writeHead(status,{'Content-Type':'application/json'});res.end(JSON.stringify(value));};
     res.setHeader('Cache-Control','no-store');
@@ -32,11 +34,19 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       const origin=req.headers.origin;
       assert(!origin || origin===`http://${host}`,'Cross-origin requests are not allowed.',403);
       const url=new URL(req.url,`http://${host}`), pathname=url.pathname;
-      if(req.method==='GET'&&pathname==='/api/health')return json({app:'skd-workbench',ok:true,version:'0.4.0'});
+      if(req.method==='GET'&&pathname==='/api/health')return json({app:'skd-workbench',ok:true,version:'0.5.0'});
+      if(req.method==='GET'&&pathname==='/api/workflows')return json(workflows.list(url.searchParams.get('projectID')));
+      if(req.method==='POST'&&pathname==='/api/workflows'){
+        const input=await body(req),flow=store.snapshot().flows.find(f=>f.id===input.flowID);assert(flow,'Flow not found.',404);
+        return json(await workflows.start(input,flow,store.project(flow.projectID)),202);
+      }
+      const workflow=pathname.match(/^\/api\/workflows\/([\w-]+)(\/action)?$/);
+      if(workflow&&req.method==='GET'&&!workflow[2])return json(workflows.get(workflow[1]));
+      if(workflow&&req.method==='POST'&&workflow[2])return json(workflows.action(workflow[1],await body(req)));
       if(req.method==='GET'&&pathname==='/api/codex/provider'){
         try{return json(await codex.discover());}catch(e){return json({available:false,error:e.code==='ENOENT'?'Codex CLI not found. Install it and sign in with codex login.':e.message},503);}
       }
-      if(req.method==='GET'&&pathname==='/api/codex/runs')return json(codex.list(url.searchParams.get('projectID')));
+      if(req.method==='GET'&&pathname==='/api/codex/runs')return json(codex.list(url.searchParams.get('projectID')).filter(r=>!r.workflowID));
       if(req.method==='POST'&&pathname==='/api/codex/runs'){
         const input=await body(req),project=store.project(input.projectID);
         return json(await codex.start(input,project),202);
@@ -82,8 +92,8 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       throw new Problem('Not found.',404);
     } catch(e) { json({error:e instanceof Problem?e.message:'Could not save or load data. Your previous saved state is intact.'},e.status||500); if(!(e instanceof Problem)) console.error(e); }
   });
-  server.on('close',()=>codex.shutdown());
-  server.shutdownCodex=()=>codex.shutdown();
+  server.on('close',()=>workflows.shutdown());
+  server.shutdownCodex=()=>workflows.shutdown();
   return server;
 }
 if(process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
