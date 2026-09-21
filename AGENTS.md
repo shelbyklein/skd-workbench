@@ -74,6 +74,10 @@ read-only GitHub browsing with explicit agent proposal and apply actions.
 
 ## UI and verification
 
+- Use `.text-button` for label-only actions such as Details and Rename. Keep their
+  padding, radius, hover and pressed fills in the shared `--button-text-*` tokens;
+  do not override horizontal padding per feature. Hover fill applies only to fine
+  pointers with hover support; preserve keyboard focus and disabled behavior.
 - Preserve unsaved-change protection, project-scoped navigation, legacy routes and
   readable legacy execution records. Check desktop/mobile and keyboard behavior.
 - Bump the cache version in `public/sw.js` whenever cached shell assets change.
