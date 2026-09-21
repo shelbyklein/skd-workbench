@@ -27,9 +27,11 @@ When a new version is available, **Update app** reloads it after you save edits 
 
 ## Navigation
 
-The home page is **Projects**. Open a project card to reach its **Workflows** overview, with saved workflows and recent runs. Inside Workflows, the sidebar contains Overview, that project's saved workflows, and New flow. Workflow run history, simulation history and standalone Codex tasks are available from the overview content. Codex uses its own sidebar context. **All projects** or the app logo returns to Projects with unsaved-change protection.
+**Home** lists project cards. Opening a project shows its **Project Overview**, with links to Workflows and standalone Codex tasks. Issues, Scratchpad and Knowledge are labeled planned and are not available yet.
 
-Existing flow, run and history URLs still work. Overview routes are `/#projects` and `/#project/<project-id>`.
+**Workflows** has its own overview of saved workflows and recent runs. Its sidebar contains Overview, the project's saved workflows, and New flow. The **Project overview** button returns to the project's views; **Home** or the app logo returns to project cards. Navigation preserves unsaved-change protection.
+
+Routes are `/#home`, `/#project/<project-id>` and `/#workflows/<project-id>`. The old `/#projects` alias and existing flow, run and history URLs still work.
 
 ## Projects, folders and Git
 

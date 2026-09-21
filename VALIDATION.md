@@ -1,3 +1,13 @@
+# Separate Home and Project Overview — 2026-09-20
+
+- Added the missing Project Overview between Home project cards and the Workflows overview. Each level has its own route and contextual navigation. Workflows and standalone Codex tasks are available; Issues, Scratchpad and Knowledge remain visibly planned.
+- All nine Chrome browser suites passed. The hierarchy fixture covers distinct pages, reload, project scope, planned-view labels, contextual sidebar, dirty navigation, history/Codex links and mobile layout. No execution requests occurred in that fixture.
+- Inspected desktop/mobile fixture screenshots and actual localhost `output/project-hub-live.png`. Live read-only traversal checked Home → Project Overview → Workflows, reload and return navigation, and mobile overflow. Receipt `output/project-hub-live-receipt.json` records zero execution requests and exact before/after equality of saved state and run histories.
+- Activated static assets with PWA cache `skd-shell-0.5.0-6`; installed windows can choose Update app. No backend changes, data migration or server restart. No real runs started during this change. Browser validation covers this UI-only change; no new unit-test result is claimed.
+- TT plan `local:E1AD8C8F-AE2D-46D2-A8A1-D7B5F4413A84`, todo `SKD-HUB-01`. Solo implementation.
+
+---
+
 # Projects and Workflows overviews — 2026-09-20
 
 - Added Projects as the root/home view, project cards with folder/workflow counts, and a project-scoped Workflows overview with saved workflow cards and recent real runs. Sidebar navigation follows Projects, Workflows or standalone Codex. Run-history/Codex entry points moved into overview content; All projects and the logo return home through the dirty-edit guard.

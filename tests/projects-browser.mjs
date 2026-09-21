@@ -14,7 +14,7 @@ const server=createServer({directory});await new Promise(r=>server.listen(0,'127
 const browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL||'chrome',headless:true});
 try{
  const page=await browser.newPage({viewport:{width:1440,height:1050}});page.setDefaultTimeout(7000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
- await page.goto(url+'/#project/unassigned');await page.getByRole('button',{name:'+ Add project',exact:true}).waitFor();assert.equal(await page.title(),'SKD Workbench');
+ await page.goto(url+'/#workflows/unassigned');await page.getByRole('button',{name:'+ Add project',exact:true}).waitFor();assert.equal(await page.title(),'SKD Workbench');
  assert.equal(await page.getByLabel('Project',{exact:true}).inputValue(),'unassigned');assert.equal(await page.locator('[data-flow]').count(),2);
  const original=await(await fetch(url+'/api/state')).json();
  const legacyRun=await(await fetch(url+'/api/runs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({flowID:original.flows[0].id,flowVersion:1,task:'Original project'})})).json();
@@ -28,12 +28,12 @@ try{
  assert.match(await page.locator('#connection-details').textContent(),/main/);assert.match(await page.locator('#connection-details').textContent(),/No remote configured|origin/);
  mkdirSync('output',{recursive:true});await page.screenshot({path:'output/skd-project-details.png',fullPage:true});
  await page.keyboard.press('Escape');
- await page.getByLabel('Project',{exact:true}).selectOption('unassigned');
+ await page.getByLabel('Project',{exact:true}).selectOption('unassigned');await page.locator('main [data-view-link=overview]').click();
  await page.locator('[data-flow]').first().click();await page.getByRole('button',{name:'Move',exact:true}).click();await page.getByLabel('Destination project',{exact:true}).selectOption(projectA);await page.getByRole('button',{name:'Move workflow',exact:true}).click();
  await page.waitForFunction(()=>document.querySelector('#project-picker').selectedOptions[0].textContent==='Newton');assert.equal(await page.locator('[data-flow]').count(),1);
  await page.locator('#sidebar-overview').click();await page.getByRole('button',{name:/Run history/}).click();assert.equal(await page.locator('[data-open-run]').count(),0);
- await page.getByLabel('Project',{exact:true}).selectOption('unassigned');await page.getByRole('button',{name:/Run history/}).click();assert.equal(await page.locator('[data-open-run]').count(),1);
- await page.getByLabel('Project',{exact:true}).selectOption(projectA);
+ await page.getByLabel('Project',{exact:true}).selectOption('unassigned');await page.locator('main [data-view-link=overview]').click();await page.getByRole('button',{name:/Run history/}).click();assert.equal(await page.locator('[data-open-run]').count(),1);
+ await page.getByLabel('Project',{exact:true}).selectOption(projectA);await page.locator('main [data-view-link=overview]').click();
  await page.locator('[data-flow]').first().click();await page.locator('[data-step]').first().click();await page.getByLabel('Step name',{exact:true}).fill('Unsaved project edit');
  await page.getByLabel('Project',{exact:true}).selectOption('unassigned');await page.getByRole('heading',{name:'Keep your changes?',exact:true}).waitFor();await page.getByRole('button',{name:'Keep editing',exact:true}).click();assert.equal(await page.getByLabel('Project',{exact:true}).inputValue(),projectA);
  await page.getByRole('button',{name:'Save flow',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#save').disabled);
@@ -51,14 +51,14 @@ try{
  await page.getByRole('button',{name:'+ Add project',exact:true}).click();await page.getByLabel('Project name',{exact:true}).fill('TT');await page.getByLabel('Local folder',{exact:true}).fill(plain);await page.locator('#dialog').getByRole('button',{name:'Add project',exact:true}).click();
  await page.waitForFunction(()=>document.querySelector('#project-picker').selectedOptions[0].textContent==='TT');const projectB=await page.getByLabel('Project',{exact:true}).inputValue();
  await page.getByRole('button',{name:'Details',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#connection-details').textContent.includes('not in a Git repository'));await page.keyboard.press('Escape');
- await page.getByRole('button',{name:'Create a flow',exact:true}).click();await page.getByLabel('Flow name',{exact:true}).fill('TT only');await page.locator('#dialog').getByRole('button',{name:'Create flow',exact:true}).click();
+ await page.locator('main [data-view-link=overview]').click();await page.getByRole('button',{name:'Create a flow',exact:true}).click();await page.getByLabel('Flow name',{exact:true}).fill('TT only');await page.locator('#dialog').getByRole('button',{name:'Create flow',exact:true}).click();
  await page.getByRole('button',{name:'+ Add a step',exact:true}).click();await page.locator('[data-type="agent"]').click();await page.getByRole('button',{name:'Save flow',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#save').disabled);
  renameSync(plain,plain+' moved');await page.getByRole('button',{name:'Details',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#connection-details').textContent.includes('missing'));await page.keyboard.press('Escape');
  await page.getByRole('button',{name:'▷ Try flow',exact:true}).click();await page.getByLabel('Task',{exact:true}).fill('Missing folder');await page.getByRole('button',{name:'Start simulation',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#dialog-error').textContent.includes('missing'));await page.keyboard.press('Escape');
  await page.getByRole('button',{name:'Details',exact:true}).click();await page.getByLabel('Local folder',{exact:true}).fill(plain+' moved');await page.getByRole('button',{name:'Save project',exact:true}).click();await page.waitForFunction(()=>!document.querySelector('#dialog').open);
- await page.getByLabel('Project',{exact:true}).selectOption(projectA);assert.equal(await page.locator('[data-flow]').count(),1);assert.equal(await page.getByRole('button',{name:'TT only',exact:true}).count(),0);
+ await page.getByLabel('Project',{exact:true}).selectOption(projectA);await page.locator('main [data-view-link=overview]').click();assert.equal(await page.locator('[data-flow]').count(),1);assert.equal(await page.getByRole('button',{name:'TT only',exact:true}).count(),0);
  await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:'output/skd-project-mobile.png',fullPage:true});
- await page.getByLabel('Project',{exact:true}).selectOption(projectB);assert.equal(await page.locator('[data-flow]').count(),1);await page.reload();assert.equal(await page.getByLabel('Project',{exact:true}).inputValue(),projectB);
+ await page.getByLabel('Project',{exact:true}).selectOption(projectB);await page.locator('main [data-view-link=overview]').click();assert.equal(await page.locator('[data-flow]').count(),1);await page.reload();assert.equal(await page.getByLabel('Project',{exact:true}).inputValue(),projectB);
  await page.getByLabel('Project',{exact:true}).selectOption(projectA);await page.setViewportSize({width:1440,height:1050});await page.screenshot({path:'output/skd-project-desktop.png',fullPage:true});
  const final=await(await fetch(url+'/api/state')).json();assert.equal(final.runs.find(x=>x.id===legacyRun.id).projectID,'unassigned');assert.deepEqual(errors,[]);
  console.log('Project browser checks passed: rename, add/edit/canonical folder, Git/non-Git/missing/refresh, move, scoped history, dirty navigation, immutable run provenance, mobile/reload.');

@@ -10,7 +10,7 @@ const browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL||'ch
 try {
  const page=await browser.newPage({viewport:{width:1440,height:1050},reducedMotion:'reduce'});page.setDefaultTimeout(7000);
  const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
- await page.goto(`http://127.0.0.1:${server.address().port}/#project/unassigned`);
+ await page.goto(`http://127.0.0.1:${server.address().port}/#workflows/unassigned`);
  await page.locator('[data-flow]').first().click();await page.reload();await page.locator('[data-step]').first().waitFor();
  await page.keyboard.press('Tab');
  assert.equal(await page.evaluate(()=>document.activeElement.tagName),'A');
