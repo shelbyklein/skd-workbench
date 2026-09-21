@@ -6,7 +6,7 @@ const $ = s => document.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const clone = v=>structuredClone(v);
 const uid = ()=>crypto.randomUUID();
-let issuesView=null,issueNumber=null,issueProposalID=null;
+let issuesView=null,issueNumber=null,issueProposalID=null,issueEditMode=false;
 let workflowView=null,workflowRunID=null;
 let codexView=null,codexRunID=null,codexPrefill='';
 let projectID='unassigned';
@@ -59,7 +59,7 @@ function breadcrumbs() {
     if(view==='issues'){
       items.push({name:'Issues',view:'issues',href:'#issues/'+projectID});
       if(issueNumber)items.push({name:'Issue #'+issueNumber,view:'issue-detail',href:'#issues/'+projectID+'/'+issueNumber});
-      if(issueProposalID)items.push({name:'Proposal diff'});
+      if(issueProposalID)items.push({name:'Proposal diff'});else if(issueEditMode)items.push({name:'Edit issue'});
     }else if(view==='codex'){
       items.push({name:'Sessions',view:'codex',href:'#sessions/'+projectID});
       if(codexRunID)items.push({name:'Session'});
@@ -105,7 +105,7 @@ function bindCommon() {
 }
 function render() {
   issuesView?.dispose();issuesView=null;codexView?.dispose();codexView=null;workflowView?.dispose();workflowView=null;
-  history.replaceState(null,'','#'+(view==='projects'?'home':view==='issues'?'issues/'+projectID+(issueNumber?'/'+issueNumber:'')+(issueProposalID?'/proposals/'+issueProposalID:''):view==='overview'?'workflows/'+projectID:view==='workflow'?'workflow/'+projectID+(workflowRunID?'/'+workflowRunID:''):view==='codex'?'sessions/'+projectID+(codexRunID?'/'+codexRunID:''):view==='compare'?'compare/'+compareIDs.join(','):view==='run'?'run/'+runID:view==='flow'&&draft?'flow/'+draft.id:view==='history'?'history/'+projectID:'project/'+projectID));
+  history.replaceState(null,'','#'+(view==='projects'?'home':view==='issues'?'issues/'+projectID+(issueNumber?'/'+issueNumber:'')+(issueProposalID?'/proposals/'+issueProposalID:issueEditMode?'/edit':''):view==='overview'?'workflows/'+projectID:view==='workflow'?'workflow/'+projectID+(workflowRunID?'/'+workflowRunID:''):view==='codex'?'sessions/'+projectID+(codexRunID?'/'+codexRunID:''):view==='compare'?'compare/'+compareIDs.join(','):view==='run'?'run/'+runID:view==='flow'&&draft?'flow/'+draft.id:view==='history'?'history/'+projectID:'project/'+projectID));
   if(view==='projects')renderProjects();else if(view==='project')renderProjectOverview();else if(view==='issues')renderIssues();else if(view==='overview')renderOverview();else if(view==='workflow')renderWorkflow();else if(view==='codex')renderCodex();else if(view==='flow')renderFlow(); else if(view==='run')renderRun(); else if(view==='compare')renderCompare();else renderHistory();
 }
 function renderProjects(){
@@ -322,7 +322,7 @@ let loaded=false;
 window.addEventListener('beforeunload',e=>{if(hasUnsaved()){e.preventDefault();e.returnValue='';}});
 async function boot(){try{
   await reload();const route=location.hash.slice(1).split('/');
-  if(route[0]==='issues'){view='issues';projectID=route[1]||'unassigned';issueNumber=/^[1-9][0-9]*$/.test(route[2]||'')?Number(route[2]):null;issueProposalID=issueNumber&&route[3]==='proposals'&&/^[\w-]+$/.test(route[4]||'')?route[4]:null;}
+  if(route[0]==='issues'){view='issues';projectID=route[1]||'unassigned';issueNumber=/^[1-9][0-9]*$/.test(route[2]||'')?Number(route[2]):null;issueProposalID=issueNumber&&route[3]==='proposals'&&/^[\w-]+$/.test(route[4]||'')?route[4]:null;issueEditMode=!!issueNumber&&route[3]==='edit';}
   else if(route[0]==='workflow'){view='workflow';projectID=route[1]||'unassigned';workflowRunID=route[2]||null;}
   else if(['sessions','codex'].includes(route[0])){view='codex';projectID=route[1]||'unassigned';codexRunID=route[2]||null;}
   else if(route[0]==='run'&&data.runs.some(r=>r.id===route[1])){runID=route[1];view='run';projectID=data.runs.find(r=>r.id===runID).projectID;}
@@ -479,8 +479,9 @@ function renderWorkflow(){
 }
 
 function renderIssues(){
- shell(`<section class="page-heading"><div><div class="eyebrow">${esc(currentProject().name)}</div><h1>${issueProposalID?'Proposal diff':issueNumber?'Issue #'+issueNumber:'Issues'}</h1></div></section><div id="issues-view"></div>`);
- issuesView=mountIssues({host:$('#issues-view'),project:currentProject(),number:issueNumber,proposalID:issueProposalID,api,confirmLeave,onOpen:number=>confirmLeave(()=>{issueNumber=number;issueProposalID=null;render();}),onProposal:id=>confirmLeave(()=>{issueProposalID=id;render();})});
+ shell(`<section class="page-heading"><div><div class="eyebrow">${esc(currentProject().name)}</div><h1>${issueProposalID?'Proposal diff':issueNumber?'Issue #'+issueNumber:'Issues'}</h1></div>${issueNumber&&!issueProposalID?`<button id="issue-mode-toggle">${issueEditMode?'Done editing':'Edit issue'}</button>`:''}</section><div id="issues-view"></div>`);
+ if($('#issue-mode-toggle'))$('#issue-mode-toggle').onclick=()=>confirmLeave(()=>{issueEditMode=!issueEditMode;render();});
+ issuesView=mountIssues({host:$('#issues-view'),project:currentProject(),number:issueNumber,proposalID:issueProposalID,editMode:issueEditMode,api,confirmLeave,onOpen:number=>confirmLeave(()=>{issueNumber=number;issueProposalID=null;issueEditMode=false;render();}),onProposal:id=>confirmLeave(()=>{issueProposalID=id;issueEditMode=false;render();}),onWork:terminalID=>confirmLeave(()=>{codexRunID=terminalID;codexPrefill='';view='codex';render();})});
 }
 
 let stepCatalog=null;

@@ -1,6 +1,7 @@
 import {createFolderPicker} from './lib/folder-picker.js';
 import {captureIssueSteps} from './lib/issue-steps.js';
 import {GitHubIssues,IssueProposals} from './lib/issues.js';
+import {IssueWork} from './lib/issue-work.js';
 import {TerminalSessions} from './lib/terminals.js';
 import http from 'node:http';
 import { readFileSync } from 'node:fs';
@@ -32,6 +33,7 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
   const workflows = new Workflows(directory,codex,{captureIssues});
   const terminals = new TerminalSessions(directory,codex,terminalOptions);
   const proposals=new IssueProposals(directory,codex,github);
+  const issueWork=new IssueWork(directory,{github,terminals,providers:agent=>agent==='claude'?codex.discoverClaude():codex.discover()});
   const server = http.createServer(async (req,res)=>{
     const json=(value,status=200)=>{res.writeHead(status,{'Content-Type':'application/json'});res.end(JSON.stringify(value));};
     res.setHeader('Cache-Control','no-store');
@@ -69,7 +71,7 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       if(workflow&&req.method==='POST'&&workflow[2])return json(workflows.action(workflow[1],await body(req)));
       const terminalProvider=pathname.match(/^\/api\/terminal-agents\/(codex|claude)$/);
       if(req.method==='GET'&&terminalProvider){try{return json(await terminals.provider(terminalProvider[1]));}catch(e){return json({error:e.code==='ENOENT'?'Agent CLI not installed.':e.message},503);}}
-      if(req.method==='POST'&&pathname==='/api/terminal-sessions'){const input=await body(req);return json(await terminals.start(input,store.project(input.projectID)),202);}
+      if(req.method==='POST'&&pathname==='/api/terminal-sessions'){const input=await body(req);delete input.initialPrompt;delete input.task;return json(await terminals.start(input,store.project(input.projectID)),202);}
       const terminal=pathname.match(/^\/api\/terminal-sessions\/([\w-]+)(?:\/(output|input|resize|stop))?$/);
       if(terminal){const [,id,action]=terminal;
         if(req.method==='GET'&&action==='output')return json(terminals.output(id,Number(url.searchParams.get('cursor')||0)));
@@ -97,6 +99,15 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
         if(req.method==='GET'&&issues[2])return json(await github.detail(project,issues[2],url.searchParams.get('page')||1));
         if(req.method==='GET')return json(await github.list(project,{state:url.searchParams.get('state')||'open',page:url.searchParams.get('page')||1}));
       }
+      const workSettings=pathname.match(/^\/api\/projects\/([\w-]+)\/issues\/(\d+)\/work-settings$/);
+      if(workSettings){const project=store.project(workSettings[1]);
+        if(req.method==='GET')return json(await issueWork.resolve(project,workSettings[2],{validate:true}));
+        if(req.method==='PUT')return json(await issueWork.saveSettings(project,workSettings[2],await body(req)));
+      }
+      const issueWorkRuns=pathname.match(/^\/api\/projects\/([\w-]+)\/issues\/(\d+)\/work-runs$/);
+      if(issueWorkRuns&&req.method==='POST'){const project=store.project(issueWorkRuns[1]);return json(await issueWork.startSolo(project,issueWorkRuns[2],await body(req)),202);}
+      const issueWorkRun=pathname.match(/^\/api\/projects\/([\w-]+)\/issue-work-runs\/([\w-]+)$/);
+      if(issueWorkRun&&req.method==='GET')return json(issueWork.getRun(issueWorkRun[2],store.project(issueWorkRun[1])));
       const proposal=pathname.match(/^\/api\/projects\/([\w-]+)\/issue-proposals\/([\w-]+)(?:\/(apply|stop|verify))?$/);
       if(proposal){const project=store.project(proposal[1]);
         if(req.method==='GET'&&!proposal[3])return json(proposals.get(proposal[2],project));

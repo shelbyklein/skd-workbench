@@ -86,4 +86,5 @@
 #issue-agent-panel .issue-edit{border:0;margin:0;padding:0}
 #issues-list{max-height:none;overflow:visible}
 #issue-proposal>.proposal-card{margin-top:0}
+.issue-work{display:grid;gap:18px}.issue-work .issue-heading{align-items:flex-start}.work-origin{font-size:11px;color:var(--muted);text-align:right}.work-settings-summary{display:grid;gap:0;margin:0}.work-settings-summary div{display:flex;justify-content:space-between;gap:18px;padding:12px 0;border-bottom:1px solid var(--line)}.work-settings-summary dt{color:var(--muted);font-size:12px}.work-settings-summary dd{margin:0;font-weight:600;overflow-wrap:anywhere;text-align:right}.work-actions{display:flex;gap:10px;flex-wrap:wrap}.issue-work-editor>label{display:grid;gap:8px}.issue-work-editor input[type="range"]{width:100%;accent-color:var(--accent)}.issue-work-editor .work-orchestration{display:flex;grid-template-columns:auto 1fr;align-items:center;gap:9px;font-weight:600}.issue-work-editor .work-orchestration input{width:18px;height:18px}
 @media(max-width:800px){.issue-detail-layout{grid-template-columns:1fr}}
