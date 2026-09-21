@@ -20,6 +20,7 @@ let planningView=null,planningRunID=null;
 let knowledgeView=null;
 let skillsView=null,connectionsView=null,playbooksView=null;
 let workflowView=null,workflowRunID=null;
+let quickActionsView=null;
 let codexView=null,codexRunID=null,codexPrefill='';
 let projectID='unassigned';
 const connections=new Map();
@@ -41,7 +42,7 @@ const scopedRuns=()=>data.runs.filter(r=>r.projectID===projectID);
 const currentProject=()=>data.projects.find(p=>p.id===projectID)||data.projects[0];
 function markDirty() { dirty=true; const save=$('#save'); if(save) save.disabled=false; }
 function confirmLeave(action) {
-  if(issuesView?.isPending()||codexView?.isPending()||workflowView?.isPending()||skillsView?.isPending()||connectionsView?.isPending()||playbooksView?.isPending()){toast('Wait for the current request to finish before leaving.');return;}
+  if(quickActionsView?.isPending()||issuesView?.isPending()||codexView?.isPending()||workflowView?.isPending()||skillsView?.isPending()||connectionsView?.isPending()||playbooksView?.isPending()){toast('Wait for the current request to finish before leaving.');return;}
   if(!dirty&&!issuesView?.isDirty()&&!codexView?.isDirty()&&!workflowView?.isDirty()&&!skillsView?.isDirty()&&!connectionsView?.isDirty()&&!playbooksView?.isDirty()) return action();
   modal('Keep your changes?', '<p>You have unsaved changes. Save them or discard them before leaving.</p>', [{label:'Keep editing',close:true},{label:'Discard changes',run:()=>{dirty=false;action();}}]);
 }
@@ -161,6 +162,7 @@ function bindCommon() {
   if($('[data-action="history"]'))$('[data-action="history"]').onclick=()=>confirmLeave(()=>{view='history';selected=null;render();});
 }
 function render() {
+  quickActionsView=null;
   connectionsView?.dispose();connectionsView=null;skillsView?.dispose();skillsView=null;playbooksView?.dispose();playbooksView=null;knowledgeView?.dispose();knowledgeView=null;planningView?.dispose();planningView=null;issuesView?.dispose();issuesView=null;codexView?.dispose();codexView=null;workflowView?.dispose();workflowView=null;
   const nextHash='#'+routePath();if(location.hash!==nextHash)history.pushState(null,'',nextHash);lastRenderedHash=nextHash;
   if(view==='invalid')renderInvalidRoute();else if(view==='projects')renderProjects();else if(view==='knowledge-global')renderKnowledgeHome();else if(view==='knowledge')renderKnowledgeProject();else if(view==='skills-global'||view==='skills')renderSkills();else if(view==='connections-global'||view==='connections')renderConnections();else if(view==='playbooks-global'||view==='playbooks')renderPlaybooks();else if(view==='project')renderProjectOverview();else if(view==='planning')renderPlanning();else if(view==='system')renderSystem();else if(view==='issues')renderIssues();else if(view==='overview')renderOverview();else if(view==='workflow')renderWorkflow();else if(view==='codex')renderCodex();else if(view==='flow')renderFlow(); else if(view==='run')renderRun(); else if(view==='compare')renderCompare();else renderHistory();
@@ -250,7 +252,7 @@ function mountProjectWidgets(project){
  const dashboard=views.previousElementSibling;
  const gitWidget=document.createElement('article');gitWidget.className='project-widget git-status-widget';dashboard.prepend(gitWidget);
  mountGitStatus(gitWidget,project,api);
- const quickHost=document.createElement('section');dashboard.prepend(quickHost);mountQuickActions(quickHost,{project,api,confirmLeave,onOpen:openProjectSession});
+ const quickHost=document.createElement('section');dashboard.prepend(quickHost);quickActionsView=mountQuickActions(quickHost,{project,api,confirmLeave,onOpen:openProjectSession});
  loadPriorityIssues(project);loadLastSession(project);
 }
 function renderProjectOverview(){
@@ -486,7 +488,7 @@ function renderHistory(){
   });
   $('#compare-runs').onclick=()=>{view='compare';render();};
 }
-const hasUnsaved=()=>dirty||issuesView?.isDirty()||issuesView?.isPending()||codexView?.isDirty()||workflowView?.isDirty()||skillsView?.isDirty()||skillsView?.isPending()||connectionsView?.isDirty()||connectionsView?.isPending()||playbooksView?.isDirty()||playbooksView?.isPending()||[...reviewDrafts.values()].some(Boolean)||$('#dialog').open||busy;
+const hasUnsaved=()=>dirty||quickActionsView?.isPending()||issuesView?.isDirty()||issuesView?.isPending()||codexView?.isDirty()||workflowView?.isDirty()||skillsView?.isDirty()||skillsView?.isPending()||connectionsView?.isDirty()||connectionsView?.isPending()||playbooksView?.isDirty()||playbooksView?.isPending()||[...reviewDrafts.values()].some(Boolean)||$('#dialog').open||busy;
 let loaded=false;
 window.addEventListener('beforeunload',e=>{if(hasUnsaved()){e.preventDefault();e.returnValue='';}});
 let lastRenderedHash='';

@@ -43,4 +43,5 @@ export function mountQuickActions(host,{project,api,confirmLeave,onOpen}){
  }
  host.querySelectorAll('[data-quick-action]').forEach(b=>b.onclick=()=>confirmLeave(()=>launch(b.dataset.quickAction)));
  host.querySelector('[data-quick-settings]').onclick=()=>confirmLeave(()=>settings());refresh().catch(e=>error(e.message));
+ return {isPending:()=>busy};
 }
