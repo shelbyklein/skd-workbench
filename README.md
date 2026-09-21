@@ -1,6 +1,6 @@
 # SKD Workbench
 
-A standalone local workbench for development projects. Choose a project, compose its workflows, and inspect its runs. Connected steps stay in the middle; settings appear when you select a step.
+A standalone local workbench for development projects. Choose a project, compose its workflows, and inspect its runs. Connected steps stay in the middle; settings appear when you select a step. Drag cards to reorder them (use the grip on touch screens), or focus a card and press Alt + Up/Down. Save flow keeps the new order.
 
 ## Open it
 
@@ -27,9 +27,9 @@ When a new version is available, **Update app** reloads it after you save edits 
 
 ## Navigation
 
-**Home** lists connected project cards. The internal Unassigned group is available in the project selector for older workflows, but has no Home card. Opening a project shows its **Project Overview**, with links to Workflows and Sessions. Issues reads the project’s GitHub repository and offers agent edit proposals. Scratchpad and Knowledge are labeled planned and are not available yet.
+**Home** lists connected project cards. The internal Unassigned group is available through the Unassigned workflows link for older workflows, but has no Home card. Opening a project shows its **Project Overview**, with links to Workflows and Sessions. Issues reads the project’s GitHub repository and offers agent edit proposals. Scratchpad and Knowledge are labeled planned and are not available yet.
 
-**Workflows** has its own overview of saved workflows and recent runs. Its sidebar contains Overview, the project's saved workflows, and New flow. The **Project overview** button returns to the project's views; **Home** or the app logo returns to project cards. Navigation preserves unsaved-change protection.
+**Workflows** has its own overview of saved workflows and recent runs. The sidebar always lists projects, highlights the active project, and offers Add project. Project details are available on the project overview. The left header breadcrumb links Home → project → view → current item; choose the project name to return to its views, or Home to return to project cards. Navigation preserves unsaved-change protection.
 
 Routes are `/#home`, `/#project/<project-id>` and `/#workflows/<project-id>`. The old `/#projects` alias and existing flow, run and history URLs still work.
 
@@ -37,9 +37,9 @@ Sessions are provider-neutral: choose Codex or Claude when starting one. Start s
 
 ## Projects, folders and Git
 
-Use **Add project** above the workflow list. Give it a name and paste its absolute local folder path (`~/…` also works). The folder must exist; a file or inaccessible path is rejected. The server resolves symlinks and prevents connecting the same canonical folder twice.
+Use **Add project** in the sidebar. Give it a name and use **Choose folder…** to open the macOS folder picker, or enter its absolute local folder path (`~/…` also works). The folder must exist; a file or inaccessible path is rejected. The server resolves symlinks and prevents connecting the same canonical folder twice.
 
-The project picker scopes workflows and run history. **Details** edits the project name/folder and shows detected Git information; **Refresh** reads its latest state. Git repositories and remotes are detected from the local checkout. No GitHub account or token is required. Remote configuration is read-only; repositories without remotes and folders without Git are supported. No fetch, checkout, push, commit, clone, or project-file mutation occurs.
+The project list switches between project workspaces. **Project details** edits the project name/folder and shows detected Git information; **Refresh** reads its latest state. Git repositories and remotes are detected from the local checkout. No GitHub account or token is required. Remote configuration is read-only; repositories without remotes and folders without Git are supported. No fetch, checkout, push, commit, clone, or project-file mutation occurs.
 
 The selected folder, repository root, and common Git directory are separate facts. You can connect distinct worktrees of one repository as separate project scopes, with their own workflows and run history. Branch, commit, clean/dirty/unknown status and sanitized remote URLs appear in Details. URL credentials and query strings are not retained. Refresh data is observed at that time, not a live subscription.
 
@@ -205,3 +205,10 @@ Validation: `node tests/issues-browser.mjs` uses fixture GitHub and agent proces
 adding `--agent codex` or `--agent claude` makes one real draft-only inference call and
 consumes account usage. That smoke server rejects every GitHub write. Full regression
 commands remain `npm test` and `npm run test:browser`.
+
+Issues opens a full-width list. Selecting an issue opens its own page with the
+issue on the left and **Edit with an agent** on the right in a 3:2 layout.
+Generating or opening a proposal navigates to its dedicated diff page, where Apply
+remains explicit. Breadcrumbs return to the issue or list; proposal URLs survive reload.
+
+Use **Delete flow** in the editor toolbar to remove a saved flow. Confirm the named flow; saved runs retain their original snapshots.

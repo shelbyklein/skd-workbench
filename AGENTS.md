@@ -64,6 +64,14 @@ read-only GitHub browsing with explicit agent proposal and apply actions.
 - Usage not reported by a provider is unknown, not zero. Interactive terminal tails
   are not complete structured transcripts. Process completion is not acceptance proof.
 
+## UI copy
+
+- Keep interface copy functional: labels, status, concise instructions, errors, and
+  consequences that help a user act. Do not add slogans, motivational/tagline copy,
+  decorative headings, or prose that repeats the page title or obvious controls.
+- Prefer specific empty states ("No issues") and an actionable next step. Preserve
+  necessary permission, data-loss, execution, and error explanations.
+
 ## UI and verification
 
 - Preserve unsaved-change protection, project-scoped navigation, legacy routes and

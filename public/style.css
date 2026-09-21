@@ -55,3 +55,35 @@
 #step-effort{width:100%;accent-color:var(--accent);padding:0;margin:10px 0}#step-effort-value{float:right;color:var(--accent)}
 .inspector .pill-field{margin-top:22px}.inspector .choice-pill{margin:0}.inspector .effort-ticks{gap:8px;flex-wrap:wrap;margin-bottom:16px}.custom-step-model{margin:16px 0;color:var(--muted);font-size:12px}
 @media(max-width:800px){.flow-editor-main{height:auto;overflow:visible}.flow-editor-main .editor-layout,.flow-editor-main .editor-layout.has-inspector{flex:none;grid-template-columns:minmax(0,1fr);overflow:visible}.flow-editor-main .editor-layout>.canvas,.flow-editor-main .editor-layout>.inspector{height:65dvh;min-height:320px}.flow-editor-main .editor-layout>.quiet-note{display:none}}
+
+/* Direct manipulation of flow order. Touch dragging uses the grip so the canvas still scrolls. */
+.reorder-help{font-size:11px;margin:0;padding:0 23px 16px;color:var(--muted)}
+.editor-layout .step-card{cursor:grab;user-select:none}
+.editor-layout .step-card.dragging{opacity:.45;cursor:grabbing}
+.step-drag{font-size:24px;flex-shrink:0;color:var(--muted);padding:10px;touch-action:none;cursor:grab}
+.step-wrap.drop-before .step-card{box-shadow:0 -4px 0 var(--accent)}
+.step-wrap.drop-after .step-card{box-shadow:0 4px 0 var(--accent)}
+.remove-step-button{border-color:#c89180;background:#fff5f1;padding:10px 16px}
+
+/* A single, navigable hierarchy in the header. */
+.topbar{justify-content:flex-start}
+.breadcrumbs{width:100%;min-width:0;letter-spacing:0;font-size:12px;font-weight:500}
+.breadcrumbs ol{display:flex;align-items:center;flex-wrap:wrap;gap:6px 0;list-style:none;margin:0;padding:0}
+.breadcrumbs li{display:flex;align-items:center;min-width:0;max-width:100%}
+.breadcrumbs li+li:before{content:'›';color:var(--muted);padding:0 12px;flex-shrink:0}
+.breadcrumbs a{color:var(--muted);text-decoration:none;overflow-wrap:anywhere;padding:5px 0}
+.breadcrumbs a:hover{color:var(--accent);text-decoration:underline}
+.breadcrumbs [aria-current]{color:var(--ink);overflow-wrap:anywhere;padding:5px 0}
+.topbar:has(.breadcrumbs){height:auto;min-height:70px;padding-top:12px;padding-bottom:12px}
+@media(max-width:560px){.breadcrumbs{font-size:11px}.breadcrumbs li+li:before{padding:0 7px}.topbar:has(.breadcrumbs){min-height:48px}}
+
+.projects-sidebar-heading{margin:0 0 12px}.project-list{display:flex;flex-direction:column;gap:5px;overflow:auto;min-height:0}.project-link{display:flex;align-items:center;gap:10px;border:0;background:transparent;text-align:left;width:100%;font-size:13px;padding:12px 10px;flex-shrink:0;overflow-wrap:anywhere}.project-link.active{background:#e0e3d5;color:#344032}.project-list-icon{font-size:20px;color:#748465;flex-shrink:0}.sidebar-add-project{background:transparent;border-style:dashed;text-align:left;margin-top:15px;font-size:12px;flex-shrink:0}.unassigned-link{font-size:11px;color:var(--muted);padding:15px 10px}.unassigned-link[aria-current]{font-weight:650;color:var(--ink)}
+@media(max-width:560px){.sidebar .projects-sidebar-heading{display:block;margin-bottom:7px}.sidebar .project-list{display:flex;flex-direction:row;overflow:auto}.project-link{width:auto;max-width:220px;min-width:130px}.sidebar-add-project{margin-top:8px}.unassigned-link{display:inline-block}.sidebar .brand{margin-bottom:18px}}
+
+/* Issues list, issue details and proposal diff are separate routes. */
+.issue-detail-layout{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:24px;align-items:start}
+.issue-detail-layout>*{min-width:0}.issue-detail-layout h2{overflow-wrap:anywhere}
+#issue-agent-panel .issue-edit{border:0;margin:0;padding:0}
+#issues-list{max-height:none;overflow:visible}
+#issue-proposal>.proposal-card{margin-top:0}
+@media(max-width:800px){.issue-detail-layout{grid-template-columns:1fr}}

@@ -11,19 +11,19 @@ try {
  const page=await browser.newPage({viewport:{width:1440,height:1050},reducedMotion:'reduce'});page.setDefaultTimeout(7000);
  const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
  await page.goto(`http://127.0.0.1:${server.address().port}/#workflows/unassigned`);
- await page.locator('[data-flow]').first().click();await page.reload();await page.locator('[data-step]').first().waitFor();
+ await page.locator('[data-overview-flow]').first().click();await page.reload();await page.locator('[data-step]').first().waitFor();
  await page.keyboard.press('Tab');
  assert.equal(await page.evaluate(()=>document.activeElement.tagName),'A');
  assert.notEqual(await page.evaluate(()=>getComputedStyle(document.activeElement).outlineStyle),'none');
- await page.getByRole('button',{name:'Create new flow',exact:true}).focus();
+ await page.locator('[data-crumb-view=overview]').click();await page.getByRole('button',{name:'Create a flow',exact:true}).focus();
  await page.keyboard.press('Enter');
  await page.getByLabel('Flow name',{exact:true}).waitFor();
  for(let i=0;i<10;i++){await page.keyboard.press('Tab');assert.equal(await page.evaluate(()=>document.querySelector('#dialog').contains(document.activeElement)),true);}
  await page.keyboard.press('Escape');assert.equal(await page.locator('#dialog').isVisible(),false);
- assert.equal(await page.evaluate(()=>document.activeElement.getAttribute('aria-label')),'Create new flow');
+ assert.equal(await page.evaluate(()=>document.activeElement.textContent),'Create a flow');await page.locator('[data-overview-flow]').first().click();
  await page.locator('[data-step]').first().focus();await page.keyboard.press('Enter');
  await page.getByLabel('Step name',{exact:true}).fill('Unsaved keyboard edit');
- await page.locator('#sidebar-overview').click();
+ await page.locator('[data-crumb-view=overview]').click();
  await page.getByRole('heading',{name:'Keep your changes?',exact:true}).waitFor();
  await page.getByRole('button',{name:'Keep editing',exact:true}).click();
  assert.equal(await page.getByLabel('Step name',{exact:true}).inputValue(),'Unsaved keyboard edit');
@@ -39,7 +39,7 @@ try {
  assert.equal(await page.getByLabel('Review note',{exact:true}).inputValue(),'Keep this draft while I inspect the output.');
  await page.getByRole('button',{name:'Open flow',exact:true}).click();
  await page.setViewportSize({width:390,height:844});
- await page.getByRole('button',{name:'+ New flow',exact:true}).click();
+ await page.locator('[data-crumb-view=overview]').click();await page.getByRole('button',{name:'Create a flow',exact:true}).click();
  await page.getByLabel('Flow name',{exact:true}).fill('Mobile flow');
  await page.getByRole('button',{name:'Create flow',exact:true}).click();
  await page.getByRole('button',{name:'+ Add a step',exact:true}).click();
@@ -53,7 +53,7 @@ try {
  await page.waitForFunction(()=>document.querySelector('#save').disabled);
  await page.getByRole('button',{name:'Close step settings',exact:true}).click();
  // Fresh screenshots without notifications or fixture edits.
- await page.getByRole('button',{name:'Plan, review, build',exact:true}).click();
+ await page.locator('[data-crumb-view=overview]').click();await page.locator('[data-overview-flow]').filter({hasText:'Plan, review, build'}).click();
  await page.locator('[data-step]').first().click();
  await page.getByLabel('Step name',{exact:true}).fill('Make a plan');
  await page.getByRole('button',{name:'Save flow',exact:true}).click();

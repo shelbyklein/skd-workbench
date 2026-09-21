@@ -6,7 +6,7 @@ const $ = s => document.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const clone = v=>structuredClone(v);
 const uid = ()=>crypto.randomUUID();
-let issuesView=null,issueNumber=null;
+let issuesView=null,issueNumber=null,issueProposalID=null;
 let workflowView=null,workflowRunID=null;
 let codexView=null,codexRunID=null,codexPrefill='';
 let projectID='unassigned';
@@ -27,7 +27,7 @@ async function reload() { data=await api('state'); }
 const scopedFlows=()=>data.flows.filter(f=>f.projectID===projectID);
 const scopedRuns=()=>data.runs.filter(r=>r.projectID===projectID);
 const currentProject=()=>data.projects.find(p=>p.id===projectID)||data.projects[0];
-function markDirty() { dirty=true; const save=$('#save'); if(save) save.disabled=false; const note=$('#saved-note'); if(note) note.textContent='Unsaved changes'; }
+function markDirty() { dirty=true; const save=$('#save'); if(save) save.disabled=false; }
 function confirmLeave(action) {
   if(issuesView?.isPending()||codexView?.isPending()||workflowView?.isPending()){toast('Wait for the current request to finish before leaving.');return;}
   if(!dirty&&!issuesView?.isDirty()&&!codexView?.isDirty()&&!workflowView?.isDirty()) return action();
@@ -52,23 +52,47 @@ function modal(title,content,buttons=[],onSubmit=null) {
     try {await onSubmit(new FormData(e.target));d.close();}catch(err){$('#dialog-error').textContent=err.message;submit.disabled=false;}
   };
 }
+function breadcrumbs() {
+  const items=[{name:'Home',view:'projects',href:'#home',id:'open-projects'}];
+  if(view!=='projects')items.push({name:currentProject()?.name||'Unassigned',view:'project',href:'#project/'+projectID,id:'project-home'});
+  if(!['projects','project'].includes(view)){
+    if(view==='issues'){
+      items.push({name:'Issues',view:'issues',href:'#issues/'+projectID});
+      if(issueNumber)items.push({name:'Issue #'+issueNumber,view:'issue-detail',href:'#issues/'+projectID+'/'+issueNumber});
+      if(issueProposalID)items.push({name:'Proposal diff'});
+    }else if(view==='codex'){
+      items.push({name:'Sessions',view:'codex',href:'#sessions/'+projectID});
+      if(codexRunID)items.push({name:'Session'});
+    }else{
+      items.push({name:'Workflows',view:'overview',href:'#workflows/'+projectID});
+      if(view==='flow')items.push({name:draft?.name||'Flow editor'});
+      else if(view==='workflow'){
+        items.push({name:'Workflow runs',view:'workflow',href:'#workflow/'+projectID});
+        if(workflowRunID)items.push({name:'Run'});
+      }else if(['history','run','compare'].includes(view)){
+        items.push({name:'Run history',view:'history',href:'#history/'+projectID});
+        if(view==='run')items.push({name:data.runs.find(r=>r.id===runID)?.flow.name||'Simulation'});
+        if(view==='compare')items.push({name:'Comparison'});
+      }
+    }
+  }
+  return `<nav class="breadcrumbs" aria-label="Breadcrumb"><ol>${items.map((item,i)=>`<li>${i===items.length-1?`<span aria-current="page">${esc(item.name)}</span>`:`<a ${item.id?`id="${item.id}"`:''} href="${esc(item.href)}" data-crumb-view="${item.view}">${esc(item.name)}</a>`}</li>`).join('')}</ol></nav>`;
+}
 function shell(content) {
-  const home=view==='projects',project=view==='project',issues=view==='issues',codex=view==='codex',current=view==='flow'?draft?.id:null;
-  const section=home?'HOME':project?'PROJECT':issues?'ISSUES':codex?'SESSIONS':'WORKFLOWS';
-  const overviewActive=home||project||view==='overview'||issues||codex&&!codexRunID;
-  const sideContent=home?'<p class="side-hint">Choose a project to get started.</p>':project?'<nav aria-label="Project views"><button class="flow-nav" data-view-link="overview">Workflows</button><button class="flow-nav" data-view-link="codex">Sessions</button><button class="flow-nav" data-view-link="issues">Issues</button></nav>':issues?'<p class="side-hint">Read GitHub issues and review agent edit proposals.</p>':codex?'<p class="side-hint">Work directly with an agent, one conversation at a time.</p>':`<nav aria-label="Saved flows">${scopedFlows().map(f=>`<button class="flow-nav ${current===f.id?'active':''}" ${current===f.id?'aria-current="page"':''} data-flow="${f.id}"><span class="flow-dot"></span><span>${esc(f.name)}</span></button>`).join('')||'<p class="side-hint">Your first flow starts here.</p>'}</nav><button class="new-flow" data-action="new">+ New flow</button>`;
-  const label=home?'HOME':project?'PROJECT OVERVIEW':issues?'ISSUES':view==='overview'?'WORKFLOWS':view==='workflow'?'WORKFLOW RUN':codex?'SESSIONS':view==='flow'?'FLOW EDITOR':view==='run'?'SIMULATION':view==='compare'?'COMPARISON':'RUN HISTORY';
-  $('#app').innerHTML=`<aside class="sidebar"><a class="brand" href="/#home" aria-label="SKD Workbench home"><img src="/icon.svg" alt=""><span>SKD Workbench<span class="brand-sub">YOUR DEVELOPMENT WORKSPACE</span></span></a>${home?'':`<section class="project-picker"><label for="project-picker" class="side-label">PROJECT</label><select id="project-picker" aria-label="Project">${data.projects.map(p=>`<option value="${p.id}" ${p.id===projectID?'selected':''}>${esc(p.name)}</option>`).join('')}</select><div class="project-actions"><button class="text-button" id="add-project">+ Add project</button><button class="text-button" id="project-details">Details</button></div><p id="project-summary" class="project-summary"></p></section>`}<div class="side-row"><div class="side-label">${section}</div>${home||project||codex||issues?'':'<button class="icon-button" data-action="new" aria-label="Create new flow">+</button>'}</div><button class="nav-button ${overviewActive?'active':''}" id="sidebar-overview" ${overviewActive?'aria-current="page"':''}>${home?'Home':'Overview'}</button>${sideContent}<div class="side-bottom">${isStandalone()?'':'<button id="install-app" class="install-button">↓ Install app</button>'}<span class="local-dot"></span> Local on your Mac<p>Your projects. Your way of working.</p></div></aside><main class="${view==='flow'?'flow-editor-main':''}"><header class="topbar"><span class="breadcrumb">${home?'SKD Workbench':esc(currentProject()?.name||'Unassigned')} <span class="crumb">/</span> ${label}</span><div class="topbar-actions">${home?'':'<button class="text-button" id="open-projects">Home</button>'}${!home&&!project?'<button class="text-button" id="project-home">Project overview</button>':''}<span class="mode-tag">${['codex','workflow'].includes(view)?'REAL EXECUTION':home?'HOME':project?'PROJECT':issues?'GITHUB ISSUES':view==='overview'?'WORKFLOWS':view==='flow'?'FLOW DESIGN':'SIMULATION'}</span></div></header>${content}</main>`;
+  const home=view==='projects';
+  $('#app').innerHTML=`<aside class="sidebar"><a class="brand" href="/#home" aria-label="SKD Workbench home"><img src="/icon.svg" alt=""><span>SKD Workbench</span></a><div class="projects-sidebar-heading"><span class="side-label">PROJECTS</span></div><nav class="project-list" aria-label="Projects">${data.projects.filter(p=>p.id!=='unassigned').map(p=>`<button class="project-link ${!home&&p.id===projectID?'active':''}" data-sidebar-project="${esc(p.id)}" ${!home&&p.id===projectID?'aria-current="true"':''}><span class="project-list-icon" aria-hidden="true">▱</span><span>${esc(p.name)}</span></button>`).join('')||'<p class="side-hint">Add your first project.</p>'}</nav><button class="sidebar-add-project" data-add-project>+ Add project</button>${data.flows.some(f=>f.projectID==='unassigned')?`<a class="unassigned-link" href="#project/unassigned" data-sidebar-project="unassigned" ${!home&&projectID==='unassigned'?'aria-current="true"':''}>Unassigned workflows</a>`:''}<div class="side-bottom">${isStandalone()?'':'<button id="install-app" class="install-button">↓ Install app</button>'}<span class="local-dot"></span> Local on your Mac</div></aside><main class="${view==='flow'?'flow-editor-main':''}"><header class="topbar">${breadcrumbs()}</header>${content}</main>`;
   bindCommon();updateProjectSummary();
   if(!home&&currentProject()?.folderPath&&!connections.has(projectID+':'+currentProject().version))refreshConnection();
 }
 function bindCommon() {
-  const overview=()=>confirmLeave(()=>{if(view==='codex'){codexRunID=null;codexPrefill='';}else if(view==='issues'){issueNumber=null;}else if(!['projects','project'].includes(view))view='overview';selected=null;render();});
-  $('#sidebar-overview').onclick=overview;
+  document.querySelectorAll('[data-sidebar-project]').forEach(b=>b.onclick=e=>{e.preventDefault();confirmLeave(()=>switchProject(b.dataset.sidebarProject));});
+  document.querySelectorAll('[data-add-project]').forEach(b=>b.onclick=()=>confirmLeave(()=>projectDialog()));
   $('.brand').onclick=e=>{e.preventDefault();confirmLeave(()=>{view='projects';selected=null;render();});};
-  if($('#open-projects'))$('#open-projects').onclick=()=>confirmLeave(()=>{view='projects';selected=null;render();});
-  if($('#project-home'))$('#project-home').onclick=()=>confirmLeave(()=>{view='project';selected=null;render();});
-  document.querySelectorAll('[data-view-link]').forEach(b=>b.onclick=()=>confirmLeave(()=>{view=b.dataset.viewLink;issueNumber=null;codexRunID=null;codexPrefill='';selected=null;render();}));
+  document.querySelectorAll('[data-crumb-view]').forEach(link=>link.onclick=e=>{
+    if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;
+    e.preventDefault();confirmLeave(()=>{const destination=link.dataset.crumbView;view=destination==='issue-detail'?'issues':destination;selected=null;if(destination!=='issue-detail')issueNumber=null;issueProposalID=null;codexRunID=null;codexPrefill='';workflowRunID=null;render();});
+  });
+  document.querySelectorAll('[data-view-link]').forEach(b=>b.onclick=()=>confirmLeave(()=>{view=b.dataset.viewLink;issueNumber=null;issueProposalID=null;codexRunID=null;codexPrefill='';selected=null;render();}));
   if($('#open-workflows'))$('#open-workflows').onclick=()=>confirmLeave(()=>{workflowRunID=null;view='workflow';render();});
   if($('#open-codex'))$('#open-codex').onclick=()=>confirmLeave(()=>{codexRunID=null;codexPrefill='';view='codex';render();});
   if($('#install-app'))$('#install-app').onclick=async()=>{try{if(!await installApp())installHelp();}catch(e){toast('Installation was not completed. Try your browser’s install menu.');}};
@@ -81,20 +105,20 @@ function bindCommon() {
 }
 function render() {
   issuesView?.dispose();issuesView=null;codexView?.dispose();codexView=null;workflowView?.dispose();workflowView=null;
-  history.replaceState(null,'','#'+(view==='projects'?'home':view==='issues'?'issues/'+projectID+(issueNumber?'/'+issueNumber:''):view==='overview'?'workflows/'+projectID:view==='workflow'?'workflow/'+projectID+(workflowRunID?'/'+workflowRunID:''):view==='codex'?'sessions/'+projectID+(codexRunID?'/'+codexRunID:''):view==='compare'?'compare/'+compareIDs.join(','):view==='run'?'run/'+runID:view==='flow'&&draft?'flow/'+draft.id:view==='history'?'history/'+projectID:'project/'+projectID));
+  history.replaceState(null,'','#'+(view==='projects'?'home':view==='issues'?'issues/'+projectID+(issueNumber?'/'+issueNumber:'')+(issueProposalID?'/proposals/'+issueProposalID:''):view==='overview'?'workflows/'+projectID:view==='workflow'?'workflow/'+projectID+(workflowRunID?'/'+workflowRunID:''):view==='codex'?'sessions/'+projectID+(codexRunID?'/'+codexRunID:''):view==='compare'?'compare/'+compareIDs.join(','):view==='run'?'run/'+runID:view==='flow'&&draft?'flow/'+draft.id:view==='history'?'history/'+projectID:'project/'+projectID));
   if(view==='projects')renderProjects();else if(view==='project')renderProjectOverview();else if(view==='issues')renderIssues();else if(view==='overview')renderOverview();else if(view==='workflow')renderWorkflow();else if(view==='codex')renderCodex();else if(view==='flow')renderFlow(); else if(view==='run')renderRun(); else if(view==='compare')renderCompare();else renderHistory();
 }
 function renderProjects(){
- shell(`<section class="page-heading"><div><div class="eyebrow">YOUR DEVELOPMENT WORKSPACE</div><h1>Home</h1><p>Choose a project to open its workspace.</p></div><button class="primary" id="add-project">+ Add project</button></section><section class="workflow-overview"><div class="overview-section-heading"><h2>Projects</h2><span>${data.projects.filter(p=>p.folderPath).length} connected</span></div><div class="overview-grid">${data.projects.filter(p=>p.id!=='unassigned').map(p=>{const count=data.flows.filter(f=>f.projectID===p.id).length;return `<button class="overview-flow project-card" data-project="${p.id}"><span class="eyebrow">LOCAL PROJECT</span><strong>${esc(p.name)}</strong><span>${esc(p.folderPath||'Workflows not yet connected to a project folder.')}</span><span class="overview-flow-footer">${count} workflow${count===1?'':'s'} <span aria-hidden="true">↗</span></span></button>`;}).join('')}</div></section>`);
+ shell(`<section class="page-heading"><div><h1>Home</h1></div><button class="primary" id="add-project">+ Add project</button></section><section class="workflow-overview"><div class="overview-section-heading"><h2>Projects</h2><span>${data.projects.filter(p=>p.folderPath).length} connected</span></div><div class="overview-grid">${data.projects.filter(p=>p.id!=='unassigned').map(p=>{const count=data.flows.filter(f=>f.projectID===p.id).length;return `<button class="overview-flow project-card" data-project="${p.id}"><span class="eyebrow">LOCAL PROJECT</span><strong>${esc(p.name)}</strong><span>${esc(p.folderPath||'Workflows not yet connected to a project folder.')}</span><span class="overview-flow-footer">${count} workflow${count===1?'':'s'} <span aria-hidden="true">↗</span></span></button>`;}).join('')}</div></section>`);
  document.querySelectorAll('[data-project]').forEach(b=>b.onclick=()=>confirmLeave(()=>switchProject(b.dataset.project)));
 }
 function renderProjectOverview(){
  const project=currentProject();
- shell(`<section class="page-heading" data-project-overview><div><div class="eyebrow">PROJECT OVERVIEW</div><h1>${esc(project.name)}</h1><p>Choose a view for this project.</p></div></section><section class="workflow-overview"><div class="overview-section-heading"><h2>Project views</h2></div><div class="overview-grid project-views"><button class="overview-flow" data-view-link="overview"><span class="eyebrow">${scopedFlows().length} SAVED WORKFLOW${scopedFlows().length===1?'':'S'}</span><strong>Workflows</strong><span>Design flows, run work, and review results.</span><span class="overview-flow-footer">Open Workflows <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="codex"><span class="eyebrow">SINGLE AGENT</span><strong>Sessions</strong><span>Work directly with an agent, one conversation at a time.</span><span class="overview-flow-footer">Open Sessions <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="issues"><span class="eyebrow">GITHUB</span><strong>Issues</strong><span>Read issues and review agent edit proposals.</span><span class="overview-flow-footer">Open Issues <span aria-hidden="true">↗</span></span></button>${[['Scratchpad','Keep notes and early ideas for this project.'],['Knowledge','Organize project reference material and development memory.']].map(([name,description])=>`<article class="overview-flow planned-view" aria-label="${name} — planned"><span class="eyebrow">PLANNED</span><h3>${name}</h3><p>${description}</p><span class="overview-flow-footer">Not available yet</span></article>`).join('')}</div></section>`);
+ shell(`<section class="page-heading" data-project-overview><div><div class="eyebrow">PROJECT OVERVIEW</div><h1>${esc(project.name)}</h1></div><button id="project-details">Project details</button></section><section class="workflow-overview"><div class="overview-section-heading"><h2>Project views</h2></div><div class="overview-grid project-views"><button class="overview-flow" data-view-link="overview"><span class="eyebrow">${scopedFlows().length} SAVED WORKFLOW${scopedFlows().length===1?'':'S'}</span><strong>Workflows</strong><span class="overview-flow-footer">Open Workflows <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="codex"><span class="eyebrow">SINGLE AGENT</span><strong>Sessions</strong><span class="overview-flow-footer">Open Sessions <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="issues"><span class="eyebrow">GITHUB</span><strong>Issues</strong><span>Read issues and review agent edit proposals.</span><span class="overview-flow-footer">Open Issues <span aria-hidden="true">↗</span></span></button>${[['Scratchpad','Keep notes and early ideas for this project.'],['Knowledge','Organize project reference material and development memory.']].map(([name,description])=>`<article class="overview-flow planned-view" aria-label="${name} — planned"><span class="eyebrow">PLANNED</span><h3>${name}</h3><p>${description}</p><span class="overview-flow-footer">Not available yet</span></article>`).join('')}</div></section>`);
 }
 function renderOverview(){
  const flows=scopedFlows(),scope=projectID;
- shell(`<section class="page-heading"><div><div class="eyebrow">${esc(currentProject().name)}</div><h1>Workflows</h1><p>Choose a workflow, review its steps, and pick up where you left off.</p></div><button class="primary" data-action="new">Create a flow</button></section><section class="workflow-overview"><div class="overview-section-heading"><h2>Your workflows</h2><span>${flows.length} saved</span></div><div class="overview-grid">${flows.map(f=>`<button class="overview-flow" data-overview-flow="${f.id}"><span class="eyebrow">${f.steps.length} STEPS · V${f.version}</span><strong>${esc(f.name)}</strong><span>${f.steps.filter(s=>s.type==='agent').map(s=>esc(s.model)+' · '+esc(s.effort)).join(' → ')||'Add steps to get started'}</span><span class="overview-flow-footer">Open workflow <span aria-hidden="true">↗</span></span></button>`).join('')||'<p class="overview-empty">No workflows in this project yet. Create one to get started.</p>'}</div><section class="overview-runs"><div class="overview-section-heading"><h2>Recent workflow runs</h2><button class="text-button" id="open-workflows">All workflow runs →</button></div><div id="overview-recent"><p>Loading recent runs…</p></div></section><div class="overview-tools"><button data-action="history">Run history <small>Simulation walkthroughs</small></button><button id="open-codex">Sessions <small>Work with an agent</small></button></div></section>`);
+ shell(`<section class="page-heading"><div><div class="eyebrow">${esc(currentProject().name)}</div><h1>Workflows</h1></div><button class="primary" data-action="new">Create a flow</button></section><section class="workflow-overview"><div class="overview-section-heading"><h2>Your workflows</h2><span>${flows.length} saved</span></div><div class="overview-grid">${flows.map(f=>`<button class="overview-flow" data-overview-flow="${f.id}"><span class="eyebrow">${f.steps.length} STEPS · V${f.version}</span><strong>${esc(f.name)}</strong><span>${f.steps.filter(s=>s.type==='agent').map(s=>esc(s.model)+' · '+esc(s.effort)).join(' → ')||'Add steps to get started'}</span><span class="overview-flow-footer">Open workflow <span aria-hidden="true">↗</span></span></button>`).join('')||'<p class="overview-empty">No workflows in this project yet. Create one to get started.</p>'}</div><section class="overview-runs"><div class="overview-section-heading"><h2>Recent workflow runs</h2><button class="text-button" id="open-workflows">All workflow runs →</button></div><div id="overview-recent"><p>Loading recent runs…</p></div></section><div class="overview-tools"><button data-action="history">Run history <small>Simulation walkthroughs</small></button><button id="open-codex">Sessions <small>Work with an agent</small></button></div></section>`);
  document.querySelectorAll('[data-overview-flow]').forEach(b=>b.onclick=()=>openFlow(b.dataset.overviewFlow));
  const host=$('#overview-recent');
  api('workflows?projectID='+encodeURIComponent(scope)).then(runs=>{
@@ -105,9 +129,9 @@ function renderOverview(){
 }
 function renderFlow() {
   const canvasScroll=$('.editor-layout>.canvas')?.scrollTop||0;
-  if(!draft) { shell('<section class="empty"><h1>A good experiment<br>starts with a flow.</h1><p>Create a few steps and see how they fit together.</p><button class="primary" id="first-flow">Create a flow</button></section>');$('#first-flow').onclick=newFlow;return; }
+  if(!draft) { shell('<section class="empty"><h1>No workflow selected</h1><p>Create a workflow to add steps.</p><button class="primary" id="first-flow">Create a flow</button></section>');$('#first-flow').onclick=newFlow;return; }
   const agents=draft.steps.filter(s=>s.type==='agent').length;
-  shell(`<section class="page-heading"><div><div class="eyebrow">MAKE IT YOUR OWN</div><h1 id="flow-title">${esc(draft.name)}</h1><p>${draft.steps.length} steps <span class="middot">·</span> ${agents} agent${agents===1?'':'s'} <span class="middot">·</span> v${draft.version}</p></div><div class="heading-actions"><button data-action="duplicate">Duplicate</button><button id="move-flow">Move</button><button id="save" ${dirty?'':'disabled'}>Save flow</button><button id="run-settings">Run settings</button><button class="primary" id="execute-flow" ${draft.steps.some(s=>s.type==='agent')?'':'disabled'}>Run</button><button id="run-flow" ${draft.steps.length?'':'disabled'}>▷ Try flow</button></div></section><p class="run-task-summary"><strong>${currentProject()?.benchmark?'Benchmark task':'Saved task'}:</strong> ${esc(runSettings().task?runSettings().task.slice(0,180)+(runSettings().task.length>180?'…':''):'Set a task once in Run settings.')}</p><div class="editor-layout ${selected?'has-inspector':''}"><section class="canvas" aria-label="Flow steps"><div class="canvas-top"><span>YOUR FLOW</span><button class="text-button" id="rename">Rename</button></div><div class="step-list">${draft.steps.map((s,i)=>`<div class="step-wrap"><span class="step-number">${String(i+1).padStart(2,'0')}</span><button class="step-card ${s.type} ${selected===s.id?'selected':''}" data-step="${s.id}" aria-pressed="${selected===s.id}"><span class="step-icon">${symbol[s.type]}</span><span class="step-copy"><strong>${esc(s.name)}</strong><span>${s.type==='agent'?esc(s.model)+' <span class="middot">·</span> '+esc(s.effort)+' effort':s.type==='human'?'You decide when to continue':'A place to verify the result'}</span></span><span class="step-more">↗</span></button>${s.type==='human'&&s.maxRetries?`<span class="loop-note">↶ Up to ${s.maxRetries} change requests</span>`:''}</div>`).join('')||'<div class="empty-flow"><span>＋</span><h2>What happens first?</h2><p>Add an agent, your review, or a check.</p></div>'}<button id="add-step" class="add-step">+ Add a step</button></div><footer class="canvas-footer"><span id="saved-note">${dirty?'Unsaved changes':'Saved on this Mac'}</span><span>Connected in order ↓</span></footer></section>${selected?'<aside class="inspector" id="inspector" aria-label="Step settings"></aside>':`<aside class="quiet-note"><span class="note-symbol">↗</span><h2>A little structure.<br>Room to explore.</h2><p>Select a step to choose its model and give it instructions.</p><div class="note-rule"></div><p>Try flow previews the handoffs. Run executes this flow with real models and review gates.</p><button class="text-button danger" id="delete-flow">Delete flow</button></aside>`}</div>`);
+  shell(`<section class="page-heading"><div><h1 id="flow-title">${esc(draft.name)}</h1><p>${draft.steps.length} steps <span class="middot">·</span> ${agents} agent${agents===1?'':'s'} <span class="middot">·</span> v${draft.version}</p></div><div class="heading-actions"><button data-action="duplicate">Duplicate</button><button id="move-flow">Move</button><button class="danger" id="delete-flow">Delete flow</button><button id="save" ${dirty?'':'disabled'}>Save flow</button><button id="run-settings">Run settings</button><button class="primary" id="execute-flow" ${draft.steps.some(s=>s.type==='agent')?'':'disabled'}>Run</button><button id="run-flow" ${draft.steps.length?'':'disabled'}>▷ Try flow</button></div></section><p class="run-task-summary"><strong>${currentProject()?.benchmark?'Benchmark task':'Saved task'}:</strong> ${esc(runSettings().task?runSettings().task.slice(0,180)+(runSettings().task.length>180?'…':''):'Set a task once in Run settings.')}</p><div class="editor-layout ${selected?'has-inspector':''}"><section class="canvas" aria-label="Flow steps"><div class="canvas-top"><span>YOUR FLOW</span><button class="text-button" id="rename">Rename</button></div><p id="reorder-help" class="reorder-help">Drag steps to reorder · Keyboard: Alt + ↑ / ↓</p><div class="step-list">${draft.steps.map((s,i)=>`<div class="step-wrap"><span class="step-number">${String(i+1).padStart(2,'0')}</span><button class="step-card ${s.type} ${selected===s.id?'selected':''}" data-step="${s.id}" aria-describedby="reorder-help" aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown" aria-pressed="${selected===s.id}"><span class="step-icon">${symbol[s.type]}</span><span class="step-copy"><strong>${esc(s.name)}</strong><span>${s.type==='agent'?esc(s.model)+' <span class="middot">·</span> '+esc(s.effort)+' effort':s.type==='human'?'Review required':'Verification check'}</span></span><span class="step-drag" aria-hidden="true" title="Drag to reorder">⠿</span></button>${s.type==='human'&&s.maxRetries?`<span class="loop-note">↶ Up to ${s.maxRetries} change requests</span>`:''}</div>`).join('')||'<div class="empty-flow"><span>＋</span><h2>No steps</h2><p>Add an agent, your review, or a check.</p></div>'}<button id="add-step" class="add-step">+ Add a step</button></div></section>${selected?'<aside class="inspector" id="inspector" aria-label="Step settings"></aside>':`<aside class="quiet-note"><p>Select a step to choose its model and give it instructions.</p><div class="note-rule"></div><p>Try flow previews the handoffs. Run executes this flow with real models and review gates.</p></aside>`}</div>`);
   $('[data-action="duplicate"]').onclick=duplicateFlow;
   $('#move-flow').onclick=moveFlow;
   $('#save').onclick=()=>saveFlow().catch(e=>toast(e.message));
@@ -117,22 +141,26 @@ function renderFlow() {
   $('#run-settings').onclick=()=>workflowStartDialog(false);
   $('#run-flow').onclick=()=>launchConfigured('simulation');
   document.querySelectorAll('[data-step]').forEach(b=>b.onclick=()=>{selected=b.dataset.step;renderFlow();$('#step-name').focus({preventScroll:true});});
+  bindStepReordering();
   if(selected)renderInspector();
   $('.editor-layout>.canvas').scrollTop=canvasScroll;
-  if($('#delete-flow'))$('#delete-flow').onclick=()=>modal('Delete this flow?','<p>Saved runs will keep their original flow. This removes the editable flow.</p>',[{label:'Keep flow',close:true},{label:'Delete flow',run:async()=>{try{await api('flows/'+draft.id,'DELETE',{version:draft.version});await reload();draft=scopedFlows()[0]?clone(scopedFlows()[0]):null;dirty=false;render();}catch(e){toast(e.message);}}}]);
+  $('#delete-flow').onclick=()=>{
+    const target={id:draft.id,version:draft.version,name:draft.name};
+    modal('Delete this flow?',`<p>Delete “${esc(target.name)}”?${dirty?' Unsaved edits will also be discarded.':''} Saved runs keep their original flow.</p>`,[{label:'Keep flow',close:true},{label:'Delete flow',submit:true,primary:true}],async()=>{
+      await api('flows/'+target.id,'DELETE',{version:target.version});await reload();draft=null;selected=null;dirty=false;view='overview';render();
+    });
+  };
 }
 function renderInspector() {
   const s=draft.steps.find(s=>s.id===selected),index=draft.steps.indexOf(s);
   if(!s)return;
   const earlier=draft.steps.slice(0,index).filter(s=>s.type==='agent');
-  $('#inspector').innerHTML=`<div class="inspector-head"><span class="eyebrow">STEP ${String(index+1).padStart(2,'0')} / ${typeName[s.type].toUpperCase()}</span><button class="icon-button" id="close-inspector" aria-label="Close step settings">×</button></div><label>Step name<input id="step-name" value="${esc(s.name)}" maxlength="100"></label>${s.type==='agent'?`<fieldset class="pill-field"><legend>Model</legend><div class="pill-options" id="step-models"></div></fieldset><label for="step-effort">Effort <output id="step-effort-value"></output></label><input type="range" id="step-effort" aria-label="Effort" min="0" max="0" step="1"><div class="effort-ticks" id="step-effort-ticks"></div><p id="step-provider-note" class="field-help"></p><details class="custom-step-model"><summary>Custom model label</summary><label>Custom model<input id="model" value="${esc(s.model)}" maxlength="150"></label></details>`:''}<label>${s.type==='human'?'What will you review?':s.type==='check'?'What should be checked?':'Instructions'}<textarea aria-label="Instructions" id="instructions" rows="7" maxlength="12000" placeholder="Describe what this step should do…">${esc(s.instructions)}</textarea></label>${s.type==='human'?`<div class="settings-divider"></div><label>Change requests allowed<select id="max-retries" aria-label="Change requests allowed">${[0,1,2,3,4,5].map(n=>`<option value="${n}" ${s.maxRetries===n?'selected':''}>${n===0?'None':n}</option>`).join('')}</select></label><label>On changes, return to<select id="retry-from" aria-label="On changes, return to" ${earlier.length?'':'disabled'}><option value="">Choose an earlier agent</option>${earlier.map(p=>`<option value="${p.id}" ${s.retryFrom===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label><p class="field-help">The steps from that point run again. Earlier attempts stay in the run history.</p>`:''}<div class="settings-divider"></div><div class="step-tools"><button id="move-up" ${index===0?'disabled':''} aria-label="Move step up">↑ Move up</button><button id="move-down" ${index===draft.steps.length-1?'disabled':''} aria-label="Move step down">↓ Down</button></div><button class="text-button danger" id="remove-step">Remove step</button>`;
+  $('#inspector').innerHTML=`<div class="inspector-head"><span class="eyebrow">STEP ${String(index+1).padStart(2,'0')} / ${typeName[s.type].toUpperCase()}</span><button class="icon-button" id="close-inspector" aria-label="Close step settings">×</button></div><label>Step name<input id="step-name" value="${esc(s.name)}" maxlength="100"></label>${s.type==='agent'?`<fieldset class="pill-field"><legend>Model</legend><div class="pill-options" id="step-models"></div></fieldset><label for="step-effort">Effort <output id="step-effort-value"></output></label><input type="range" id="step-effort" aria-label="Effort" min="0" max="0" step="1"><div class="effort-ticks" id="step-effort-ticks"></div><p id="step-provider-note" class="field-help"></p><details class="custom-step-model"><summary>Custom model label</summary><label>Custom model<input id="model" value="${esc(s.model)}" maxlength="150"></label></details>`:''}<label>${s.type==='human'?'What will you review?':s.type==='check'?'What should be checked?':'Instructions'}<textarea aria-label="Instructions" id="instructions" rows="7" maxlength="12000" placeholder="Describe what this step should do…">${esc(s.instructions)}</textarea></label>${s.type==='human'?`<div class="settings-divider"></div><label>Change requests allowed<select id="max-retries" aria-label="Change requests allowed">${[0,1,2,3,4,5].map(n=>`<option value="${n}" ${s.maxRetries===n?'selected':''}>${n===0?'None':n}</option>`).join('')}</select></label><label>On changes, return to<select id="retry-from" aria-label="On changes, return to" ${earlier.length?'':'disabled'}><option value="">Choose an earlier agent</option>${earlier.map(p=>`<option value="${p.id}" ${s.retryFrom===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label><p class="field-help">The steps from that point run again. Earlier attempts stay in the run history.</p>`:''}<div class="settings-divider"></div><button class="danger remove-step-button" id="remove-step">Remove step</button>`;
   for(const [selector,key] of [['#step-name','name'],['#instructions','instructions'],['#max-retries','maxRetries'],['#retry-from','retryFrom']]) {
     const el=$(selector);if(!el)continue;el.addEventListener('input',()=>{s[key]=key==='maxRetries'?Number(el.value):el.value;markDirty();updateCard(s);});
   }
   if(s.type==='agent')bindStepModels(s);
   $('#close-inspector').onclick=()=>{selected=null;renderFlow();document.querySelector(`[data-step="${s.id}"]`)?.focus({preventScroll:true});};
-  $('#move-up').onclick=()=>moveStep(index,-1);
-  $('#move-down').onclick=()=>moveStep(index,1);
   $('#remove-step').onclick=()=>modal('Remove this step?',`<p>Remove “${esc(s.name)}” from this flow? Saved runs keep their original steps.</p>`,[{label:'Keep step',close:true},{label:'Remove step',run:()=>{draft.steps.splice(index,1);fixRetries();selected=null;markDirty();renderFlow();}}]);
 }
 function updateCard(s) {
@@ -146,7 +174,66 @@ function fixRetries() {
   draft.steps.forEach((s,i)=>{if(s.type==='human'&&s.maxRetries&&!draft.steps.slice(0,i).some(p=>p.id===s.retryFrom&&p.type==='agent')){s.maxRetries=0;s.retryFrom=null;reset=true;}});
   if(reset)toast('A review’s return step moved or was removed. Its change requests are now off.');
 }
-function moveStep(index,delta) {const [s]=draft.steps.splice(index,1);draft.steps.splice(index+delta,0,s);fixRetries();markDirty();renderFlow();$(delta<0?'#move-up':'#move-down')?.focus();}
+function moveStep(index,target) {
+  if(target===index||target<0||target>=draft.steps.length)return;
+  const [step]=draft.steps.splice(index,1);draft.steps.splice(target,0,step);
+  fixRetries();markDirty();renderFlow();
+  document.querySelector(`[data-step="${step.id}"]`)?.focus({preventScroll:true});
+}
+function bindStepReordering() {
+  const canvas=$('.editor-layout>.canvas');
+  const cards=[...canvas.querySelectorAll('[data-step]')];
+  cards.forEach((card,index)=>{
+    card.onkeydown=e=>{
+      if(e.altKey&&['ArrowUp','ArrowDown'].includes(e.key)){
+        e.preventDefault();moveStep(index,index+(e.key==='ArrowUp'?-1:1));
+      }
+    };
+    card.onpointerdown=e=>{
+      if(e.button!==0||(e.pointerType!=='mouse'&&!e.target.closest('.step-drag')))return;
+      const startX=e.clientX,startY=e.clientY;
+      let dragging=false,target=index,y=startY,x=startX,frame;
+      const clear=()=>cards.forEach(c=>c.parentElement.classList.remove('drop-before','drop-after'));
+      const update=()=>{
+        clear();const bounds=canvas.getBoundingClientRect();
+        if(x<bounds.left||x>bounds.right||y<bounds.top||y>bounds.bottom){target=index;return;}
+        const others=cards.filter(c=>c!==card);
+        target=others.filter(c=>{const r=c.getBoundingClientRect();return y>r.top+r.height/2;}).length;
+        if(target!==index){const anchor=others[target]||others.at(-1);anchor?.parentElement.classList.add(target<others.length?'drop-before':'drop-after');}
+      };
+      const tick=()=>{
+        const bounds=canvas.getBoundingClientRect();
+        if(x>=bounds.left&&x<=bounds.right&&y>=bounds.top&&y<=bounds.bottom){
+          if(y<bounds.top+48)canvas.scrollTop-=12;
+          else if(y>bounds.bottom-48)canvas.scrollTop+=12;
+        }
+        update();frame=requestAnimationFrame(tick);
+      };
+      const move=ev=>{
+        if(ev.pointerId!==e.pointerId)return;
+        x=ev.clientX;y=ev.clientY;
+        if(!dragging&&Math.hypot(x-startX,y-startY)>6){
+          dragging=true;card.setPointerCapture(e.pointerId);card.classList.add('dragging');frame=requestAnimationFrame(tick);
+        }
+        if(dragging){ev.preventDefault();update();}
+      };
+      const stop=ev=>{
+        if(ev.pointerId!==e.pointerId)return;
+        cancelAnimationFrame(frame);clear();card.classList.remove('dragging');
+        window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',stop);window.removeEventListener('pointercancel',stop);window.removeEventListener('keydown',escape);
+        if(card.hasPointerCapture(e.pointerId))card.releasePointerCapture(e.pointerId);
+        if(dragging){
+          const suppress=event=>{event.preventDefault();event.stopImmediatePropagation();};
+          window.addEventListener('click',suppress,{capture:true,once:true});
+          setTimeout(()=>window.removeEventListener('click',suppress,true),0);
+          if(ev.type==='pointerup')moveStep(index,target);
+        }
+      };
+      const escape=ev=>{if(ev.key==='Escape'){ev.preventDefault();stop({pointerId:e.pointerId,type:'cancel'});}};
+      window.addEventListener('pointermove',move,{passive:false});window.addEventListener('pointerup',stop);window.addEventListener('pointercancel',stop);window.addEventListener('keydown',escape);
+    };
+  });
+}
 function addStep() {
   modal('Add a step',`<div class="step-choices">${Object.entries(typeName).map(([key,title])=>`<button type="button" data-type="${key}"><span>${symbol[key]}</span><strong>${title}</strong><small>${key==='agent'?'Give a model a job':key==='human'?'Pause for your decision':'Define a verification step'}</small></button>`).join('')}</div>`);
   document.querySelectorAll('[data-type]').forEach(b=>b.onclick=()=>{
@@ -221,7 +308,7 @@ function renderCompare(){
 }
 function renderHistory(){
   compareIDs=compareIDs.filter(id=>scopedRuns().some(r=>r.id===id));
-  shell(`<section class="page-heading"><div><div class="eyebrow">YOUR EXPERIMENTS</div><h1>Run history</h1><p>Every simulation keeps its own flow and review notes.</p></div><button id="compare-runs" ${compareIDs.length===2?'':'disabled'}>Compare ${compareIDs.length}/2</button></section><section class="history-list">${scopedRuns().length?`<p class="history-help">Select two runs to compare. Open any run to inspect its steps.</p>`+[...scopedRuns()].reverse().map(r=>`<div class="history-item"><label class="run-select"><input type="checkbox" aria-label="Select ${esc(r.flow.name)} run ${r.id.slice(0,6)}" data-compare="${r.id}" ${compareIDs.includes(r.id)?'checked':''}></label><button class="history-row" data-open-run="${r.id}"><span><strong>${esc(r.flow.name)}</strong><small>${esc(r.task.slice(0,100))}</small></span><span class="history-meta">${esc(statusLabel[r.status])}<small>${dateLabel(r.createdAt)} · v${r.flow.version} · Simulation</small></span><span>↗</span></button></div>`).join(''):'<div class="empty"><h2>Try your first flow.</h2><p>Choose a saved flow to get started.</p></div>'}</section>`);
+  shell(`<section class="page-heading"><div><div class="eyebrow">SIMULATIONS</div><h1>Run history</h1><p>Every simulation keeps its own flow and review notes.</p></div><button id="compare-runs" ${compareIDs.length===2?'':'disabled'}>Compare ${compareIDs.length}/2</button></section><section class="history-list">${scopedRuns().length?`<p class="history-help">Select two runs to compare. Open any run to inspect its steps.</p>`+[...scopedRuns()].reverse().map(r=>`<div class="history-item"><label class="run-select"><input type="checkbox" aria-label="Select ${esc(r.flow.name)} run ${r.id.slice(0,6)}" data-compare="${r.id}" ${compareIDs.includes(r.id)?'checked':''}></label><button class="history-row" data-open-run="${r.id}"><span><strong>${esc(r.flow.name)}</strong><small>${esc(r.task.slice(0,100))}</small></span><span class="history-meta">${esc(statusLabel[r.status])}<small>${dateLabel(r.createdAt)} · v${r.flow.version} · Simulation</small></span><span>↗</span></button></div>`).join(''):'<div class="empty"><h2>No simulation runs</h2><p>Choose a saved flow to get started.</p></div>'}</section>`);
   document.querySelectorAll('[data-open-run]').forEach(b=>b.onclick=()=>openRun(b.dataset.openRun));
   document.querySelectorAll('[data-compare]').forEach(input=>input.onchange=()=>{
     if(input.checked&&compareIDs.length>=2){input.checked=false;toast('Choose two runs. Uncheck one to select another.');return;}
@@ -235,7 +322,7 @@ let loaded=false;
 window.addEventListener('beforeunload',e=>{if(hasUnsaved()){e.preventDefault();e.returnValue='';}});
 async function boot(){try{
   await reload();const route=location.hash.slice(1).split('/');
-  if(route[0]==='issues'){view='issues';projectID=route[1]||'unassigned';issueNumber=/^[1-9][0-9]*$/.test(route[2]||'')?Number(route[2]):null;}
+  if(route[0]==='issues'){view='issues';projectID=route[1]||'unassigned';issueNumber=/^[1-9][0-9]*$/.test(route[2]||'')?Number(route[2]):null;issueProposalID=issueNumber&&route[3]==='proposals'&&/^[\w-]+$/.test(route[4]||'')?route[4]:null;}
   else if(route[0]==='workflow'){view='workflow';projectID=route[1]||'unassigned';workflowRunID=route[2]||null;}
   else if(['sessions','codex'].includes(route[0])){view='codex';projectID=route[1]||'unassigned';codexRunID=route[2]||null;}
   else if(route[0]==='run'&&data.runs.some(r=>r.id===route[1])){runID=route[1];view='run';projectID=data.runs.find(r=>r.id===runID).projectID;}
@@ -246,7 +333,7 @@ async function boot(){try{
   else if(route[0]==='flow'){view='flow';projectID=data.flows.find(f=>f.id===route[1])?.projectID||'unassigned';}
   if(!data.projects.some(p=>p.id===projectID))projectID='unassigned';
   draft=clone(data.flows.find(f=>f.id===route[1]&&f.projectID===projectID)||scopedFlows()[0]||null);loaded=true;render();
- }catch(e){$('#app').innerHTML=`<section class="empty offline-startup"><img src="/icon.svg" alt=""><h1>Start your workbench.</h1><p>The interface is ready. Your projects and workflows need the local server.</p><p>Open <strong>Launch SKD Workbench.command</strong> in the SKD Workbench folder, then reconnect.</p><button id="retry-load" class="primary">Reconnect</button><p class="offline-note">${esc(e.message)}</p></section>`;$('#retry-load').onclick=boot;}}
+ }catch(e){$('#app').innerHTML=`<section class="empty offline-startup"><img src="/icon.svg" alt=""><h1>Server unavailable</h1><p>The interface is ready. Your projects and workflows need the local server.</p><p>Open <strong>Launch SKD Workbench.command</strong> in the SKD Workbench folder, then reconnect.</p><button id="retry-load" class="primary">Reconnect</button><p class="offline-note">${esc(e.message)}</p></section>`;$('#retry-load').onclick=boot;}}
 setupPWA({hasUnsaved,notify:toast,onReconnect:async()=>{
  if(!loaded){await boot();return;}
  // Reconnection never replaces an editor or dialog that may contain unsaved text.
@@ -256,7 +343,7 @@ setupPWA({hasUnsaved,notify:toast,onReconnect:async()=>{
 boot();
 
 function switchProject(id){
-  projectID=id;compareIDs=[];selected=null;dirty=false;view='project';codexRunID=null;codexPrefill='';workflowRunID=null;draft=clone(scopedFlows()[0]||null);render();
+  projectID=id;issueNumber=null;issueProposalID=null;compareIDs=[];selected=null;dirty=false;view='project';codexRunID=null;codexPrefill='';workflowRunID=null;draft=clone(scopedFlows()[0]||null);render();
   if(currentProject()?.folderPath)refreshConnection(true);
 }
 function updateProjectSummary(){
@@ -289,12 +376,19 @@ function projectDialog(project=null){
     modal('Unassigned', '<p>These workflows do not have a project folder yet. Create a project, then use Move on a workflow to put it there. Earlier runs stay in Unassigned.</p>',[{label:'Close',close:true},{label:'Add project',primary:true,run:()=>projectDialog()}]);return;
   }
   const edit=Boolean(project);
-  modal(edit?'Project details':'Add a project',`<label>Project name<input name="name" maxlength="100" required autofocus value="${esc(project?.name||'')}" placeholder="e.g. Newton"></label><label>Local folder<input name="folderPath" maxlength="4096" required value="${esc(project?.folderPath||'')}" placeholder="/Users/you/Projects/newton"></label><p class="field-help">Paste the project’s folder path. A Git worktree or a folder inside a repository works too. Files will not be changed.</p>${edit?'<div class="settings-divider"></div><div class="connection-heading"><h3>Git connection</h3><button type="button" class="text-button" id="refresh-git">Refresh</button></div><p class="field-help">Information for the saved folder. Save to connect a different folder.</p><div id="connection-details"></div>':''}`, [...(edit?[{label:project.benchmark?'Benchmark settings':'Set up benchmark',run:()=>benchmarkDialog(project)}]:[]),{label:'Cancel',close:true},{label:edit?'Save project':'Add project',submit:true,primary:true}],async form=>{
+  modal(edit?'Project details':'Add a project',`<label>Project name<input name="name" maxlength="100" required autofocus value="${esc(project?.name||'')}" placeholder="e.g. Newton"></label><label>Local folder<input name="folderPath" maxlength="4096" required value="${esc(project?.folderPath||'')}" placeholder="/Users/you/Projects/newton"></label><button type="button" id="choose-folder">Choose folder…</button><p class="field-help">Choose a folder or enter its path. Files will not be changed.</p>${edit?'<div class="settings-divider"></div><div class="connection-heading"><h3>Git connection</h3><button type="button" class="text-button" id="refresh-git">Refresh</button></div><p class="field-help">Information for the saved folder. Save to connect a different folder.</p><div id="connection-details"></div>':''}`, [...(edit?[{label:project.benchmark?'Benchmark settings':'Set up benchmark',run:()=>benchmarkDialog(project)}]:[]),{label:'Cancel',close:true},{label:edit?'Save project':'Add project',submit:true,primary:true}],async form=>{
     const saved=await api(edit?'projects/'+project.id:'projects',edit?'PUT':'POST',{name:form.get('name'),folderPath:form.get('folderPath'),...(edit?{version:project.version}:{})});
     await reload();
     if(edit){connections.delete(saved.id+':'+saved.version);render();refreshConnection(true);}else switchProject(saved.id);
     toast(edit?'Project saved.':'Project connected. Add a workflow or move one here.');
   });
+  const folderButton=$('#choose-folder'),folderInput=$('#dialog [name="folderPath"]'),dialogError=$('#dialog-error');
+  folderButton.onclick=async()=>{
+    folderButton.disabled=true;folderButton.textContent='Choosing…';dialogError.textContent='';
+    try{const result=await api('choose-folder','POST',{});if(!folderInput.isConnected||!$('#dialog').open)return;if(result.folderPath){folderInput.value=result.folderPath;folderInput.focus();}}
+    catch(e){if(dialogError.isConnected)dialogError.textContent=e.message;}
+    finally{if(folderButton.isConnected){folderButton.disabled=false;folderButton.textContent='Choose folder…';}}
+  };
   if(edit){
     const container=$('#connection-details');container.innerHTML=connectionMarkup(connections.get(project.id+':'+project.version));
     const refresh=async()=>{
@@ -330,7 +424,7 @@ function installHelp(){
 }
 
 function renderCodex(){
- shell(`<section class="page-heading"><div><div class="eyebrow">SINGLE AGENT</div><h1>Sessions</h1><p>Work directly with an agent, one conversation at a time.</p></div>${codexRunID?'<button id="codex-back">All sessions</button>':''}</section><section id="codex-view" class="codex-view"></section>`);
+ shell(`<section class="page-heading"><div><div class="eyebrow">SINGLE AGENT</div><h1>Sessions</h1></div>${codexRunID?'<button id="codex-back">All sessions</button>':''}</section><section id="codex-view" class="codex-view"></section>`);
  const open=id=>confirmLeave(()=>{codexRunID=id;view='codex';render();});
  const newRun=task=>confirmLeave(()=>{codexRunID=null;codexPrefill=task;view='codex';render();});
  if($('#codex-back'))$('#codex-back').onclick=()=>newRun('');
@@ -385,8 +479,8 @@ function renderWorkflow(){
 }
 
 function renderIssues(){
- shell(`<section class="page-heading"><div><div class="eyebrow">${esc(currentProject().name)}</div><h1>Issues</h1><p>Read the work. Shape the next step.</p></div></section><div id="issues-view"></div>`);
- issuesView=mountIssues({host:$('#issues-view'),project:currentProject(),number:issueNumber,api,confirmLeave,onOpen:number=>confirmLeave(()=>{issueNumber=number;render();})});
+ shell(`<section class="page-heading"><div><div class="eyebrow">${esc(currentProject().name)}</div><h1>${issueProposalID?'Proposal diff':issueNumber?'Issue #'+issueNumber:'Issues'}</h1></div></section><div id="issues-view"></div>`);
+ issuesView=mountIssues({host:$('#issues-view'),project:currentProject(),number:issueNumber,proposalID:issueProposalID,api,confirmLeave,onOpen:number=>confirmLeave(()=>{issueNumber=number;issueProposalID=null;render();}),onProposal:id=>confirmLeave(()=>{issueProposalID=id;render();})});
 }
 
 let stepCatalog=null;

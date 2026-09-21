@@ -1,3 +1,98 @@
+# Flow deletion — 2026-09-21
+
+- Deleted the two live Unassigned flows through version-checked DELETE requests:
+  Plan, review, build; One model, start to finish. Verified assigned flow records
+  and simulation history exactly unchanged. Local recovery copy retained at
+  output/deleted-unassigned-flows-backup.json. Empty Unassigned sidebar link disappears.
+- Delete flow now stays in the editor toolbar with a step selected. Confirmation
+  names the flow and explains saved-history retention and unsaved-edit removal.
+  Success returns to Workflows; stale-version/server errors remain in the dialog.
+- Editor browser suite passed cancellation, deletion with inspector open, reload
+  persistence and unchanged saved-run snapshots. Live confirmation/cancel inspected
+  in output/delete-flow-confirmation.png without deleting an assigned flow.
+- Shell cache skd-shell-0.5.0-20; no server restart required.
+
+---
+
+# Native project folder selection — 2026-09-21
+
+- Add/Edit project has Choose folder… backed by a loopback POST route and fixed
+  macOS choose-folder script. No shell/user-script interpolation; one picker at a
+  time, bounded timeout, cancellation preserves the path, errors retain manual entry.
+  Selection fills the field only; existing save-time canonical-folder checks remain.
+- 68 Node tests passed. Sidebar browser fixture checks passed selected path, cancel,
+  failure/manual fallback and retained project name. Native chooser opened visibly
+  and returned cancelled:true on cancellation. Live dialog screenshot captured;
+  saved store/session/workflow hashes unchanged after restart and read-only inspection.
+- Restarted the existing launchctl server only after checking no active execution.
+  This loads current server sources, including unfinished Issue-step backend scaffolding;
+  it does not complete or expose the pending Issue-step editor/orchestration feature.
+- PWA cache skd-shell-0.5.0-19. Existing windows use Update app.
+
+---
+
+# Issues views and functional UI copy — 2026-09-21
+
+- Split project Issues into full-width list, nested issue detail with 3:2 agent editor,
+  and dedicated proposal diff route. Breadcrumb ancestors return to issue/list.
+  Generate and proposal history open the diff; reload retains the selected proposal.
+- Preserved explicit Apply, conflict and uncertain-write verification, pending/draft
+  navigation guards, escaped source text, comments, state filter and pagination.
+- Removed decorative taglines/headings across Home, project, editor, Issues and Sessions;
+  retained functional instructions/status/errors. Added the UI copy rule to AGENTS.md.
+- Issues browser fixture suite passed generation with both providers, apply, conflicts,
+  verification, reload, 3:2 geometry, separate views, dirty guard, mobile and errors.
+  Editor, accessibility and overview browser suites also passed. Inspected list/detail/
+  diff screenshots. Live localhost view checks use existing issues/proposals only.
+- Cache skd-shell-0.5.0-18. No live server restart or Issue-step backend activation.
+
+---
+
+# Persistent project sidebar — 2026-09-21
+
+- Sidebar lists connected projects on every view, highlights the active project,
+  offers Add project, and preserves access to legacy Unassigned workflows. Project
+  details moved to project overview; workflows are selected from their overview.
+- Project changes retain pending/unsaved guards. Desktop list scrolls; mobile list
+  scrolls horizontally without document overflow.
+- Sidebar, overview, editor, accessibility, project, simulation, Codex UI and PWA
+  browser suites passed. Updated tests to navigate through the project list and
+  breadcrumbs. Inspected fixture and actual localhost screenshots, including
+  output/projects-sidebar-live.png. Live inspection made no data writes.
+- PWA cache skd-shell-0.5.0-17. No restart; partial Issue backend remains unactivated.
+
+---
+
+# Unified breadcrumbs — 2026-09-21
+
+- Replaced duplicated header labels/actions with one left-aligned semantic breadcrumb
+  navigation: Home, project, view, current item. Ancestors link to real routes and
+  preserve pending/unsaved guards; current page uses aria-current. Narrow layouts wrap.
+- Overview/navigation and editor Chrome suites passed, including dirty navigation,
+  desktop/mobile layout and retained drag behavior. Inspected rendered desktop header.
+- Live localhost verified Tiny Tasks hierarchy, project ancestor navigation and mobile
+  overflow without data writes. Screenshot: output/breadcrumbs-live.png.
+- Shell cache bumped to skd-shell-0.5.0-16; no server restart needed. Unfinished Issue
+  backend work remains separate and has not been activated by this UI change.
+
+---
+
+# Drag-to-reorder flow steps — 2026-09-21
+
+- Replaced inspector Move up/Down controls with pointer dragging on flow cards,
+  visible grips, insertion indicators and edge auto-scroll. Touch dragging uses the
+  grip; Alt + Up/Down reorders a focused card, and Escape cancels a pointer drag.
+  Existing stable IDs, explicit save, dirty guards and retry-target repair remain.
+- Remove step is now a bordered danger button with its existing confirmation.
+  Removed the editor Saved on this Mac / Connected in order footer.
+- Temporary-store Chrome editor suite passed mouse drag, touch drag, keyboard
+  reorder, Escape cancellation, order persistence across save/reload, removal,
+  five-width geometry and mobile overflow checks. Accessibility suite passed.
+- Inspected output/editor-reorder.png. Live server asset reads confirm updated
+  drag code and PWA cache skd-shell-0.5.0-15 without a restart or live data writes.
+
+---
+
 # Full-height 3:2 editor and session-style controls — 2026-09-21
 
 - Editor fills the available viewport remainder. Flow and inspector share equal height

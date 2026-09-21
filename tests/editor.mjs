@@ -13,7 +13,7 @@ try {
   const page=await browser.newPage({viewport:{width:1440,height:1050}});
   page.setDefaultTimeout(6000);page.setDefaultNavigationTimeout(6000);
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
-  console.log('open',url);await page.goto(url+'/#workflows/unassigned');await page.locator('[data-flow]').first().click();await page.locator('[data-step]').first().waitFor();
+  console.log('open',url);await page.goto(url+'/#workflows/unassigned');await page.locator('[data-overview-flow]').first().click();await page.locator('[data-step]').first().waitFor();
   // Opening, switching and closing settings must not resize the flow column.
   const geometry=()=>page.locator('.editor-layout>.canvas').evaluate(el=>{const r=el.getBoundingClientRect();return {x:r.x,width:r.width,height:r.height};});
   for(const width of [1900,1440,1100,900,390]){
@@ -53,13 +53,44 @@ try {
   await page.getByRole('button',{name:'Save flow',exact:true}).click();
   await page.waitForFunction(()=>document.querySelector('#save').disabled);
   console.log('reload');await page.reload();
-  await page.getByRole('button',{name:'Editor verification',exact:true}).click();
+
   assert.match(await page.locator('[data-step]').first().textContent(),/Investigate the task/);
+  // Drag the first step below the second, then verify persisted stable IDs.
+  const ids=await page.locator('[data-step]').evaluateAll(els=>els.map(el=>el.dataset.step));
+  const first=await page.locator('[data-step]').first().boundingBox();
+  const second=await page.locator('[data-step]').nth(1).boundingBox();
+  await page.mouse.move(first.x+first.width/2,first.y+first.height/2);
+  await page.mouse.down();await page.mouse.move(second.x+second.width/2,second.y+second.height-4,{steps:12});await page.mouse.up();
+  assert.deepEqual(await page.locator('[data-step]').evaluateAll(els=>els.map(el=>el.dataset.step)),[ids[1],ids[0],...ids.slice(2)]);
+  await page.getByRole('button',{name:'Save flow',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#save').disabled);
+  await page.reload();await page.locator('[data-step]').first().waitFor();
+  assert.equal(await page.locator('[data-step]').nth(1).getAttribute('data-step'),ids[0]);
+  await page.locator('[data-step]').nth(1).focus();await page.keyboard.press('Alt+ArrowUp');
+  assert.equal(await page.locator('[data-step]').first().getAttribute('data-step'),ids[0]);
+  // Escape cancels a drag without changing order.
+  const beforeCancel=await page.locator('[data-step]').evaluateAll(els=>els.map(el=>el.dataset.step));
+  const a=await page.locator('[data-step]').first().boundingBox(),b=await page.locator('[data-step]').nth(1).boundingBox();
+  await page.mouse.move(a.x+30,a.y+30);await page.mouse.down();await page.mouse.move(b.x+30,b.y+b.height-2,{steps:8});await page.keyboard.press('Escape');await page.mouse.up();
+  assert.deepEqual(await page.locator('[data-step]').evaluateAll(els=>els.map(el=>el.dataset.step)),beforeCancel);
+  assert.equal(await page.locator('.editor-layout .canvas-footer').count(),0);
+  // Touch dragging uses the grip, leaving the rest of the card available for scrolling.
+  const cdp=await page.context().newCDPSession(page);
+  const grip=await page.locator('[data-step] .step-drag').first().boundingBox();
+  const destination=await page.locator('[data-step]').nth(1).boundingBox();
+  const touchX=grip.x+grip.width/2,touchY=grip.y+grip.height/2,endY=destination.y+destination.height-3;
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:touchX,y:touchY}]});
+  for(let n=1;n<=8;n++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:touchX,y:touchY+(endY-touchY)*n/8}]});
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  assert.equal(await page.locator('[data-step]').nth(1).getAttribute('data-step'),ids[0]);
+  await page.locator('[data-step]').nth(1).focus();await page.keyboard.press('Alt+ArrowUp');
+  await cdp.detach();
   console.log('add');await page.getByRole('button',{name:'+ Add a step',exact:true}).click();
   await page.locator('[data-type="check"]').click();
   await page.getByLabel('Step name',{exact:true}).fill('Run checks');
-  await page.getByRole('button',{name:'Move step up',exact:true}).click();
+  const added=page.locator('[data-step]').last();
+  await added.focus();await page.keyboard.press('Alt+ArrowUp');
   assert.match(await page.locator('[data-step]').nth(5).textContent(),/Run checks/);
+  await page.screenshot({path:'output/editor-reorder.png',fullPage:true});
   await page.getByRole('button',{name:'Remove step',exact:true}).click();
   await page.locator('#dialog').getByRole('button',{name:'Remove step',exact:true}).click();
   assert.equal(await page.locator('[data-step]').count(),6);
@@ -70,15 +101,29 @@ try {
   await page.locator('#dialog').getByRole('button',{name:'Rename',exact:true}).click();
   await page.getByRole('button',{name:'Save flow',exact:true}).click();
   await page.waitForFunction(()=>document.querySelector('#save').disabled);
-  await page.getByRole('button',{name:'Create new flow',exact:true}).click();
+  await page.locator('[data-crumb-view=overview]').click();await page.getByRole('button',{name:'Create a flow',exact:true}).click();
   await page.getByLabel('Flow name',{exact:true}).fill('Empty flow');
   await page.locator('#dialog').getByRole('button',{name:'Create flow',exact:true}).click();
   await page.getByRole('heading',{name:'Empty flow'}).waitFor();
   assert.equal(await page.getByRole('button',{name:'▷ Try flow',exact:true}).isDisabled(),true);
-  await page.getByRole('button',{name:'Plan, review, build',exact:true}).click();
+  await page.locator('[data-crumb-view=overview]').click();await page.locator('[data-overview-flow]').filter({hasText:'Plan, review, build'}).click();
   await page.setViewportSize({width:390,height:844});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   await page.screenshot({path:'output/editor-mobile.png',fullPage:true});
+  await page.locator('[data-step]').first().click();
+  await page.getByRole('button',{name:'Delete flow',exact:true}).click();
+  await page.getByRole('button',{name:'Keep flow',exact:true}).click();
+  assert.equal(await page.locator('#inspector').count(),1);
+  const beforeDelete=await (await fetch(url+'/api/state')).json();
+  const deleting=beforeDelete.flows.find(f=>f.name==='Plan, review, build');
+  const runResponse=await fetch(url+'/api/runs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({flowID:deleting.id,flowVersion:deleting.version,task:'Retained deletion history'})});
+  assert.equal(runResponse.status,201);const savedRun=await runResponse.json();
+  await page.getByRole('button',{name:'Delete flow',exact:true}).click();
+  await page.locator('#dialog').getByRole('button',{name:'Delete flow',exact:true}).click();
+  await page.getByRole('heading',{name:'Workflows',exact:true}).waitFor();
+  await page.reload();await page.getByRole('heading',{name:'Workflows',exact:true}).waitFor();
+  const afterDelete=await (await fetch(url+'/api/state')).json();
+  assert(!afterDelete.flows.some(f=>f.id===deleting.id));assert.deepEqual(afterDelete.runs.find(r=>r.id===savedRun.id),savedRun);
   assert.deepEqual(errors,[]);
   console.log('Editor browser checks passed: create, duplicate, rename, configure, save, reload, reorder, remove, empty run guard, mobile overflow.');
 } finally {await browser.close();server.closeAllConnections();await new Promise(r=>server.close(r));rmSync(directory,{recursive:true,force:true});}

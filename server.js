@@ -1,3 +1,5 @@
+import {createFolderPicker} from './lib/folder-picker.js';
+import {captureIssueSteps} from './lib/issue-steps.js';
 import {GitHubIssues,IssueProposals} from './lib/issues.js';
 import {TerminalSessions} from './lib/terminals.js';
 import http from 'node:http';
@@ -22,12 +24,14 @@ async function body(req) {
   try { const parsed=JSON.parse(result); assert(parsed && typeof parsed==='object' && !Array.isArray(parsed),'Expected a JSON object.'); return parsed; }
   catch(e) { if(e instanceof Problem) throw e; throw new Problem('Invalid JSON.'); }
 }
-export function createServer({directory = process.env.FLOW_BENCH_DATA || path.join(root,'.data'), publicDirectory=path.join(root,'public'), codexOptions={},claudeOptions={},terminalOptions={},githubOptions={}} = {}) {
+export function createServer({directory = process.env.FLOW_BENCH_DATA || path.join(root,'.data'), publicDirectory=path.join(root,'public'), codexOptions={},claudeOptions={},terminalOptions={},githubOptions={},folderPicker=createFolderPicker()} = {}) {
   const store = new Store(directory);
   const codex = new CodexRuns(directory,{...codexOptions,claudeOptions});
-  const workflows = new Workflows(directory,codex);
+  const github=new GitHubIssues(githubOptions);
+  const captureIssues=async(flow,project)=>{const snapshots=await captureIssueSteps(flow,project,github);assert(store.snapshot().flows.some(f=>f.id===flow.id&&f.version===flow.version&&f.projectID===project.id)&&store.project(project.id).version===project.version,'Flow or project changed while reading issues. Reload before running.',409);return snapshots;};
+  const workflows = new Workflows(directory,codex,{captureIssues});
   const terminals = new TerminalSessions(directory,codex,terminalOptions);
-  const github=new GitHubIssues(githubOptions),proposals=new IssueProposals(directory,codex,github);
+  const proposals=new IssueProposals(directory,codex,github);
   const server = http.createServer(async (req,res)=>{
     const json=(value,status=200)=>{res.writeHead(status,{'Content-Type':'application/json'});res.end(JSON.stringify(value));};
     res.setHeader('Cache-Control','no-store');
@@ -39,6 +43,7 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       const origin=req.headers.origin;
       assert(!origin || origin===`http://${host}`,'Cross-origin requests are not allowed.',403);
       const url=new URL(req.url,`http://${host}`), pathname=url.pathname;
+      if(req.method==='POST'&&pathname==='/api/choose-folder'){await body(req);return json(await folderPicker());}
       if(req.method==='GET'&&pathname==='/api/health')return json({app:'skd-workbench',ok:true,version:'0.5.0'});
       const artifact=pathname.match(/^\/api\/artifacts\/([a-f0-9-]{36})$/);
       if(artifact&&req.method==='GET'){
@@ -126,7 +131,8 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
         const project=store.project(flow.projectID);
         if(input.projectVersion!==undefined)assert(project.version===input.projectVersion,'Project changed. Reload before running.',409);
         const context=project.folderPath?await inspectFolder(project.folderPath):null;
-        return json(store.createRun(input,context,project.version),201);
+        const snapshots=await captureIssues(flow,project);
+        return json(store.createRun(input,context,project.version,snapshots),201);
       }
       const run=pathname.match(/^\/api\/runs\/([\w-]+)\/action$/);
       if(run && req.method==='POST') return json(store.transition(run[1],await body(req)));
