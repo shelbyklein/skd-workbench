@@ -2,7 +2,7 @@
 
 <!-- skd-worktree-purpose-notes-2026-09-21 -->
 
-Status: planned; implementation has not started.
+Status: WN-01..03 delivered locally in ad78f07; WN-04..05 remain pending. See VALIDATION.md for checks and limits.
 GitHub issue: https://github.com/shelbyklein/skd-workbench/issues/7
 Tracker Trapper plan: `76EB7584-21A4-4F00-AFC1-E69E4C436E0A`; WN-01 through WN-05 remain pending.
 Related: https://github.com/shelbyklein/skd-workbench/issues/4 (worktree visualization; separate scope).
@@ -43,9 +43,9 @@ Use atomic persistence, version validation, backups before migrations and visibl
 
 ### Ordered implementation checklist
 
-- [ ] WN-01: Implement the annotation store, validators, atomic writes, revision conflicts and conservative attachment resolver. Acceptance: temporary-store tests cover restart, corruption, invalid/oversized input, path reuse and shared-repository project scopes.
-- [ ] WN-02: Integrate canonical registration into all three launch paths. Acceptance: fixture starts capture original purpose exactly once; workflow retries preserve edits; read-only execution creates no annotation. Creation/registration failure never launches a provider silently without its required record.
-- [ ] WN-03: Add guarded project-scoped annotation reads/edits through server-resolved worktree identities. Acceptance: real HTTP tests reject stale project/snapshot identities, arbitrary paths, cross-repository writes and stale revisions, while leaving Git files/refs/index unchanged.
+- [x] WN-01: Implement the annotation store, validators, atomic writes, revision conflicts and conservative attachment resolver. Acceptance: temporary-store tests cover restart, corruption, invalid/oversized input, path reuse and shared-repository project scopes.
+- [x] WN-02: Integrate canonical registration into all three launch paths. Acceptance: fixture starts capture original purpose exactly once; workflow retries preserve edits; read-only execution creates no annotation. Creation/registration failure never launches a provider silently without its required record.
+- [x] WN-03: Add guarded project-scoped annotation reads/edits through server-resolved worktree identities. Acceptance: real HTTP tests reject stale project/snapshot identities, arbitrary paths, cross-repository writes and stale revisions, while leaving Git files/refs/index unchanged.
 - [ ] WN-04: Add launch previews and existing-inventory notes/dialog UI. Acceptance: empty, loading, failed-save, conflict, cancellation and successful-save states work; origin links respect scope; drafts survive recoverable failures and are protected during navigation.
 - [ ] WN-05: Validate integration and record evidence in VALIDATION.md. Acceptance: full Node and browser suites pass with temporary stores and fixture providers; inspect desktop/mobile screenshots and keyboard flows; bump public/sw.js when shell assets change.
 

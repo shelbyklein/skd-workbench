@@ -2,7 +2,7 @@
 
 <!-- skd-worktree-lifecycle-2026-09-21 -->
 
-Status: implementation handoff prepared; implementation and subagent dispatch have not started.
+Status: first registration slice delivered locally in ad78f07; WLC-01 and #7 WN-01..03 complete. WLC-02..16 remain incomplete. See instructions/2026-09-21-registration-contract.md and VALIDATION.md.
 GitHub issue: https://github.com/shelbyklein/skd-workbench/issues/9
 Tracker Trapper plan: `local:8B1A3EB7-2154-4FF9-879A-944DE43320E8`.
 Local plan: `instructions/2026-09-21-worktree-lifecycle.md` (uncommitted at publication; the complete instructions are reproduced in this issue).
@@ -202,7 +202,7 @@ Owner: planning coordinator. No application implementation belongs to this item.
 
 ### WLC-01
 
-- [ ] **Freeze lifecycle contracts and resolve prerequisite ownership.**
+- [x] **Freeze lifecycle contracts and resolve prerequisite ownership.**
 
 Acceptance: Record the exact integration baseline, #4/#7/#8 delivered interfaces and remaining prerequisite IDs; publish DTOs, state rules and file ownership before parallel implementation.
 
