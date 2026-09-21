@@ -1,0 +1,30 @@
+import {chromium} from 'playwright';
+import assert from 'node:assert/strict';
+import {mkdtempSync,mkdirSync,writeFileSync,rmSync,realpathSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+import {execFileSync} from 'node:child_process';
+import {Store} from '../lib/store.js';
+import {WorktreeNotes} from '../lib/worktree-notes.js';
+import {inspectFolder} from '../lib/projects.js';
+import {createServer} from '../server.js';
+const base=realpathSync(mkdtempSync(path.join(tmpdir(),'skd-registration-ui-'))),folder=path.join(base,'repo'),directory=path.join(base,'data');mkdirSync(folder);
+const git=(...args)=>execFileSync('git',['-C',folder,...args],{encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
+git('init','-b','main');git('config','user.name','Fixture');git('config','user.email','fixture@example.invalid');writeFileSync(path.join(folder,'file'),'initial');git('add','.');git('commit','-m','Initial');
+const store=new Store(directory),project=store.createProject({name:'Registration fixture',folderPath:folder}),notes=new WorktreeNotes(directory),context=await inspectFolder(folder);
+const managed=notes.prepare({intentID:'managed',projectID:project.id,sourceContext:context,destination:path.join(base,'managed'),branch:'managed',purpose:'Repair <header> wrapping',origin:{kind:'session',id:'fixture'},ownerKey:'fixture',workRef:'local:fixture'});git('worktree','add','-b','managed',managed.destination);await notes.attach('managed');
+git('worktree','add','-b','external',path.join(base,'external'));
+const recovery=notes.prepare({intentID:'recover',projectID:project.id,sourceContext:context,destination:path.join(base,'recover'),branch:'recover',purpose:'Recover registration',origin:{kind:'session',id:'failed'},ownerKey:'failed'});git('worktree','add','-b','recover',recovery.destination);
+const server=createServer({directory,codexOptions:{binary:'/usr/bin/false',discover:async()=>({version:'fixture',models:[]}),spawnProcess:()=>{throw Error('No execution allowed');}},githubOptions:{inspect:async()=>({git:{remotes:[]}})}});await new Promise(r=>server.listen(0,'127.0.0.1',r));const url=`http://127.0.0.1:${server.address().port}`;
+const browser=await chromium.launch({channel:'chrome'});
+try{
+ const page=await browser.newPage({viewport:{width:1440,height:1100},serviceWorkers:'block'}),errors=[];let launches=0;
+ page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(r.method()==='POST'&&!r.url().endsWith('/workspace-registration/recover'))launches++;});
+ await page.goto(url+'/#project/'+project.id);const widget=page.locator('.git-status-widget');await widget.getByRole('button',{name:'Details',exact:true}).click();await widget.locator('.git-inventory > summary').click();
+ await widget.getByText('Repair <header> wrapping',{exact:true}).waitFor();assert.match(await widget.textContent(),/Managed workspace · local:fixture/);assert.match(await widget.textContent(),/Unassigned workspace/);assert.match(await widget.textContent(),/Retained registrations/);
+ mkdirSync('output',{recursive:true});await page.screenshot({path:'output/workspace-registration-desktop.png',fullPage:true});
+ await widget.getByRole('button',{name:'Retry registration',exact:true}).focus();await page.keyboard.press('Enter');await page.waitForFunction(()=>!document.querySelector('[data-git-action="recover-registration"]'));assert.equal(await widget.getByRole('heading',{name:'Retained registrations'}).count(),0);assert.match(await widget.textContent(),/Managed workspace · local:recover/);
+ await page.reload();await widget.getByRole('button',{name:'Details',exact:true}).click();await widget.locator('.git-inventory > summary').click();await widget.getByText('Repair <header> wrapping',{exact:true}).waitFor();
+ await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:'output/workspace-registration-mobile.png',fullPage:true});assert.deepEqual(errors,[]);assert.equal(launches,0);
+ console.log('Registration UI: managed/unassigned, escaped purpose, retained intent recovery, keyboard, reload and mobile passed. Zero provider launches.');
+}finally{await browser.close();server.shutdownCodex();server.closeAllConnections();await new Promise(r=>server.close(r));rmSync(base,{recursive:true,force:true});}

@@ -1,3 +1,4 @@
+import {randomUUID} from 'node:crypto';
 import {ImportedSessions} from './lib/imported-sessions.js';
 import {QuickActions} from './lib/quick-actions.js';
 import {Settings,instructionFiles} from './lib/settings.js';
@@ -21,6 +22,7 @@ import { canonicalFolder, inspectFolder } from './lib/projects.js';
 import {projectGraft} from './lib/graft-view.js';
 import {Skills} from './lib/skills.js';
 import {Connections} from './lib/connections.js';
+import {withRegistrations,changeRegistration} from './lib/workspace-registration.js';
 import {GitStatus} from './lib/git-status.js';
 import {Playbooks} from './lib/playbooks.js';
 const root = path.dirname(fileURLToPath(import.meta.url));
@@ -199,7 +201,18 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
         else if(req.method==='POST'&&gitStatusRoute[2])result=await gitStatus.check(project,await body(req));
         else throw new Problem('Not found.',404);
         assert(store.project(project.id).version===project.version,'Project changed. Refresh local status.',409);
-        return json(result);
+        const enriched=req.method==='GET'?await withRegistrations(result,project,codex.workspaceNotes):result;
+        assert(store.project(project.id).version===project.version,'Project changed. Refresh local status.',409);
+        return json(enriched);
+      }
+      const registrationRoute=pathname.match(/^\/api\/projects\/([\w-]+)\/workspace-registration(?:\/(recover))?$/);
+      if(registrationRoute){
+        assert((registrationRoute[2]&&req.method==='POST')||(!registrationRoute[2]&&req.method==='PUT'),'Not found.',404);
+        const project=store.project(registrationRoute[1]),input=await body(req);
+        const recoveryOwner=registrationRoute[2]?'registration:'+randomUUID():null;
+        if(recoveryOwner){assert(!codex.owner&&!codex.active&&!codex.starting&&!codex.cleaning&&!terminals.active,'Finish active execution before recovering registration.',409);codex.owner=recoveryOwner;}
+        try{return json(await changeRegistration({project,input,notes:codex.workspaceNotes,gitStatus,recover:Boolean(recoveryOwner),validateProject:()=>assert(store.project(project.id).version===project.version,'Project changed. Refresh local status.',409)}));}
+        finally{if(recoveryOwner&&codex.owner===recoveryOwner)codex.owner=null;}
       }
       const connection=pathname.match(/^\/api\/projects\/([\w-]+)\/connection$/);
       if(connection&&req.method==='GET'){
