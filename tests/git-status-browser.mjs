@@ -34,7 +34,10 @@ try{
  // Failed local refresh retains visibly stale data, and offers a real recovery action.
  await page.route('**/api/projects/'+project.id+'/git-status*',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Inspection unavailable fixture'})}));
  await widget.getByRole('button',{name:'Refresh local',exact:true}).click();await widget.getByText(/Showing previous local observation — stale/).waitFor();assert.equal(await widget.getByRole('button',{name:'Check remote',exact:true}).isDisabled(),true);
- await page.unroute('**/api/projects/'+project.id+'/git-status*');await widget.getByRole('button',{name:'Reset selections and retry'}).click();await page.waitForFunction(()=>!document.querySelector('.git-feedback')?.textContent);
+ await page.unroute('**/api/projects/'+project.id+'/git-status*');await widget.getByRole('button',{name:'Reset selections and retry'}).click();await page.waitForFunction(()=>!document.querySelector('.git-feedback')?.textContent&&!document.querySelector('[data-git-action="refresh"]')?.disabled);
+ // Conflicts in another checkout are visible even while this checkout is clean.
+ writeFileSync(path.join(folder,'file'),'main diverges');git(folder,'add','.');git(folder,'commit','-m','Main diverges');assert.throws(()=>git(work,'merge','main'));
+ await widget.getByRole('button',{name:'Refresh local',exact:true}).click();await widget.getByText(/1 worktree with conflicts/).waitFor();assert.match(await widget.locator('.git-overview-facts').textContent(),/On main.*Clean/s);
  // Late responses must not repaint another project's widget.
  await page.route('**/api/projects/'+project.id+'/git-status*',async route=>{const response=await route.fetch();await new Promise(r=>setTimeout(r,1200));await route.fulfill({response}).catch(()=>{});});
  await widget.getByRole('button',{name:'Refresh local',exact:true}).click();await page.evaluate(id=>{location.hash='#project/'+id;},nonGit.id);await widget.getByText('This folder is not in a Git repository.').waitFor();await page.waitForTimeout(1500);assert.doesNotMatch(await widget.textContent(),/On main/);

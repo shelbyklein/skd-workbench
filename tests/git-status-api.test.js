@@ -39,6 +39,8 @@ test('HTTP scope, origin, stale identity and argument guards reject invalid remo
  assert.equal((await f.request('/api/projects/unassigned/git-status/remote-check','POST',input)).status,409);
  assert.equal((await f.request(f.route+'?target=--evil')).status,409);
  git(f.root,'remote','set-url','origin','https://changed.invalid/repo');assert.equal((await f.request(f.route+'/remote-check','POST',input)).status,409);assert.equal(f.calls(),0);
+ const fresh=await(await f.request(f.route)).json();writeFileSync(path.join(f.root,'draft'),'changed after local observation');
+ assert.equal((await f.request(f.route+'/remote-check','POST',{snapshotID:fresh.snapshotID,projectVersion:f.project.version})).status,409);
 });
 test('remote checks deduplicate concurrent actions and reject results when refs move in flight',async t=>{
  const f=await fixture(t),s=await(await f.request(f.route)).json(),input={snapshotID:s.snapshotID,projectVersion:f.project.version};
