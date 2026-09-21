@@ -7,6 +7,7 @@ import { mountCodex } from './codex-ui.js';
 import { mountKnowledgeHome, mountKnowledgeProject } from './knowledge-ui.js';
 import { mountSkills } from './skills-ui.js';
 import { mountConnections } from './connections-ui.js';
+import { mountPlaybooks } from './playbooks-ui.js';
 import { installApp, isStandalone, setupPWA, serverAvailable } from './pwa.js';
 const $ = s => document.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -15,7 +16,7 @@ const uid = ()=>crypto.randomUUID();
 let issuesView=null,issueNumber=null,issueProposalID=null,issueEditMode=false;
 let planningView=null,planningRunID=null;
 let knowledgeView=null;
-let skillsView=null,connectionsView=null;
+let skillsView=null,connectionsView=null,playbooksView=null;
 let workflowView=null,workflowRunID=null;
 let codexView=null,codexRunID=null,codexPrefill='';
 let projectID='unassigned';
@@ -38,8 +39,8 @@ const scopedRuns=()=>data.runs.filter(r=>r.projectID===projectID);
 const currentProject=()=>data.projects.find(p=>p.id===projectID)||data.projects[0];
 function markDirty() { dirty=true; const save=$('#save'); if(save) save.disabled=false; }
 function confirmLeave(action) {
-  if(issuesView?.isPending()||codexView?.isPending()||workflowView?.isPending()||skillsView?.isPending()||connectionsView?.isPending()){toast('Wait for the current request to finish before leaving.');return;}
-  if(!dirty&&!issuesView?.isDirty()&&!codexView?.isDirty()&&!workflowView?.isDirty()&&!skillsView?.isDirty()&&!connectionsView?.isDirty()) return action();
+  if(issuesView?.isPending()||codexView?.isPending()||workflowView?.isPending()||skillsView?.isPending()||connectionsView?.isPending()||playbooksView?.isPending()){toast('Wait for the current request to finish before leaving.');return;}
+  if(!dirty&&!issuesView?.isDirty()&&!codexView?.isDirty()&&!workflowView?.isDirty()&&!skillsView?.isDirty()&&!connectionsView?.isDirty()&&!playbooksView?.isDirty()) return action();
   modal('Keep your changes?', '<p>You have unsaved changes. Save them or discard them before leaving.</p>', [{label:'Keep editing',close:true},{label:'Discard changes',run:()=>{dirty=false;action();}}]);
 }
 function openFlow(flowID) { confirmLeave(()=>{const flow=data.flows.find(f=>f.id===flowID); if(!flow)return; projectID=flow.projectID;draft=clone(flow);selected=null;view='flow';dirty=false;render();}); }
@@ -66,12 +67,14 @@ function breadcrumbs() {
   if(view==='knowledge-global')items.push({name:'Knowledge Graph'});
   else if(view==='skills-global')items.push({name:'Skills'});
   else if(view==='connections-global')items.push({name:'Connections (MCP)'});
+  else if(view==='playbooks-global')items.push({name:'Playbooks'});
   else if(view!=='projects')items.push({name:currentProject()?.name||'Unassigned',view:'project',href:'#project/'+projectID,id:'project-home'});
-  if(!['projects','project','knowledge-global','skills-global','connections-global','invalid'].includes(view)){
+  if(!['projects','project','knowledge-global','skills-global','connections-global','playbooks-global','invalid'].includes(view)){
     if(view==='planning'){items.push({name:'Issues',view:'issues',href:'#issues/'+projectID},{name:'Create plan'});
     }else if(view==='knowledge'){items.push({name:'Knowledge Graph'});
     }else if(view==='skills'){items.push({name:'Skills'});
     }else if(view==='connections'){items.push({name:'Connections (MCP)'});
+    }else if(view==='playbooks'){items.push({name:'Playbooks'});
     }else if(view==='system'){items.push({name:'System'});
     }else if(view==='issues'){
       items.push({name:'Issues',view:'issues',href:'#issues/'+projectID});
@@ -95,9 +98,9 @@ function breadcrumbs() {
   }
   return `<nav class="breadcrumbs" aria-label="Breadcrumb"><ol>${items.map((item,i)=>`<li>${i===items.length-1?`<span aria-current="page">${esc(item.name)}</span>`:`<a ${item.id?`id="${item.id}"`:''} href="${esc(item.href)}" data-crumb-view="${item.view}">${esc(item.name)}</a>`}</li>`).join('')}</ol></nav>`;
 }
-const projectViews=[['scratchpad','Scratchpad'],['issues','Issues'],['codex','Sessions'],['overview','Workflows'],['knowledge','Knowledge Graph'],['skills','Skills'],['connections','Connections'],['system','System']];
+const projectViews=[['scratchpad','Scratchpad'],['issues','Issues'],['codex','Sessions'],['playbooks','Playbooks'],['overview','Workflows'],['knowledge','Knowledge Graph'],['skills','Skills'],['connections','Connections'],['system','System']];
 function viewIcon(key){
- const paths={scratchpad:'<path d="M5 3h14v18H5zM8 7h8M8 11h8M8 15h5"/>',issues:'<circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 17h.01"/>',codex:'<path d="M4 4h16v13H9l-5 4zM8 8l3 3-3 3M13 14h3"/>',overview:'<rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/><path d="M9 6h9v9M6 9v9h9"/>',knowledge:'<circle cx="12" cy="4" r="2"/><circle cx="4" cy="18" r="2"/><circle cx="20" cy="18" r="2"/><path d="m11 6-6 10m8-10 6 10M6 18h12"/>',skills:'<path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z"/>',connections:'<path d="M9 3v5m6-5v5M7 8h10v3a5 5 0 0 1-10 0zM12 16v5"/>',system:'<path d="M3 7h18M3 17h18"/><circle cx="8" cy="7" r="3" fill="var(--white)"/><circle cx="16" cy="17" r="3" fill="var(--white)"/>'};
+ const paths={scratchpad:'<path d="M5 3h14v18H5zM8 7h8M8 11h8M8 15h5"/>',issues:'<circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 17h.01"/>',codex:'<path d="M4 4h16v13H9l-5 4zM8 8l3 3-3 3M13 14h3"/>',playbooks:'<path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/><path d="M3 7V3h4M21 17v4h-4"/>',overview:'<rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/><path d="M9 6h9v9M6 9v9h9"/>',knowledge:'<circle cx="12" cy="4" r="2"/><circle cx="4" cy="18" r="2"/><circle cx="20" cy="18" r="2"/><path d="m11 6-6 10m8-10 6 10M6 18h12"/>',skills:'<path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z"/>',connections:'<path d="M9 3v5m6-5v5M7 8h10v3a5 5 0 0 1-10 0zM12 16v5"/>',system:'<path d="M3 7h18M3 17h18"/><circle cx="8" cy="7" r="3" fill="var(--white)"/><circle cx="16" cy="17" r="3" fill="var(--white)"/>'};
  return `<svg class="view-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[key]}</svg>`;
 }
 function projectNavigation(){
@@ -107,14 +110,14 @@ function projectNavigation(){
 }
 function shell(content) {
   const home=view==='projects';
-  const projectScoped=!['projects','knowledge-global','skills-global','connections-global','invalid'].includes(view);
+  const projectScoped=!['projects','knowledge-global','skills-global','connections-global','playbooks-global','invalid'].includes(view);
   $('#app').innerHTML=`<aside class="sidebar"><a class="brand" href="/#home" aria-label="SKD Workbench home"><img src="/icon.svg" alt=""><span>SKD Workbench</span></a>${projectScoped?projectNavigation():`<div class="projects-sidebar-heading"><span class="side-label">PROJECTS</span></div><nav class="project-list" aria-label="Projects">${data.projects.filter(p=>p.id!=='unassigned').map(p=>`<button class="project-link ${projectScoped&&p.id===projectID?'active':''}" data-sidebar-project="${esc(p.id)}" ${projectScoped&&p.id===projectID?'aria-current="true"':''}><span class="project-list-icon" aria-hidden="true">▱</span><span>${esc(p.name)}</span></button>`).join('')||'<p class="side-hint">Add your first project.</p>'}</nav>`}<div class="sidebar-project-actions"><button class="sidebar-add-project" data-add-project>+ Add project</button>${settingsButton}</div>${!projectScoped&&data.flows.some(f=>f.projectID==='unassigned')?`<a class="unassigned-link" href="#project/unassigned" data-sidebar-project="unassigned" ${projectScoped&&projectID==='unassigned'?'aria-current="true"':''}>Unassigned workflows</a>`:''}<div class="side-bottom">${isStandalone()?'':'<button id="install-app" class="install-button">↓ Install app</button>'}<span class="local-dot"></span> Local on your Mac</div></aside><main class="${view==='flow'?'flow-editor-main':''}"><header class="topbar">${breadcrumbs()}</header>${content}</main>`;
   const heading=$('main > .page-heading'),topbar=$('main > .topbar');
   if(heading){
     const title=heading.firstElementChild;
     title.classList.add('view-title');
     // Project context is already present in the breadcrumb.
-    if(['projects','project','overview','issues','codex','workflow','knowledge-global','knowledge','skills-global','skills','connections-global','connections'].includes(view))title.querySelector('.eyebrow')?.remove();
+    if(['projects','project','overview','issues','codex','workflow','knowledge-global','knowledge','skills-global','skills','connections-global','connections','playbooks-global','playbooks'].includes(view))title.querySelector('.eyebrow')?.remove();
     const actions=document.createElement('div');actions.className='view-actions';
     while(title.nextElementSibling)actions.append(title.nextElementSibling);
     heading.classList.add('view-header');
@@ -144,6 +147,7 @@ function bindCommon() {
   if($('[data-global-skills]'))$('[data-global-skills]').onclick=()=>confirmLeave(()=>{view='skills-global';selected=null;render();});
   if($('[data-global-connections]'))$('[data-global-connections]').onclick=()=>confirmLeave(()=>{view='connections-global';selected=null;render();});
   if($('#edit-project-tags'))$('#edit-project-tags').onclick=()=>openSettings({api,modal,projects:data.projects,section:'tags',onSaved:()=>{render();toast('Tags saved.');}});
+  if($('[data-global-playbooks]'))$('[data-global-playbooks]').onclick=()=>confirmLeave(()=>{view='playbooks-global';selected=null;render();});
   if($('#open-workflows'))$('#open-workflows').onclick=()=>confirmLeave(()=>{workflowRunID=null;view='workflow';render();});
   if($('#open-codex'))$('#open-codex').onclick=()=>confirmLeave(()=>{codexRunID=null;codexPrefill='';view='codex';render();});
   if($('#install-app'))$('#install-app').onclick=async()=>{try{if(!await installApp())installHelp();}catch(e){toast('Installation was not completed. Try your browser’s install menu.');}};
@@ -155,9 +159,9 @@ function bindCommon() {
   if($('[data-action="history"]'))$('[data-action="history"]').onclick=()=>confirmLeave(()=>{view='history';selected=null;render();});
 }
 function render() {
-  connectionsView?.dispose();connectionsView=null;skillsView?.dispose();skillsView=null;knowledgeView?.dispose();knowledgeView=null;planningView?.dispose();planningView=null;issuesView?.dispose();issuesView=null;codexView?.dispose();codexView=null;workflowView?.dispose();workflowView=null;
+  connectionsView?.dispose();connectionsView=null;skillsView?.dispose();skillsView=null;playbooksView?.dispose();playbooksView=null;knowledgeView?.dispose();knowledgeView=null;planningView?.dispose();planningView=null;issuesView?.dispose();issuesView=null;codexView?.dispose();codexView=null;workflowView?.dispose();workflowView=null;
   const nextHash='#'+routePath();if(location.hash!==nextHash)history.pushState(null,'',nextHash);lastRenderedHash=nextHash;
-  if(view==='invalid')renderInvalidRoute();else if(view==='projects')renderProjects();else if(view==='knowledge-global')renderKnowledgeHome();else if(view==='knowledge')renderKnowledgeProject();else if(view==='skills-global'||view==='skills')renderSkills();else if(view==='connections-global'||view==='connections')renderConnections();else if(view==='project')renderProjectOverview();else if(view==='planning')renderPlanning();else if(view==='system')renderSystem();else if(view==='issues')renderIssues();else if(view==='overview')renderOverview();else if(view==='workflow')renderWorkflow();else if(view==='codex')renderCodex();else if(view==='flow')renderFlow(); else if(view==='run')renderRun(); else if(view==='compare')renderCompare();else renderHistory();
+  if(view==='invalid')renderInvalidRoute();else if(view==='projects')renderProjects();else if(view==='knowledge-global')renderKnowledgeHome();else if(view==='knowledge')renderKnowledgeProject();else if(view==='skills-global'||view==='skills')renderSkills();else if(view==='connections-global'||view==='connections')renderConnections();else if(view==='playbooks-global'||view==='playbooks')renderPlaybooks();else if(view==='project')renderProjectOverview();else if(view==='planning')renderPlanning();else if(view==='system')renderSystem();else if(view==='issues')renderIssues();else if(view==='overview')renderOverview();else if(view==='workflow')renderWorkflow();else if(view==='codex')renderCodex();else if(view==='flow')renderFlow(); else if(view==='run')renderRun(); else if(view==='compare')renderCompare();else renderHistory();
 }
 function renderInvalidRoute(){shell(`<section class="empty"><h1>Page unavailable</h1><p>${esc(routeError||'This project page does not exist.')}</p><button id="invalid-home">Return home</button></section>`);$('#invalid-home').onclick=()=>{view='projects';routeError='';render();};}
 let projectTagFilters=new Set(),projectLayout='grid';
@@ -167,6 +171,8 @@ function renderProjects(){
  const visibleProjects=data.projects.filter(project=>project.id!=='unassigned'&&(!projectTagFilters.size||tags.some(tag=>projectTagFilters.has(tag.id)&&tag.projectIDs.includes(project.id))));
  const gridIcon='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3.5" y="3.5" width="6.5" height="6.5" rx="1"/><rect x="14" y="3.5" width="6.5" height="6.5" rx="1"/><rect x="3.5" y="14" width="6.5" height="6.5" rx="1"/><rect x="14" y="14" width="6.5" height="6.5" rx="1"/></svg>',listIcon='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="4.5" cy="6" r=".8" fill="currentColor"/><circle cx="4.5" cy="12" r=".8" fill="currentColor"/><circle cx="4.5" cy="18" r=".8" fill="currentColor"/><path d="M8 6h12M8 12h12M8 18h12"/></svg>';
  shell(`<section class="page-heading"><div><h1>Home</h1></div><div class="heading-actions"><button class="primary" id="add-project">+ Add project</button>${settingsButton}</div></section><section class="workflow-overview global-pages"><div class="overview-section-heading"><h2>Global pages</h2></div><div class="overview-grid global-page-grid"><button class="overview-flow" data-global-knowledge><span class="eyebrow">ALL PROJECTS</span><strong>Knowledge Graph</strong><span>Browse connected Graft indexes.</span><span class="overview-flow-footer">Open Knowledge Graph <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-global-skills><span class="eyebrow">ALL PROJECTS</span><strong>Skills</strong><span>Manage instruction libraries and assignments.</span><span class="overview-flow-footer">Open Skills <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-global-connections><span class="eyebrow">ALL PROJECTS</span><strong>Connections (MCP)</strong><span>Inspect and assign provider connections.</span><span class="overview-flow-footer">Open Connections <span aria-hidden="true">↗</span></span></button></div></section><section class="workflow-overview projects-section"><div class="overview-section-heading projects-toolbar"><div class="projects-title"><h2>Projects</h2><span>${data.projects.filter(p=>p.folderPath).length} connected</span></div><div class="project-tag-filters" aria-label="Filter projects by tag">${tags.map(tag=>`<button type="button" class="project-tag-filter-pill" data-project-tag-filter="${esc(tag.id)}" aria-label="Filter by ${esc(tag.name)}" aria-pressed="${projectTagFilters.has(tag.id)}">${tagMarkup(tag)}</button>`).join('')}</div><div class="project-layout-toggle" role="group" aria-label="Project layout"><button type="button" data-project-layout="grid" aria-label="Grid view" aria-pressed="${projectLayout==='grid'}" title="Grid view">${gridIcon}</button><button type="button" data-project-layout="list" aria-label="List view" aria-pressed="${projectLayout==='list'}" title="List view">${listIcon}</button></div></div><div class="overview-grid project-${projectLayout}-view" data-project-layout="${projectLayout}">${visibleProjects.map(p=>{return `<div class="project-card-wrap"><button class="overview-flow project-card" data-project="${p.id}"><span class="eyebrow">LOCAL PROJECT</span><strong>${esc(p.name)}</strong><span>${esc(p.folderPath||'Workflows not yet connected to a project folder.')}</span><span class="folder-repository" data-folder-repository="${p.id}"></span><span class="project-tags">${tags.filter(t=>t.projectIDs.includes(p.id)).map(tagMarkup).join('')}</span><span class="overview-flow-footer"><span data-project-issues="${p.id}">Loading issues…</span> <span aria-hidden="true">↗</span></span></button><button type="button" class="project-card-menu" data-project-tags="${p.id}" aria-label="Edit tags for ${esc(p.name)}" aria-haspopup="dialog">⋯</button></div>`;}).join('')}</div></section>`);
+ $('.global-page-grid').insertAdjacentHTML('beforeend','<button class="overview-flow" data-global-playbooks><span class="eyebrow">ALL PROJECTS</span><strong>Playbooks</strong><span>Save reusable skill and MCP selections.</span><span class="overview-flow-footer">Open Playbooks <span aria-hidden="true">↗</span></span></button>');
+ $('[data-global-playbooks]').onclick=()=>confirmLeave(()=>{view='playbooks-global';selected=null;render();});
  fillFolderRepositories();
  fillProjectIssueCounts();
  document.querySelectorAll('[data-project-tag-filter]').forEach(button=>button.onclick=()=>{const id=button.dataset.projectTagFilter;if(projectTagFilters.has(id))projectTagFilters.delete(id);else projectTagFilters.add(id);renderProjects();[...document.querySelectorAll('[data-project-tag-filter]')].find(item=>item.dataset.projectTagFilter===id)?.focus();});
@@ -244,6 +250,8 @@ function mountProjectWidgets(project){
 function renderProjectOverview(){
  const project=currentProject();
  shell(`<section class="page-heading" data-project-overview><div><div class="eyebrow">PROJECT OVERVIEW</div><h1>${esc(project.name)}</h1></div><div class="heading-actions"><div class="project-tags">${projectTags().filter(t=>t.projectIDs.includes(project.id)).map(tagMarkup).join('')}</div><button type="button" id="edit-project-tags" class="refresh-button" aria-label="Edit tags" title="Edit tags"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13 13 20a2 2 0 0 1-2.8 0L3 12.8V3h9.8l7.2 7.2a2 2 0 0 1 0 2.8Z"/><circle cx="7.5" cy="7.5" r="1.2"/></svg></button><button type="button" id="project-details" class="refresh-button" aria-label="Project details" title="Project details"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="var(--white)"/><circle cx="15" cy="17" r="3" fill="var(--white)"/></svg></button></div></section><section class="workflow-overview"><div class="overview-section-heading"><h2>Project views</h2></div><div class="overview-grid project-views">${[['Scratchpad','Keep notes and early ideas for this project.']].map(([name,description])=>`<article class="overview-flow planned-view" aria-label="${name} — planned">${viewIcon('scratchpad')}<span class="eyebrow">PLANNED</span><h3>${name}</h3><p>${description}</p><span class="overview-flow-footer">Not available yet</span></article>`).join('')}<button class="overview-flow" data-view-link="issues">${viewIcon('issues')}<span class="eyebrow">GITHUB</span><strong>Issues</strong><span>Read issues and review agent edit proposals.</span><span class="overview-flow-footer">Open Issues <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="codex">${viewIcon('codex')}<span class="eyebrow">SINGLE AGENT</span><strong>Sessions</strong><span class="overview-flow-footer">Open Sessions <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="overview">${viewIcon('overview')}<span class="eyebrow">${scopedFlows().length} SAVED WORKFLOW${scopedFlows().length===1?'':'S'}</span><strong>Workflows</strong><span class="overview-flow-footer">Open Workflows <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="knowledge">${viewIcon('knowledge')}<span class="eyebrow">GRAFT</span><strong>Knowledge Graph</strong><span>Browse the connected project index.</span><span class="overview-flow-footer">Open Knowledge Graph <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="skills">${viewIcon('skills')}<span class="eyebrow">INSTRUCTIONS</span><strong>Skills</strong><span>Manage project assignments and available skill files.</span><span class="overview-flow-footer">Open Skills <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="connections">${viewIcon('connections')}<span class="eyebrow">TOOLS</span><strong>Connections (MCP)</strong><span>Inspect provider configuration and project policy.</span><span class="overview-flow-footer">Open Connections <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="system">${viewIcon('system')}<strong>System</strong><span>Project settings and agent instructions</span></button></div></section>`);
+ document.querySelector('[data-view-link="overview"]').insertAdjacentHTML('beforebegin',`<button class="overview-flow" data-view-link="playbooks">${viewIcon('playbooks')}<span class="eyebrow">CAPABILITIES</span><strong>Playbooks</strong><span>Choose reusable managed skills and MCP connections.</span><span class="overview-flow-footer">Open Playbooks <span aria-hidden="true">↗</span></span></button>`);
+ $('[data-view-link="playbooks"]').onclick=()=>confirmLeave(()=>{view='playbooks';issueNumber=null;issueProposalID=null;codexRunID=null;codexPrefill='';selected=null;render();});
  mountProjectWidgets(project);
 }
 
@@ -265,6 +273,11 @@ function renderConnections(){
  const global=view==='connections-global',scope=global?{kind:'global'}:{kind:'project',projectID};
  shell(`<section class="page-heading"><div>${global?'':`<div class="eyebrow">${esc(currentProject().name)}</div>`}<h1>Connections (MCP)</h1><p>${global?'Configured provider resources':'Project policy and verification status'}</p></div></section><section class="resource-page" id="connections-view"></section>`);
  connectionsView=mountConnections({host:$('#connections-view'),scope,projects:data.projects,api,notify:toast});
+}
+function renderPlaybooks(){
+ const global=view==='playbooks-global',scope=global?{kind:'global'}:{kind:'project',projectID};
+ shell(`<section class="page-heading"><div>${global?'':`<div class="eyebrow">${esc(currentProject().name)}</div>`}<h1>Playbooks</h1><p>${global?'Reusable managed capability selections':'Session defaults and reusable capability selections'}</p></div></section><section class="resource-page" id="playbooks-view"></section>`);
+ playbooksView=mountPlaybooks({host:$('#playbooks-view'),scope,projects:data.projects,api,notify:toast});
 }
 function renderOverview(){
  const flows=scopedFlows(),scope=projectID;
@@ -467,11 +480,11 @@ function renderHistory(){
   });
   $('#compare-runs').onclick=()=>{view='compare';render();};
 }
-const hasUnsaved=()=>dirty||issuesView?.isDirty()||issuesView?.isPending()||codexView?.isDirty()||workflowView?.isDirty()||skillsView?.isDirty()||skillsView?.isPending()||connectionsView?.isDirty()||connectionsView?.isPending()||[...reviewDrafts.values()].some(Boolean)||$('#dialog').open||busy;
+const hasUnsaved=()=>dirty||issuesView?.isDirty()||issuesView?.isPending()||codexView?.isDirty()||workflowView?.isDirty()||skillsView?.isDirty()||skillsView?.isPending()||connectionsView?.isDirty()||connectionsView?.isPending()||playbooksView?.isDirty()||playbooksView?.isPending()||[...reviewDrafts.values()].some(Boolean)||$('#dialog').open||busy;
 let loaded=false;
 window.addEventListener('beforeunload',e=>{if(hasUnsaved()){e.preventDefault();e.returnValue='';}});
 let lastRenderedHash='';
-function routePath(){return view==='invalid'?(location.hash.slice(1)||'home'):view==='projects'?'home':view==='knowledge-global'?'knowledge':view==='knowledge'?'knowledge/'+projectID:view==='skills-global'?'skills':view==='skills'?'skills/'+projectID:view==='connections-global'?'connections':view==='connections'?'connections/'+projectID:view==='issues'?'issues/'+projectID+(issueNumber?'/'+issueNumber:'')+(issueProposalID?'/proposals/'+issueProposalID:issueEditMode?'/edit':''):view==='planning'?'planning/'+projectID+'/'+planningRunID:view==='system'?'system/'+projectID:view==='overview'?'workflows/'+projectID:view==='workflow'?'workflow/'+projectID+(workflowRunID?'/'+workflowRunID:''):view==='codex'?'sessions/'+projectID+(codexRunID?'/'+codexRunID:''):view==='compare'?'compare/'+compareIDs.join(','):view==='run'?'run/'+runID:view==='flow'&&draft?'flow/'+draft.id:view==='history'?'history/'+projectID:'project/'+projectID;}
+function routePath(){return view==='invalid'?(location.hash.slice(1)||'home'):view==='projects'?'home':view==='knowledge-global'?'knowledge':view==='knowledge'?'knowledge/'+projectID:view==='skills-global'?'skills':view==='skills'?'skills/'+projectID:view==='connections-global'?'connections':view==='connections'?'connections/'+projectID:view==='playbooks-global'?'playbooks':view==='playbooks'?'playbooks/'+projectID:view==='issues'?'issues/'+projectID+(issueNumber?'/'+issueNumber:'')+(issueProposalID?'/proposals/'+issueProposalID:issueEditMode?'/edit':''):view==='planning'?'planning/'+projectID+'/'+planningRunID:view==='system'?'system/'+projectID:view==='overview'?'workflows/'+projectID:view==='workflow'?'workflow/'+projectID+(workflowRunID?'/'+workflowRunID:''):view==='codex'?'sessions/'+projectID+(codexRunID?'/'+codexRunID:''):view==='compare'?'compare/'+compareIDs.join(','):view==='run'?'run/'+runID:view==='flow'&&draft?'flow/'+draft.id:view==='history'?'history/'+projectID:'project/'+projectID;}
 function applyRoute(hash=location.hash){
  const route=hash.slice(1).split('/');view='projects';routeError='';issueNumber=null;issueProposalID=null;issueEditMode=false;planningRunID=null;workflowRunID=null;codexRunID=null;runID=null;compareIDs=[];
  if(route[0]==='planning'){projectID=route[1];planningRunID=route[2];view='planning';}
@@ -481,7 +494,9 @@ function applyRoute(hash=location.hash){
  else if(route[0]==='skills'&&data.projects.some(p=>p.id===route[1]&&p.id!=='unassigned')){projectID=route[1];view='skills';}
  else if(route[0]==='connections'&&!route[1])view='connections-global';
  else if(route[0]==='connections'&&data.projects.some(p=>p.id===route[1]&&p.id!=='unassigned')){projectID=route[1];view='connections';}
- else if(['skills','connections','knowledge'].includes(route[0])){view='invalid';routeError='That project resource page is unavailable. Return home and choose a connected project.';}
+ else if(route[0]==='playbooks'&&!route[1])view='playbooks-global';
+ else if(route[0]==='playbooks'&&data.projects.some(p=>p.id===route[1]&&p.id!=='unassigned')){projectID=route[1];view='playbooks';}
+ else if(['skills','connections','playbooks','knowledge'].includes(route[0])){view='invalid';routeError='That project resource page is unavailable. Return home and choose a connected project.';}
  else if(route[0]==='system'&&data.projects.some(p=>p.id===route[1])){projectID=route[1];view='system';}
  else if(route[0]==='issues'){view='issues';projectID=route[1]||'unassigned';issueNumber=/^[1-9][0-9]*$/.test(route[2]||'')?Number(route[2]):null;issueProposalID=issueNumber&&route[3]==='proposals'&&/^[\w-]+$/.test(route[4]||'')?route[4]:null;issueEditMode=!!issueNumber&&route[3]==='edit';}
  else if(route[0]==='workflow'){view='workflow';projectID=route[1]||'unassigned';workflowRunID=route[2]||null;}
