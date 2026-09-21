@@ -14,6 +14,21 @@ try {
   page.setDefaultTimeout(6000);page.setDefaultNavigationTimeout(6000);
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   console.log('open',url);await page.goto(url+'/#workflows/unassigned');await page.locator('[data-flow]').first().click();await page.locator('[data-step]').first().waitFor();
+  // Opening, switching and closing settings must not resize the flow column.
+  const geometry=()=>page.locator('.editor-layout>.canvas').evaluate(el=>{const r=el.getBoundingClientRect();return {x:r.x,width:r.width,height:r.height};});
+  for(const width of [1900,1440,1100,900,390]){
+    await page.setViewportSize({width,height:1050});
+    const before=await geometry();
+    await page.locator('[data-step]').first().click();
+    assert.deepEqual(await geometry(),before,`Opening settings moved the flow at ${width}px`);
+    await page.locator('[data-step]').nth(1).click();
+    assert.deepEqual(await geometry(),before,`Switching steps moved the flow at ${width}px`);
+    await page.getByRole('button',{name:'Close step settings',exact:true}).click();
+    assert.deepEqual(await geometry(),before,`Closing settings moved the flow at ${width}px`);
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  }
+  await page.setViewportSize({width:1440,height:1050});
+  assert.equal(await page.getByRole('button',{name:'Run',exact:true}).count(),1);
   mkdirSync('output',{recursive:true});
   await page.screenshot({path:'output/editor-desktop.png',fullPage:true});
   console.log('duplicate');await page.getByRole('button',{name:'Duplicate',exact:true}).click();

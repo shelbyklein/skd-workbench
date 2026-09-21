@@ -1,3 +1,21 @@
+# Stable flow editor columns and Run label — 2026-09-21
+
+- Removed selection-dependent desktop/tablet grid widths and gaps. The canvas retains
+  its size and position while the adjacent placeholder becomes the step inspector;
+  top alignment prevents inspector height from stretching the canvas. Mobile retains
+  its stacked inspector. Renamed Run with Codex to Run in the button, post-launch reset,
+  and supporting interface copy. Execution behavior is unchanged.
+- Editor browser suite passes with geometry comparisons on opening/switching/closing
+  settings at 1900, 1440, 1100, 900 and 390px. Workflow, benchmark and accessibility
+  browser suites also pass; real execution actions in those suites use fixture providers.
+- Inspected actual Tiny Tasks Plan high → build low at localhost: canvas x=359.5,
+  y=291.78125, width=680, height=648 before and after selection, identical on switching
+  and closing. Mobile has no horizontal overflow. No API mutations, no browser errors,
+  and saved state unchanged. Inspected output/editor-stable-open.png; receipt:
+  output/editor-stable-receipt.json. Shell cache skd-shell-0.5.0-13 is served locally.
+
+---
+
 # Home project cards — 2026-09-21
 
 - Removed the Without a project / Unassigned Home card. Connected project cards remain.
