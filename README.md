@@ -49,7 +49,7 @@ When a new version is available, **Update app** reloads it after you save edits 
 
 **Home** places global page cards above the project list. **Knowledge Graph** summarizes the Graft status of every project. **Skills** manages reusable instruction text, while **Connections (MCP)** inventories provider configuration without revealing commands, arguments, URLs, headers or values. The internal Unassigned group is available through the Unassigned workflows link for older workflows, but has no Home card. Opening a project shows its **Project Overview**, with links to Workflows, Sessions, Issues, System, Knowledge Graph, Skills and Connections. Scratchpad remains planned.
 
-**Global settings → Project tags** manages shared tags and their project assignments. Create, rename, color, or delete tags, expand Projects to choose any number of projects, then save. Each project can have multiple tags. Home shows colored tags in a four-column desktop project grid and offers a tag filter. Each card’s ⋯ button opens its tag assignment picker; the project overview also has an Edit tags shortcut. Changes are drafts until saved. Deleting a tag removes its assignments, without changing projects or execution history.
+**Global settings → Project tags** manages shared tags and their project assignments. Create, rename, color, or delete tags, expand Projects to choose any number of projects, then save. Each project can have multiple tags. Home shows colored filter pills: with none selected every project is visible, while selected pills show projects matching any selected tag. Projects can be viewed as a four-column desktop grid or a compact list; the layout choice is remembered in this browser. Each card’s ⋯ button opens its tag assignment picker; the project overview also has an Edit tags shortcut. Changes are drafts until saved. Deleting a tag removes its assignments, without changing projects or execution history.
 
 **Workflows** has its own overview of saved workflows and recent runs. On Home and global pages, the sidebar lists projects. Inside a project, it shows icons and links for the eight project views in the same order as the overview cards, highlights the active view, and provides All projects to return Home. Scratchpad is marked Planned and remains unavailable. The project name returns to its overview; Add project remains available. Project details are available on the project overview. The left header breadcrumb links Home → project → view → current item; choose the project name to return to its views, or Home to return to project cards. Navigation preserves unsaved-change protection.
 
@@ -207,8 +207,10 @@ a single unambiguous GitHub remote is accepted. This first version supports
 with gh and are not copied into Workbench records.
 
 Browse open, closed, or all issues, page through results, read descriptions and
-comments, and open the original on GitHub. Issue text is shown as literal Markdown,
-including code and checklists. Pull requests are excluded; pages correspond to 50
+comments, and open the original on GitHub. Issue descriptions, comments, and proposal
+comparisons render sanitized GitHub-style Markdown, including headings, lists, task
+lists, tables, links, emphasis, and code. Editing retains the original Markdown source.
+Pull requests are excluded; pages correspond to 50
 GitHub issue/PR records, so a page can be sparse or empty while Next remains available.
 Refresh is explicit. Browsing never edits GitHub or starts an agent.
 
