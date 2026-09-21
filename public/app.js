@@ -1,3 +1,4 @@
+import { installApp, isStandalone, setupPWA, serverAvailable } from './pwa.js';
 const $ = s => document.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const clone = v=>structuredClone(v);
@@ -11,8 +12,10 @@ let toastTimer;
 const reviewDrafts=new Map();
 function toast(message) { $('#toast').textContent=message; $('#toast').classList.add('visible'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('#toast').classList.remove('visible'),4200); }
 async function api(route,method='GET',body) {
-  const response=await fetch('/api/'+route,{method,headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});
-  const result=await response.json(); if(!response.ok) throw new Error(result.error||'Request failed.'); return result;
+  let response;
+  try{response=await fetch('/api/'+route,{method,headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});}
+  catch{serverAvailable(false);throw new Error('Local server unavailable. Start SKD Workbench and reconnect. Check the saved state before retrying this action.');}
+  const result=await response.json(); serverAvailable(result.code!=='SERVER_UNAVAILABLE'); if(!response.ok) throw new Error(result.error||'Request failed.'); return result;
 }
 async function reload() { data=await api('state'); }
 const scopedFlows=()=>data.flows.filter(f=>f.projectID===projectID);
@@ -44,12 +47,13 @@ function modal(title,content,buttons=[],onSubmit=null) {
 }
 function shell(content) {
   const current=view==='flow'?draft?.id:null;
-  $('#app').innerHTML=`<aside class="sidebar"><a class="brand" href="/" aria-label="SKD Workbench home"><img src="/icon.svg" alt=""><span>SKD Workbench<span class="brand-sub">YOUR DEVELOPMENT WORKSPACE</span></span></a><section class="project-picker"><label for="project-picker" class="side-label">PROJECT</label><select id="project-picker" aria-label="Project">${data.projects.map(p=>`<option value="${p.id}" ${p.id===projectID?'selected':''}>${esc(p.name)}</option>`).join('')}</select><div class="project-actions"><button class="text-button" id="add-project">+ Add project</button><button class="text-button" id="project-details">Details</button></div><p id="project-summary" class="project-summary"></p></section><div class="side-label">YOUR WORKBENCH</div><button class="nav-button ${view==='history'?'active':''}" data-action="history"><span>◷</span> Run history <span class="count">${scopedRuns().length}</span></button><div class="side-row"><div class="side-label">WORKFLOWS</div><button class="icon-button" data-action="new" aria-label="Create new flow">+</button></div><nav aria-label="Saved flows">${scopedFlows().map(f=>`<button class="flow-nav ${current===f.id?'active':''}" data-flow="${f.id}"><span class="flow-dot"></span><span>${esc(f.name)}</span></button>`).join('')||'<p class="side-hint">Your first flow starts here.</p>'}</nav><button class="new-flow" data-action="new">+ New flow</button><div class="side-bottom"><span class="local-dot"></span> Local on your Mac<p>Your projects. Your way of working.</p></div></aside><main><header class="topbar"><span class="breadcrumb">${esc(currentProject()?.name||'Unassigned')} <span class="crumb">/</span> ${view==='flow'?'FLOW EDITOR':view==='run'?'SIMULATION':view==='compare'?'COMPARISON':'RUN HISTORY'}</span><span class="mode-tag">SIMULATION ONLY</span></header>${content}</main>`;
+  $('#app').innerHTML=`<aside class="sidebar"><a class="brand" href="/" aria-label="SKD Workbench home"><img src="/icon.svg" alt=""><span>SKD Workbench<span class="brand-sub">YOUR DEVELOPMENT WORKSPACE</span></span></a><section class="project-picker"><label for="project-picker" class="side-label">PROJECT</label><select id="project-picker" aria-label="Project">${data.projects.map(p=>`<option value="${p.id}" ${p.id===projectID?'selected':''}>${esc(p.name)}</option>`).join('')}</select><div class="project-actions"><button class="text-button" id="add-project">+ Add project</button><button class="text-button" id="project-details">Details</button></div><p id="project-summary" class="project-summary"></p></section><div class="side-label">YOUR WORKBENCH</div><button class="nav-button ${view==='history'?'active':''}" data-action="history"><span>◷</span> Run history <span class="count">${scopedRuns().length}</span></button><div class="side-row"><div class="side-label">WORKFLOWS</div><button class="icon-button" data-action="new" aria-label="Create new flow">+</button></div><nav aria-label="Saved flows">${scopedFlows().map(f=>`<button class="flow-nav ${current===f.id?'active':''}" data-flow="${f.id}"><span class="flow-dot"></span><span>${esc(f.name)}</span></button>`).join('')||'<p class="side-hint">Your first flow starts here.</p>'}</nav><button class="new-flow" data-action="new">+ New flow</button><div class="side-bottom">${isStandalone()?'':'<button id="install-app" class="install-button">↓ Install app</button>'}<span class="local-dot"></span> Local on your Mac<p>Your projects. Your way of working.</p></div></aside><main><header class="topbar"><span class="breadcrumb">${esc(currentProject()?.name||'Unassigned')} <span class="crumb">/</span> ${view==='flow'?'FLOW EDITOR':view==='run'?'SIMULATION':view==='compare'?'COMPARISON':'RUN HISTORY'}</span><span class="mode-tag">SIMULATION ONLY</span></header>${content}</main>`;
   bindCommon();
   updateProjectSummary();
   if(currentProject()?.folderPath&&!connections.has(projectID+':'+currentProject().version))refreshConnection();
 }
 function bindCommon() {
+  if($('#install-app'))$('#install-app').onclick=async()=>{try{if(!await installApp())installHelp();}catch(e){toast('Installation was not completed. Try your browser’s install menu.');}};
   $('#project-picker').onchange=e=>{const target=e.target.value;e.target.value=projectID;confirmLeave(()=>switchProject(target));};
   $('#add-project').onclick=()=>confirmLeave(()=>projectDialog());
   $('#project-details').onclick=()=>projectDialog(currentProject());
@@ -182,8 +186,10 @@ function renderHistory(){
   });
   $('#compare-runs').onclick=()=>{view='compare';render();};
 }
-window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue='';}});
-(async()=>{try{
+const hasUnsaved=()=>dirty||[...reviewDrafts.values()].some(Boolean)||$('#dialog').open||busy;
+let loaded=false;
+window.addEventListener('beforeunload',e=>{if(hasUnsaved()){e.preventDefault();e.returnValue='';}});
+async function boot(){try{
   await reload();const route=location.hash.slice(1).split('/');
   if(route[0]==='run'&&data.runs.some(r=>r.id===route[1])){runID=route[1];view='run';projectID=data.runs.find(r=>r.id===runID).projectID;}
   else if(route[0]==='history'){view='history';projectID=route[1]||'unassigned';}
@@ -191,8 +197,15 @@ window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.return
   else if(route[0]==='project'){projectID=route[1]||'unassigned';}
   else if(route[0]==='flow'){projectID=data.flows.find(f=>f.id===route[1])?.projectID||'unassigned';}
   if(!data.projects.some(p=>p.id===projectID))projectID='unassigned';
-  draft=clone(data.flows.find(f=>f.id===route[1]&&f.projectID===projectID)||scopedFlows()[0]||null);render();
-}catch(e){$('#app').innerHTML=`<section class="empty"><h1>Couldn’t open the workbench.</h1><p>${esc(e.message)}</p><button id="retry-load">Try again</button></section>`;$('#retry-load').onclick=()=>location.reload();}})();
+  draft=clone(data.flows.find(f=>f.id===route[1]&&f.projectID===projectID)||scopedFlows()[0]||null);loaded=true;render();
+ }catch(e){$('#app').innerHTML=`<section class="empty offline-startup"><img src="/icon.svg" alt=""><h1>Start your workbench.</h1><p>The interface is ready. Your projects and workflows need the local server.</p><p>Open <strong>Launch SKD Workbench.command</strong> in the SKD Workbench folder, then reconnect.</p><button id="retry-load" class="primary">Reconnect</button><p class="offline-note">${esc(e.message)}</p></section>`;$('#retry-load').onclick=boot;}}
+setupPWA({hasUnsaved,notify:toast,onReconnect:async()=>{
+ if(!loaded){await boot();return;}
+ // Reconnection never replaces an editor or dialog that may contain unsaved text.
+ if(hasUnsaved()){toast('Connected. Your edits are still here; save when ready.');return;}
+ try{await reload();if(hasUnsaved())return;connections.clear();draft=clone(data.flows.find(f=>f.id===draft?.id)||scopedFlows()[0]||null);render();}catch(e){toast(e.message);}
+}});
+boot();
 
 function switchProject(id){
   projectID=id;compareIDs=[];selected=null;dirty=false;view='flow';draft=clone(scopedFlows()[0]||null);render();
@@ -257,4 +270,8 @@ function comparisonWarning(a,b){
   if(x.git.commit!==y.git.commit)return 'These runs started from different commits.';
   if(x.git.dirty!==false||y.git.dirty!==false)return 'At least one working tree had uncommitted changes or unknown status. Matching commits do not establish identical code.';
   return '';
+}
+
+function installHelp(){
+  modal('Install SKD Workbench',`<p>Use SKD Workbench in its own app window, with an icon in your Dock.</p><p>If this browser does not offer installation, open <strong>${esc(location.origin)}</strong> in Chrome or Edge. Use its install icon in the address bar, or the browser menu’s app installation command.</p><p class="field-help">The local server must stay running for your projects and workflows. This address works on this Mac, not another device.</p>`,[{label:'Close',close:true},{label:'Copy app address',primary:true,run:async()=>{try{await navigator.clipboard.writeText(location.origin+'/');toast('App address copied.');}catch{toast('App address: '+location.origin+'/');}}}]);
 }

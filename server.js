@@ -7,7 +7,9 @@ import { Store } from './lib/store.js';
 import { Problem, assert } from './lib/domain.js';
 import { canonicalFolder, inspectFolder } from './lib/projects.js';
 const root = path.dirname(fileURLToPath(import.meta.url));
-const files = {'/':'index.html','/app.js':'app.js','/style.css':'style.css','/icon.svg':'icon.svg'};
+const files = {'/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
+  '/icons/icon-192.png':'icons/icon-192.png','/icons/icon-512.png':'icons/icon-512.png','/icons/maskable-512.png':'icons/maskable-512.png','/icons/apple-touch-icon.png':'icons/apple-touch-icon.png'};
+const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
 async function body(req) {
   assert(req.headers['content-type']?.split(';')[0] === 'application/json','Expected JSON.',415);
   let result='';
@@ -15,19 +17,20 @@ async function body(req) {
   try { const parsed=JSON.parse(result); assert(parsed && typeof parsed==='object' && !Array.isArray(parsed),'Expected a JSON object.'); return parsed; }
   catch(e) { if(e instanceof Problem) throw e; throw new Problem('Invalid JSON.'); }
 }
-export function createServer({directory = process.env.FLOW_BENCH_DATA || path.join(root,'.data')} = {}) {
+export function createServer({directory = process.env.FLOW_BENCH_DATA || path.join(root,'.data'), publicDirectory=path.join(root,'public')} = {}) {
   const store = new Store(directory);
   const server = http.createServer(async (req,res)=>{
     const json=(value,status=200)=>{res.writeHead(status,{'Content-Type':'application/json'});res.end(JSON.stringify(value));};
     res.setHeader('Cache-Control','no-store');
     res.setHeader('X-Content-Type-Options','nosniff');
-    res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+    res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
     try {
       const host=req.headers.host || '';
       assert(/^(127\.0\.0\.1|localhost):\d+$/.test(host),'Local access only.',403);
       const origin=req.headers.origin;
       assert(!origin || origin===`http://${host}`,'Cross-origin requests are not allowed.',403);
       const url=new URL(req.url,`http://${host}`), pathname=url.pathname;
+      if(req.method==='GET'&&pathname==='/api/health')return json({app:'skd-workbench',ok:true,version:'0.3.0'});
       if(req.method==='GET' && pathname==='/api/state') return json(store.snapshot());
       if(req.method==='POST' && pathname==='/api/projects'){
         const input=await body(req);input.folderPath=await canonicalFolder(input.folderPath);
@@ -60,8 +63,8 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       if(run && req.method==='POST') return json(store.transition(run[1],await body(req)));
       if(req.method==='GET' && files[pathname]) {
         const name=files[pathname];
-        res.setHeader('Content-Type',name.endsWith('.js')?'text/javascript':name.endsWith('.css')?'text/css':name.endsWith('.svg')?'image/svg+xml':'text/html');
-        return res.end(readFileSync(path.join(root,'public',name)));
+        res.setHeader('Content-Type',mime[path.extname(name)]);
+        return res.end(readFileSync(path.join(publicDirectory,name)));
       }
       throw new Problem('Not found.',404);
     } catch(e) { json({error:e instanceof Problem?e.message:'Could not save or load data. Your previous saved state is intact.'},e.status||500); if(!(e instanceof Problem)) console.error(e); }

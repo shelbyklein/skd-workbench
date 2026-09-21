@@ -15,6 +15,16 @@ npm start
 
 Open **http://127.0.0.1:4390**. Keep the terminal/server running; Ctrl-C stops it. If the port is busy, use `PORT=4391 npm start`. Use one server process per data directory.
 
+## Install as an app
+
+Open **http://127.0.0.1:4390** in Chrome or Edge on this Mac, then choose **Install app** in the sidebar or the browser's install menu. The installed app opens in its own window. If the Codex browser does not offer installation, the sidebar action provides the address to open in a supported browser. Installation itself uses the browser's confirmation dialog.
+
+Keep the local server running. Installing the PWA does not install or start a background server, add a login item, or make this address accessible from another device. Use the same host and port each time; another port is a different app origin. The first online visit prepares the interface for offline startup.
+
+If the server stops, the app shows **Reconnect** and keeps unsaved edits in the open window. When opened offline, it shows instructions to start **Launch SKD Workbench.command**. Only public interface assets are cached: projects, workflows, Git details, run data and pending writes are never stored in the browser cache or queued for later. Reconnection does not silently submit failed actions. Before retrying an interrupted save, check the saved state; an interrupted connection can leave its result uncertain.
+
+When a new version is available, **Update app** reloads it after you save edits and close dialogs. Other open windows are not force-reloaded. Developers must bump the cache version in `public/sw.js` whenever shell assets change; test updates against temporary assets with `npm run test:browser`. Regenerate PNGs from the existing mark with `npm run icons`.
+
 ## Projects, folders and Git
 
 Use **Add project** above the workflow list. Give it a name and paste its absolute local folder path (`~/…` also works). The folder must exist; a file or inaccessible path is rejected. The server resolves symlinks and prevents connecting the same canonical folder twice.
@@ -66,6 +76,7 @@ Browser tests use Playwright with installed Google Chrome by default (`PLAYWRIGH
 - `public/`: browser interface; no build step.
 - `instructions/2026-09-20-simple-flow-workbench.md`: original TT implementation plan.
 - `instructions/2026-09-20-skd-project-scopes.md`: project/Git TT implementation plan.
+- `instructions/2026-09-20-skd-pwa.md`: PWA TT implementation plan.
 - `VALIDATION.md`: delivery evidence and limitations.
 
 Existing Testbench, Orchestration Bench and Tracker Trapper code/data are separate and unchanged.

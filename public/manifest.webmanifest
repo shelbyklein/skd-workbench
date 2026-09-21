@@ -1,0 +1,21 @@
+{
+  "id": "/",
+  "name": "SKD Workbench",
+  "short_name": "SKD Workbench",
+  "description": "A local workbench for your development projects, workflows and runs.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f7f5ef",
+  "theme_color": "#f7f5ef",
+  "lang": "en",
+  "icons": [
+    {"src":"/icons/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any"},
+    {"src":"/icons/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any"},
+    {"src":"/icons/maskable-512.png","sizes":"512x512","type":"image/png","purpose":"maskable"}
+  ],
+  "shortcuts": [
+    {"name":"Run history","short_name":"Runs","url":"/#history/unassigned","icons":[{"src":"/icons/icon-192.png","sizes":"192x192"}]}
+  ],
+  "prefer_related_applications": false
+}
