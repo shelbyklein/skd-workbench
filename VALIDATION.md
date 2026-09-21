@@ -1,3 +1,23 @@
+# Red glass workbench logo — 2026-09-21
+
+- Integrated the user-selected transparent red glass artwork as the sidebar,
+  favicon and offline logo, preserving the existing `/icon.svg` URL with an
+  embedded raster image. Retained the full-resolution source in
+  `public/icons/workbench-red-source.png`; `npm run icons` reproduces all exports.
+- Regenerated 192px and 512px transparent PNGs, plus opaque cream-backed
+  maskable and Apple icons. Maskable artwork fits within the safe circle.
+  Bumped shell cache to `skd-shell-0.5.0-71`.
+- `npm run icons` and `node tests/pwa-browser.mjs` passed, including Chrome
+  installability, offline assets, API cache isolation, drafts and explicit updates.
+- An isolated temporary-store browser check confirmed transparent corner alpha,
+  512px export size, no page errors and no horizontal overflow at 390px.
+  Inspected `output/logo-light-desktop.png`, `output/logo-dark-desktop.png` and
+  `output/logo-mobile.png` at the actual sidebar logo size.
+- Installed OS/PWA icon refresh was not tested; existing PWA windows must accept
+  the existing Update app action. No live server restart or provider runs.
+
+---
+
 # Skills and Connections (MCP) — 2026-09-21
 
 - Added available global and project Skills and Connections pages above and within
