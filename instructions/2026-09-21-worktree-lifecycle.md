@@ -2,7 +2,7 @@
 
 <!-- skd-worktree-lifecycle-2026-09-21 -->
 
-Status: first registration slice delivered locally in ad78f07; WLC-01 and #7 WN-01..03 complete. WLC-02..16 remain incomplete. See instructions/2026-09-21-registration-contract.md and VALIDATION.md.
+Status: lifecycle implementation and existing-inventory UI delivered on codex/workspace-registration; WLC-09 final dedicated-route/notes-editor acceptance remains blocked on #4 SKD-WT-04 and #7 WN-04. Final regression and delivery evidence are recorded in VALIDATION.md.
 GitHub issue: https://github.com/shelbyklein/skd-workbench/issues/9
 Tracker Trapper plan: `local:8B1A3EB7-2154-4FF9-879A-944DE43320E8`.
 Local plan: `instructions/2026-09-21-worktree-lifecycle.md` (uncommitted at publication; the complete instructions are reproduced in this issue).
@@ -214,7 +214,7 @@ Instructions: Refresh Git, source, the canonical issues and all three related TT
 
 ### WLC-02
 
-- [ ] **Implement durable lifecycle records and recovery.**
+- [x] **Implement durable lifecycle records and recovery.**
 
 Acceptance: Temporary-store tests verify stable identity through restart, conservative moves/path reuse, atomic writes, stale revisions, visible corruption, idempotent intents and retained history after removal.
 
@@ -226,7 +226,7 @@ Instructions: Extend the canonical annotation identity by reference; implement l
 
 ### WLC-03
 
-- [ ] **Link worktrees to sessions, workflows and task references.**
+- [x] **Link worktrees to sessions, workflows and task references.**
 
 Acceptance: Interactive and structured fixture launches plus workflow retries attach once to the same lifecycle record; legacy/external work stays explicitly unclaimed and failed registration never starts a provider.
 
@@ -238,7 +238,7 @@ Instructions: Extend the existing canonical registration helper rather than addi
 
 ### WLC-04
 
-- [ ] **Implement evidence records and checkpoint receipts.**
+- [x] **Implement evidence records and checkpoint receipts.**
 
 Acceptance: Evidence is immutable, bounded, scoped and bound to commit/environment/time/source; failure, unknown, stale and agent-reported results remain distinct; receipts retain exclusions and references without copying transcripts.
 
@@ -250,7 +250,7 @@ Instructions: Implement append-only check reports, review decisions, artifact me
 
 ### WLC-05
 
-- [ ] **Derive readiness and guarded lifecycle transitions.**
+- [x] **Derive readiness and guarded lifecycle transitions.**
 
 Acceptance: A fixture matrix proves dirty/active/stale/unknown/failed states cannot become ready or verified; accepted current evidence permits readiness; code or criteria changes invalidate it without erasing history.
 
@@ -262,7 +262,7 @@ Instructions: Implement pure readiness predicates with explanation codes and gua
 
 ### WLC-06
 
-- [ ] **Implement review thresholds and attention state.**
+- [x] **Implement review thresholds and attention state.**
 
 Acceptance: Deterministic clock tests cover unfinished-count, weekday inactivity, verified-retention and overlap warnings, deduplication, snooze/reappearance, timezone changes and no execution or automatic cleanup.
 
@@ -274,7 +274,7 @@ Instructions: Compute deduplicated attention items from authoritative events and
 
 ### WLC-07
 
-- [ ] **Expose project-scoped lifecycle APIs.**
+- [x] **Expose project-scoped lifecycle APIs.**
 
 Acceptance: HTTP tests reject arbitrary paths, cross-repository IDs, stale revisions and invalid transitions; shared-repository views retain source privacy; bounded reads and idempotent writes recover lost responses.
 
@@ -286,7 +286,7 @@ Instructions: Wire read/write endpoints to shared services, preserving host/orig
 
 ### WLC-08
 
-- [ ] **Add project health summary and threshold settings.**
+- [x] **Add project health summary and threshold settings.**
 
 Acceptance: Browser checks verify accurate lifecycle counts, unknown/stale states, actionable attention reasons, persisted settings, keyboard/mobile behavior and no writes or launches from viewing status.
 
@@ -310,7 +310,7 @@ Instructions: Render status, purpose reference, origins, owner, blockers, next a
 
 ### WLC-10
 
-- [ ] **Implement selected-batch reconciliation and ownership guards.**
+- [x] **Implement selected-batch reconciliation and ownership guards.**
 
 Acceptance: Disposable Git/bare-remote fixtures prove fresh preflight, dependency ordering, one execution per request, coordinated ownership, external drift detection, partial-failure recovery and explicit exclusion of unfinished work.
 
@@ -322,7 +322,7 @@ Instructions: Create durable preflight/batch manifests with selected IDs and com
 
 ### WLC-11
 
-- [ ] **Verify integrated batches and running-version observations.**
+- [x] **Verify integrated batches and running-version observations.**
 
 Acceptance: Receipts independently verify selected-commit containment, combined checks and optional remote equality; pending PR/auth/offline/unknown runtime remain distinct and no process exit implies acceptance.
 
@@ -334,7 +334,7 @@ Instructions: Replace whole-inventory success predicates only for the new select
 
 ### WLC-12
 
-- [ ] **Add reconciliation preview and result UI.**
+- [x] **Add reconciliation preview and result UI.**
 
 Acceptance: Fixture UI exercises ready selection, exclusions, overlap notices, validation requirements, stale preview rejection, cancellation/reload recovery and receipt links without duplicate execution.
 
@@ -346,7 +346,7 @@ Instructions: Turn Reconcile ready work into preview -> explicit start -> reconn
 
 ### WLC-13
 
-- [ ] **Implement explicit guarded worktree retirement.**
+- [x] **Implement explicit guarded worktree retirement.**
 
 Acceptance: Real Git fixtures allow only selected verified inactive linked worktrees with fresh identity and reviewed asset retention; refuse dirty/untracked/ignored/unintegrated/main/locked/unknown cases; retain history and recover uncertain removal without force.
 
@@ -358,7 +358,7 @@ Instructions: Implement preview and explicit removal for selected verified linke
 
 ### WLC-14
 
-- [ ] **Add retirement review and retained-history UI.**
+- [x] **Add retirement review and retained-history UI.**
 
 Acceptance: Browser tests show exact selected paths, eligibility and asset blockers; explicit retirement requires fresh preview, displays per-item outcomes and preserves readable evidence after removal.
 
@@ -370,7 +370,7 @@ Instructions: Show candidate paths, branch/tip, verification receipt, last activ
 
 ### WLC-15
 
-- [ ] **Exercise integrated lifecycle and failure recovery.**
+- [x] **Exercise integrated lifecycle and failure recovery.**
 
 Acceptance: Full Node and browser suites pass using temporary stores and fixture providers; independently inspect desktop/mobile/keyboard flows and reproduce restart, concurrent edit, stale evidence, partial merge and failed cleanup cases.
 

@@ -8,6 +8,7 @@ import {CodexRuns} from '../lib/codex.js';
 import {Workflows} from '../lib/workflows.js';
 import {TerminalSessions} from '../lib/terminals.js';
 import {WorktreeNotes} from '../lib/worktree-notes.js';
+import {LifecycleStore} from '../lib/lifecycle-store.js';
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const provider={version:'fixture',models:[{id:'fixture',efforts:['low']}]};
 const input={task:'Document the workspace lifecycle',model:'fixture',effort:'low',mode:'worktree'};
@@ -17,13 +18,15 @@ function setup(t){
  execFileSync('git',['init','-b','main',repo]);writeFileSync(path.join(repo,'file.txt'),'original\n');execFileSync('git',['-C',repo,'add','.']);execFileSync('git',['-C',repo,'-c','user.name=Test','-c','user.email=test@example.invalid','commit','-m','fixture']);
  const binary=path.join(root,'fixture-provider');writeFileSync(binary,`#!/usr/bin/env node\nrequire('node:fs').appendFileSync(${JSON.stringify(marker)},'started\\n');process.stdin.resume();process.stdin.on('end',()=>{console.log(JSON.stringify({type:'item.completed',item:{type:'agent_message',text:'Fixture result'}}));console.log(JSON.stringify({type:'turn.completed'}));});`,{mode:0o755});
  const codex=new CodexRuns(directory,{binary,discover:async()=>provider});
+ codex.lifecycle=new LifecycleStore(directory);codex.workspaceNotes.onRecord=r=>codex.lifecycle.ensure(r);
  const cleanup=[];t.after(async()=>{for(const close of cleanup)close();codex.shutdown();await delay(100);rmSync(root,{recursive:true,force:true});});
  return {root,repo,directory,binary,marker,codex,cleanup,project:{id:'registration-project',name:'Registration fixture',folderPath:repo}};
 }
 function registered(codex,run){
  assert(run.workspaceRegistrationID,'Execution must expose its canonical registration UUID');
  const record=codex.workspaceNotes.get(run.workspaceRegistrationID);
- assert.equal(record.state,'attached');assert.equal(record.id,run.workspaceRegistration.id);assert.equal(record.ownerKey,run.workspaceOwnerKey);
+ assert.equal(record.state,'attached');assert.equal(record.id,run.workspaceRegistration.id);
+ const lifecycle=codex.lifecycle.get(record.id);assert.equal(lifecycle.registrationID,record.id);assert.equal(lifecycle.attachmentState,'attached');assert(lifecycle.sourceRefs.some(s=>record.sources.some(r=>s.id===r.id&&s.kind===r.kind)));assert.equal(record.ownerKey,run.workspaceOwnerKey);
  return record;
 }
 test('standalone worktree is registered before fixture inference and registration survives restart',async t=>{
@@ -80,4 +83,10 @@ test('delegation planning turn uses its pre-registered canonical workspace',asyn
  const run=await until(()=>delegation.get(initial.id),r=>r.attempts.some(a=>a.childID)&&!['launching','running'].includes(r.status));
  const child=codex.get(run.attempts[0].childID),record=registered(codex,child);
  assert.equal(child.mode,'read-only');assert.equal(record.id,run.workspace.workspaceRegistrationID);assert.equal(record.purpose,input.task);assert.equal(record.origin.kind,'delegation');assert.equal(record.origin.id,run.id);assert.equal(codex.workspaceNotes.list().length,1);
+});
+
+test('lifecycle persistence failure blocks fixture inference before workspace creation',async t=>{
+ const {codex,project,marker}=setup(t);codex.workspaceNotes.onRecord=()=>{throw Error('Injected lifecycle persistence failure');};
+ const initial=await codex.start(input,project),done=await until(()=>codex.get(initial.id),r=>!['preparing','running','stopping'].includes(r.status));
+ assert.equal(done.status,'failed');assert.match(done.error,/lifecycle persistence failure/);assert.equal(existsSync(marker),false);assert.equal(codex.workspaceNotes.list().length,1);
 });

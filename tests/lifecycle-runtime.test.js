@@ -1,0 +1,8 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtempSync,writeFileSync,rmSync,mkdirSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+import {execFileSync} from 'node:child_process';
+import {RuntimeObservations} from '../lib/lifecycle-runtime.js';
+test('runtime source identity freezes at startup and user observations stay attributed',async t=>{const base=mkdtempSync(path.join(tmpdir(),'lifecycle-runtime-')),repo=path.join(base,'repo');mkdirSync(repo);const git=(...args)=>execFileSync('git',['-C',repo,...args],{encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();git('init','-b','main');git('config','user.name','Fixture');git('config','user.email','fixture@example.test');writeFileSync(path.join(repo,'file'),'one');git('add','.');git('commit','-m','one');const runtime=new RuntimeObservations(path.join(base,'data'),repo),startup=await runtime.startup;t.after(()=>rmSync(base,{recursive:true,force:true}));assert.equal(startup.commit,git('rev-parse','HEAD'));assert.equal(startup.dirty,false);writeFileSync(path.join(repo,'file'),'two');git('commit','-am','two');assert.notEqual(startup.commit,git('rev-parse','HEAD'));assert.equal((await runtime.read(startup.repositoryKey)).current.commit,startup.commit);const key='a'.repeat(64);assert.equal((await runtime.read(key)).current.status,'unknown');const report=runtime.record(key,{environment:'Local app',version:'1.2.3',method:'Read About dialog'});assert.equal(report.source,'user');assert.equal(report.status,'reported');assert.equal((await runtime.read(key)).current.version,'1.2.3');assert.throws(()=>runtime.record(key,{environment:'x',version:'x',method:'x',source:'process-start'}));});

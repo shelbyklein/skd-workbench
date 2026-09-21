@@ -1,3 +1,11 @@
+import {LifecycleActivity} from './lib/lifecycle-activity.js';
+import {ReconciliationService} from './lib/lifecycle-reconciliation.js';
+import {RetirementService} from './lib/lifecycle-retirement.js';
+import {RuntimeObservations} from './lib/lifecycle-runtime.js';
+import {LifecycleStore} from './lib/lifecycle-store.js';
+import {EvidenceStore} from './lib/lifecycle-evidence.js';
+import {AttentionStore} from './lib/lifecycle-attention.js';
+import {LifecycleService} from './lib/lifecycle-service.js';
 import {WorkspaceTasks} from './lib/workspace-tasks.js';
 import {randomUUID} from 'node:crypto';
 import {ImportedSessions} from './lib/imported-sessions.js';
@@ -27,7 +35,7 @@ import {withRegistrations,changeRegistration} from './lib/workspace-registration
 import {GitStatus} from './lib/git-status.js';
 import {Playbooks} from './lib/playbooks.js';
 const root = path.dirname(fileURLToPath(import.meta.url));
-const files = {'/workspace-tasks-ui.js':'workspace-tasks-ui.js','/delegations-ui.js':'delegations-ui.js','/quick-actions-ui.js':'quick-actions-ui.js','/session-import-ui.js':'session-import-ui.js','/git-status-ui.js':'git-status-ui.js','/agent-card.js':'agent-card.js','/planning-ui.js':'planning-ui.js','/knowledge-ui.js':'knowledge-ui.js','/skills-ui.js':'skills-ui.js','/connections-ui.js':'connections-ui.js','/playbooks-ui.js':'playbooks-ui.js','/settings-ui.js':'settings-ui.js','/markdown.js':'markdown.js','/theme.js':'theme.js','/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
+const files = {'/lifecycle-operations-ui.js':'lifecycle-operations-ui.js','/lifecycle-ui.js':'lifecycle-ui.js','/workspace-tasks-ui.js':'workspace-tasks-ui.js','/delegations-ui.js':'delegations-ui.js','/quick-actions-ui.js':'quick-actions-ui.js','/session-import-ui.js':'session-import-ui.js','/git-status-ui.js':'git-status-ui.js','/agent-card.js':'agent-card.js','/planning-ui.js':'planning-ui.js','/knowledge-ui.js':'knowledge-ui.js','/skills-ui.js':'skills-ui.js','/connections-ui.js':'connections-ui.js','/playbooks-ui.js':'playbooks-ui.js','/settings-ui.js':'settings-ui.js','/markdown.js':'markdown.js','/theme.js':'theme.js','/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
   '/icons/icon-192.png':'icons/icon-192.png','/icons/icon-512.png':'icons/icon-512.png','/icons/maskable-512.png':'icons/maskable-512.png','/icons/apple-touch-icon.png':'icons/apple-touch-icon.png'};
 const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
 async function body(req,limit=1024*1024) {
@@ -46,6 +54,9 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
   const mcpConnections=new Connections(directory,{...connectionsOptions,...(codexOptions.binary?{codexBinary:codexOptions.binary}:{})});
   const playbooks=new Playbooks(directory,{skills,connections:mcpConnections});
   const codex = new CodexRuns(directory,{...codexOptions,claudeOptions,skills,connections:mcpConnections,playbooks});
+  const lifecycleStore=new LifecycleStore(directory),evidenceStore=new EvidenceStore(directory),attentionStore=new AttentionStore(directory);
+  codex.workspaceNotes.onRecord=record=>lifecycleStore.ensure(record);
+  for(const record of codex.workspaceNotes.list())lifecycleStore.ensure(record);
   const github=new GitHubIssues(githubOptions);
   const captureIssues=async(flow,project)=>{const snapshots=await captureIssueSteps(flow,project,github);assert(store.snapshot().flows.some(f=>f.id===flow.id&&f.version===flow.version&&f.projectID===project.id)&&store.project(project.id).version===project.version,'Flow or project changed while reading issues. Reload before running.',409);return snapshots;};
   const workflows = new Workflows(directory,codex,{captureIssues});
@@ -56,9 +67,14 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
     const records=origin.kind==='workflow'?workflows.runs:origin.kind==='delegation'?delegations.runs:origin.kind==='terminal'?terminals.runs:origin.kind==='session'?codex.runs:[];
     const record=records.find(r=>r.id===origin.id&&r.projectID===registration.projectID);
     // Terminal labels can be generic (for example, Issue work); retain the frozen launch instructions.
+    if(!record){const restored=lifecycle?.imports.taskContexts?.find(c=>c.lifecycleID===registration.id&&c.projectID===registration.projectID);if(restored)return restored;}
     const task=origin.kind==='terminal'&&record?.initialPrompt?record.initialPrompt:record?.task;
     return task&&!['Codex session','Claude session'].includes(task)?{task,acceptance:record.acceptance||''}:null;
   }});
+  const runtimeObservations=new RuntimeObservations(directory,root);
+  const lifecycle=new LifecycleService(directory,{store:lifecycleStore,evidence:evidenceStore,attention:attentionStore,notes:codex.workspaceNotes,gitStatus,executor:codex,projects:()=>store.snapshot().projects,project:id=>store.project(id),workspaceTasks,runtime:runtimeObservations,activity:new LifecycleActivity(directory)});
+  const reconciliationService=new ReconciliationService(directory,{lifecycle,store:lifecycleStore,evidence:evidenceStore,notes:codex.workspaceNotes,terminals,project:id=>store.project(id)});
+  const retirementService=new RetirementService(directory,{lifecycle,store:lifecycleStore,notes:codex.workspaceNotes,executor:codex,project:id=>store.project(id),projects:()=>store.snapshot().projects});
   const quickActions=new QuickActions(directory,{terminals,github,project:id=>store.project(id),...quickActionOptions});
   const proposals=new IssueProposals(directory,codex,github);
   const issueWork=new IssueWork(directory,{github,terminals,providers:agent=>agent==='claude'?codex.discoverClaude():codex.discover()});
@@ -214,6 +230,39 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
         assert(store.project(project.id).version===project.version,'Project changed. Refresh local status.',409);
         if(req.method==='GET'&&enriched.worktrees){const {tasks}=workspaceTasks.list(project);for(const row of enriched.worktrees){const task=tasks.find(t=>t.registrationID===row.registration?.id&&t.state==='attached');if(task)row.taskID=task.id;}}
         return json(enriched);
+      }
+      const lifecycleRoute=pathname.match(/^\/api\/projects\/([\w-]+)\/lifecycle(?:\/(.*))?$/);
+      if(lifecycleRoute){
+        const project=store.project(lifecycleRoute[1]),action=lifecycleRoute[2]||'';
+        if(req.method==='GET'&&!action)return json(await lifecycle.read(project));
+        if(req.method==='GET'&&action==='reconciliation')return json(reconciliationService.list(project));
+        if(req.method==='GET'&&action==='retirement')return json(retirementService.list(project));
+        if(req.method==='GET'&&action.startsWith('reconciliation/'))return json(reconciliationService.get(project,action.slice(15)));
+        if(req.method==='GET'&&action.startsWith('retirement/'))return json(await retirementService.inspect(project,action.slice(11)));
+        if(req.method==='GET'&&action==='export')return json(await lifecycle.export(project));
+        assert(['POST','PUT'].includes(req.method),'Not found.',404);
+        const input=await body(req,action==='import/preview'?16*1024*1024:1024*1024);
+        if(req.method==='POST'&&action==='reconciliation/preview')return json(await reconciliationService.preview(project,input));
+        if(req.method==='POST'&&action==='reconciliation/start')return json(await reconciliationService.start(project,input),202);
+        const verification=action.match(/^reconciliation\/([\w-]+)\/verify$/);
+        if(req.method==='POST'&&verification)return json(await reconciliationService.verify(project,verification[1],input));
+        if(req.method==='POST'&&action==='retirement/preview')return json(await retirementService.preview(project,input));
+        if(req.method==='POST'&&action==='retirement/remove')return json(await retirementService.remove(project,input));
+        if(req.method==='PUT'&&action==='settings')return json(await lifecycle.settings(project,input));
+        if(req.method==='POST'&&action==='check')return json(await lifecycle.check(project,input));
+        if(req.method==='POST'&&action==='runtime'){const {repositoryKey}=await lifecycle.context(project);return json(runtimeObservations.record(repositoryKey,input));}
+        if(req.method==='POST'&&action==='snooze')return json(await lifecycle.snooze(project,input));
+        if(req.method==='POST'&&action==='migration/preview')return json(await lifecycle.migrationPreview(project));
+        if(req.method==='POST'&&action==='migration/apply')return json(await lifecycle.migrate(project,input));
+        if(req.method==='POST'&&action==='import/preview')return json(await lifecycle.importPreview(project,input));
+        if(req.method==='POST'&&action==='import/apply')return json(await lifecycle.importApply(project,input));
+        const review=action.match(/^evidence\/([\w-]+)\/review$/);
+        if(req.method==='POST'&&review)return json(await lifecycle.review(project,review[1],input));
+        const record=action.match(/^([\w-]+)(?:\/(checks|rebind))?$/);
+        if(record&&req.method==='PUT'&&!record[2])return json(await lifecycle.update(project,record[1],input));
+        if(record&&req.method==='POST'&&record[2]==='checks')return json(await lifecycle.recordCheck(project,record[1],input));
+        if(record&&req.method==='POST'&&record[2]==='rebind')return json(await lifecycle.rebind(project,record[1],input));
+        assert(false,'Not found.',404);
       }
       const workspaceTaskRoute=pathname.match(/^\/api\/projects\/([\w-]+)\/workspace-tasks(?:\/(preview|adopt|continue))?$/);
       if(workspaceTaskRoute){

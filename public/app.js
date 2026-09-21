@@ -1,3 +1,4 @@
+import {mountLifecycle} from './lifecycle-ui.js';
 import {mountDelegation} from './delegations-ui.js';
 import {openSessionImport} from './session-import-ui.js';
 import {mountQuickActions} from './quick-actions-ui.js';
@@ -23,7 +24,7 @@ let knowledgeView=null;
 let skillsView=null,connectionsView=null,playbooksView=null;
 let workflowView=null,workflowRunID=null;
 let delegationView=null,delegationRunID=null;
-let quickActionsView=null,gitStatusView=null;
+let quickActionsView=null,gitStatusView=null,lifecycleView=null;
 let codexView=null,codexRunID=null,codexPrefill='';
 let projectID='unassigned';
 const connections=new Map();
@@ -46,8 +47,8 @@ const currentProject=()=>data.projects.find(p=>p.id===projectID)||data.projects[
 function markDirty() { dirty=true; const save=$('#save'); if(save) save.disabled=false; }
 function confirmLeave(action) {
   if($('#dialog').dataset.sessionImport){toast('Finish or close the import dialog before leaving.');return;}
-  if(gitStatusView?.isPending()||delegationView?.isPending()||quickActionsView?.isPending()||issuesView?.isPending()||codexView?.isPending()||workflowView?.isPending()||skillsView?.isPending()||connectionsView?.isPending()||playbooksView?.isPending()){toast('Wait for the current request to finish before leaving.');return;}
-  if(!dirty&&!gitStatusView?.isDirty()&&!delegationView?.isDirty()&&!issuesView?.isDirty()&&!codexView?.isDirty()&&!workflowView?.isDirty()&&!skillsView?.isDirty()&&!connectionsView?.isDirty()&&!playbooksView?.isDirty()) return action();
+  if(lifecycleView?.isPending()||gitStatusView?.isPending()||delegationView?.isPending()||quickActionsView?.isPending()||issuesView?.isPending()||codexView?.isPending()||workflowView?.isPending()||skillsView?.isPending()||connectionsView?.isPending()||playbooksView?.isPending()){toast('Wait for the current request to finish before leaving.');return;}
+  if(!dirty&&!lifecycleView?.isDirty()&&!gitStatusView?.isDirty()&&!delegationView?.isDirty()&&!issuesView?.isDirty()&&!codexView?.isDirty()&&!workflowView?.isDirty()&&!skillsView?.isDirty()&&!connectionsView?.isDirty()&&!playbooksView?.isDirty()) return action();
   modal('Keep your changes?', '<p>You have unsaved changes. Save them or discard them before leaving.</p>', [{label:'Keep editing',close:true},{label:'Discard changes',run:()=>{dirty=false;action();}}]);
 }
 function openFlow(flowID) { confirmLeave(()=>{const flow=data.flows.find(f=>f.id===flowID); if(!flow)return; projectID=flow.projectID;draft=clone(flow);selected=null;view='flow';dirty=false;render();}); }
@@ -171,6 +172,7 @@ function bindCommon() {
   if($('[data-action="history"]'))$('[data-action="history"]').onclick=()=>confirmLeave(()=>{view='history';selected=null;render();});
 }
 function render() {
+  lifecycleView?.dispose();lifecycleView=null;
   gitStatusView?.dispose();gitStatusView=null;
   quickActionsView=null;
   delegationView?.dispose();delegationView=null;connectionsView?.dispose();connectionsView=null;skillsView?.dispose();skillsView=null;playbooksView?.dispose();playbooksView=null;knowledgeView?.dispose();knowledgeView=null;planningView?.dispose();planningView=null;issuesView?.dispose();issuesView=null;codexView?.dispose();codexView=null;workflowView?.dispose();workflowView=null;
@@ -263,7 +265,8 @@ function mountProjectWidgets(project){
  $('#open-all-issues').onclick=()=>{issueNumber=null;issueProposalID=null;issueEditMode=false;view='issues';render();};
  const dashboard=views.previousElementSibling;
  const gitWidget=document.createElement('article');gitWidget.className='project-widget git-status-widget';dashboard.prepend(gitWidget);
- gitStatusView=mountGitStatus(gitWidget,project,api,{onSession:id=>{if(projectID!==project.id)return;openProjectSession(id);}});
+ gitStatusView=mountGitStatus(gitWidget,project,api,{onLifecycle:id=>{if(projectID===project.id)lifecycleView?.openRecord(id);},onSession:id=>{if(projectID!==project.id)return;openProjectSession(id);}});
+ const lifecycleHost=document.createElement('article');lifecycleHost.className='project-widget';dashboard.append(lifecycleHost);lifecycleView=mountLifecycle(lifecycleHost,{project,api,onSession:openProjectSession,onContinue:id=>{if(projectID===project.id)gitStatusView?.openTask(id);}});
  const quickHost=document.createElement('section');dashboard.prepend(quickHost);quickActionsView=mountQuickActions(quickHost,{project,api,confirmLeave,onOpen:openProjectSession});
  loadPriorityIssues(project);loadLastSession(project);
 }
@@ -510,7 +513,7 @@ function renderHistory(){
   });
   $('#compare-runs').onclick=()=>{view='compare';render();};
 }
-const hasUnsaved=()=>dirty||gitStatusView?.isDirty()||gitStatusView?.isPending()||delegationView?.isDirty()||delegationView?.isPending()||quickActionsView?.isPending()||issuesView?.isDirty()||issuesView?.isPending()||codexView?.isDirty()||workflowView?.isDirty()||skillsView?.isDirty()||skillsView?.isPending()||connectionsView?.isDirty()||connectionsView?.isPending()||playbooksView?.isDirty()||playbooksView?.isPending()||[...reviewDrafts.values()].some(Boolean)||$('#dialog').open||busy;
+const hasUnsaved=()=>dirty||lifecycleView?.isDirty()||lifecycleView?.isPending()||gitStatusView?.isDirty()||gitStatusView?.isPending()||delegationView?.isDirty()||delegationView?.isPending()||quickActionsView?.isPending()||issuesView?.isDirty()||issuesView?.isPending()||codexView?.isDirty()||workflowView?.isDirty()||skillsView?.isDirty()||skillsView?.isPending()||connectionsView?.isDirty()||connectionsView?.isPending()||playbooksView?.isDirty()||playbooksView?.isPending()||[...reviewDrafts.values()].some(Boolean)||$('#dialog').open||busy;
 let loaded=false;
 window.addEventListener('beforeunload',e=>{if(hasUnsaved()){e.preventDefault();e.returnValue='';}});
 let lastRenderedHash='';
