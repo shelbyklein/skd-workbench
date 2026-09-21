@@ -2,7 +2,7 @@
 
 <!-- skd-worktree-lifecycle-2026-09-21 -->
 
-Status: lifecycle implementation and existing-inventory UI delivered on codex/workspace-registration; WLC-09 final dedicated-route/notes-editor acceptance remains blocked on #4 SKD-WT-04 and #7 WN-04. Final regression and delivery evidence are recorded in VALIDATION.md.
+Status: lifecycle implementation and existing-inventory UI delivered locally on main in 05a279c (303 Node tests and 30 browser suites passed; live read-only UI verified); WLC-09 final dedicated-route/notes-editor acceptance remains blocked on #4 SKD-WT-04 and #7 WN-04. Final regression and delivery evidence are recorded in VALIDATION.md.
 GitHub issue: https://github.com/shelbyklein/skd-workbench/issues/9
 Tracker Trapper plan: `local:8B1A3EB7-2154-4FF9-879A-944DE43320E8`.
 Local plan: `instructions/2026-09-21-worktree-lifecycle.md` (uncommitted at publication; the complete instructions are reproduced in this issue).
@@ -382,7 +382,7 @@ Instructions: Exercise the complete user journey and the failure matrix below th
 
 ### WLC-16
 
-- [ ] **Document delivery and perform authorized local activation checks.**
+- [x] **Document delivery and perform authorized local activation checks.**
 
 Acceptance: README and VALIDATION identify delivered commits, checks, screenshots, runtime observations and remaining limits; shell cache is updated, live state preserved and any activation authorization or deferral is recorded honestly.
 
