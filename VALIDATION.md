@@ -453,6 +453,90 @@ Implementation mode: solo, authorized now. No subagents dispatched.
 ## Launch again
 
 Double-click `Launch Flow Bench.command` or run `npm start` here. Stop with Ctrl-C in the server terminal. One server per data directory. Backup `.data/store.json` while stopped. Alternate port: `PORT=4391 npm start`.
+## Compact view headers — 2026-09-21
+
+Combined each view title, breadcrumb trail and page actions into one shared top
+header. Removed the duplicate Home breadcrumb and redundant project eyebrows.
+Headers wrap on narrow screens; flow metadata and existing button handlers remain.
+Verified overview navigation, flow editor and issues browser suites with fixture
+providers. Inspected live Home/project screenshots in
+`output/compact-header-home.png` and `output/compact-header-project.png`; checked
+1100px, 800px and 390px layouts for horizontal overflow. Shell cache version is 22.
+## Dark theme — 2026-09-21
+
+Added persistent System/Light/Dark appearance selection, applied before paint and
+synchronized across windows without rerendering drafts. Dark colors cover shared
+surfaces, inputs, dialogs, flow states, warnings, issue/proposal content and output.
+Terminal retains its existing dark palette. Browser checks passed system default,
+explicit preference across reload, unsaved editor retention, dialog rendering and
+390px overflow. Inspected `output/dark-editor.png`; captured Home and dialog too.
+PWA suite passed with the theme bootstrap included in the offline cache (version 25).
+Checked live sessions/workflows were inactive before restarting the local server.
+## Issue loading — 2026-09-21
+
+The initial detail request shares one fresh issue snapshot with local work-settings
+resolution. It no longer waits for comments or provider discovery. Discussion loads
+on expansion; proposal history and edit-model discovery load independently. Provider
+validation remains on settings saves and execution starts. Fourteen focused Node
+tests and the issues browser suite passed, including assertions of one issue fetch
+and zero comment fetches before opening Discussion. Cache version 27.
+## Editable CLI direction — 2026-09-21
+
+Renamed Edit settings to Edit plan and added a local CLI prompt, saved with the
+execution choices and displayed in the summary. Start freezes the prompt and passes
+it as user direction alongside issue/approved-plan context. Cancel discards the draft;
+reset clears the local override. Invalid saves preserve the previous prompt/settings.
+Five issue-work tests and the issues browser suite passed, including saved-prompt
+delivery to the launch adapter. No real inference or GitHub write was performed.
+
+## Single worker orchestration settings — 2026-09-21
+- Orchestration accordion now exposes exactly two assignments: Orchestrator and Worker, with independent provider/model/effort controls.
+- Worker defaults use a common plan task assignment when present, otherwise the plan settings/current settings. One saved worker choice is validated and expanded across the approved graph's task IDs; dependencies and task count remain unchanged.
+- Validation: npm test passed 76/76; tests/issues-browser.mjs passed with fixture providers, keyboard toggle checks, and two-assignment assertion. Inspected output/orchestration-worker.png.
+- Orchestration runtime remains unavailable; no real inference was launched.
+
+## Orchestration accordion header — 2026-09-21
+- Moved the switch to the right of the accordion heading. Opening enables orchestration; closing disables it. The switch also opens/closes the accordion, preserving entered assignments while collapsed.
+- Issues browser fixture suite passed, including opening-to-enable and keyboard switch-to-collapse assertions. Inspected output/orchestration-worker.png; git diff --check passed.
+
+## Issue header icon actions — 2026-09-21
+- Edit issue now uses a save icon; Refresh uses a refresh icon immediately to its right in the detail header. Accessible names/tooltips and existing actions remain intact.
+- Issues browser fixture suite and git diff --check passed. Inspected output/compact-work-plan.png for placement.
+
+## Consistent orchestration selectors — 2026-09-21
+- Orchestrator and Worker now use agent/model radio pills and model-specific effort sliders, matching the main work controls. Each assignment loads its own provider catalog and preserves separate settings.
+- Issues browser suite passed with Worker model selection and keyboard effort adjustment, verifying the Orchestrator selection stays unchanged. Inspected output/orchestration-worker.png. git diff --check passed.
+
+## Global settings and project System pages — 2026-09-21
+- Added cog buttons beside Add project, a global settings modal, persisted light/dark accent colors, and provider-specific model visibility pills. Preferences live in settings.json with validation, atomic writes and stale-version rejection. Hidden defaults apply to sessions, issue work/edit, orchestration assignments, flow editor and workflow selectors; saved selections remain available.
+- Added project System navigation with project settings and escaped, read-only instruction previews. Global settings previews Workbench files. Discovery is project-bounded, excludes external symlinks, and limits previews to 64 files / 128 KB each. It does not claim to expose the provider's entire effective prompt.
+- npm test: 78/78 passed. All browser suites passed across the full-suite attempt and targeted continuations. Updated the PWA cache assertion for the new module and removed a competing reload in the project-browser helper sequence. New settings suite checks persistence, both theme accents, hiding a default model, instruction escaping, System route and mobile overflow.
+- Inspected output/global-settings.png and output/project-system.png. git diff --check passed. No active sessions/workflows before local service restart; live settings/instructions endpoints returned 200. No real agent inference launched.
+
+## Save orchestration drafts without approval — 2026-09-21
+- Removed the executable-plan requirement from saving work instructions and orchestration assignments. Unapproved drafts retain prompt and role settings with a null plan hash and no derived tasks. Saving does not grant approval or start execution.
+- Start orchestration remains disabled because its runtime is unavailable; the saved-plan panel explains this without presenting a save error.
+- 78 Node tests passed. Issues browser suite passed, including saving with orchestration enabled and no approved graph, reopening retained Worker/prompt selections, and disabled Start work. Local server restarted after confirming no active sessions/workflows.
+
+## Repository placement and live issue planning — 2026-09-21
+- Removed standalone repository text from issue details and proposals; project cards and System pages now show sanitized Git remote information directly beneath the folder path, from the project connection API. Existing project settings retain detailed Git context.
+- Create plan now saves inputs and launches a planning-only CLI task in an isolated worktree, using the selected planning model/effort and frozen issue context. A dedicated page polls the generated Markdown file while displaying the interactive CLI; Save draft remains non-executing. Latest planning runs can be reopened from the issue.
+- Plan file previews are scoped to the terminal workspace, reject escaping symlinks, and are capped at 256 KB. Plans remain unapproved drafts; orchestration execution remains unavailable.
+- 79 backend tests passed. Planning browser test used a fixture executable through a real PTY to verify initial instructions, incremental file updates, reload without relaunch, stop, mobile overflow, and repository placement. Issues, settings and PWA browser suites passed. Inspected output/issue-planning-live.png. No live-model inference was used.
+
+## Claude Code model/effort catalog parity — 2026-09-21
+- Replaced the hard-coded Claude aliases/three-level effort list with the installed CLI's initialize control response. Discovery sends no user prompt, disables hooks/MCP, caches concurrent discovery for 30 seconds, and returns model-specific supportedEffortLevels. Models without effort support use a disabled default selector and omit --effort at launch. Saved opus/fable aliases remain compatible but are not duplicated in default pickers.
+- All Claude selectors consume the same provider catalog. Fixed square selected-pill backgrounds and stale orange text under custom accents. Ultracode is not presented as an API effort: it is Claude Code's separate dynamic-workflow mode, which this integration does not enable.
+- Official reference: https://code.claude.com/docs/en/model-config#adjust-effort-level . Installed CLI 2.1.278 returned low/medium/high/xhigh/max for Sonnet, Opus and Fable; Haiku returned no effort capability.
+- 79 backend tests passed, plus issues, terminal and settings browser suites. Live installed-CLI discovery and live Workbench selection of Sonnet/max verified without inference; inspected output/claude-parity.png. Restarted after confirming no active sessions/workflows.
+
+## 2026-09-21 — Shared agent selection cards
+
+- Sessions, issue editing/planning, orchestration roles, flow steps and workflow run settings use a shared three-pill Agent / Model / Effort card. Agent choices carry platform marks; model choices and the effort slider open in native popover overlays.
+- Saved settings take precedence over locally remembered selections. Empty selections show placeholders and block session/planning submission until confirmed. Orchestrator and worker choices have separate caches. Catalog loading preserves remembered effort; restoring an unchanged flow does not mark it dirty.
+- `npm test`: 79 passed. Full `npm run test:browser` passed, including the new agent-card browser suite. A subsequent focused workflow check passed after the bulk-model synchronization adjustment; agent-card checks also verify no execution starts from placeholders.
+- Inspected desktop dark screenshots (`output/agent-cards.png`, `output/agent-card-overlay.png`); browser checks cover mobile overflow, equal pill widths, Escape dismissal and reload persistence. Provider execution tests use fixtures, not paid inference.
+- Restarted the local launch service after checking for active execution; `/agent-card.js` returns HTTP 200. Shell cache is `0.5.0-41`; existing installed clients use the normal explicit update flow.
 
 ## 2026-09-21 — Graft installation and settings landscape layout
 
@@ -491,6 +575,22 @@ Double-click `Launch Flow Bench.command` or run `npm start` here. Stop with Ctrl
   existing explicit Update app action; the installed window itself was not tested.
 - Changes remain local in the existing dirty checkout; unrelated work is retained.
 
+## 2026-09-21 — Selection interaction follow-up
+
+- Radio changes now update card confirmation state through change events as well as activation; selecting the current option no longer clears its dependent selections. Programmatic cache restoration is isolated from user changes.
+- Repeated clicks dismiss an open pill overlay. Closing overlays become inert and aria-hidden during their fade. Focus rings are bounded 2px treatments; invisible radio inputs no longer receive a separate outline.
+- Agent-card, terminal, issues, editor and planning browser suites passed with fixture providers. Added immediate replacement of a restored model, cache-value assertions, keyboard selection, same-pill dismissal and reduced-motion checks. Terminal checks assert the launched record contains the selected agent/model/effort. Shell version: 0.5.0-43.
+
+## 2026-09-21 — Agent card dependent-selection fix
+
+- Reproduced with distinct Claude/Codex fixture model lists and delayed discovery: changing a restored model or agent reset the dependent pills to placeholders, wrote `null` model/effort to the cache, and blocked Start until each pill was re-confirmed. Fixtures that shared model IDs across providers had hidden this.
+- Dependents now follow the owning form's new defaults; the cache is rewritten after asynchronous model loads, while a pending restore keeps its cached value. Arrow-key radio changes no longer close the overlay.
+- Fixture suites passed: agent-card (new dependent/cache assertions), terminal, issues, planning, workflows, PWA, editor. Shell version: 0.5.0-44.
+- Live UI (running server, browser pane, no session started): with a cached model that no longer exists, Model/Effort show placeholders; choosing Sonnet gave card/controls/cache `claude · sonnet · high`; arrow-key switch to Codex gave `codex · gpt-5.6-sol · medium` in all three without reload. Focus ring inspected and compact. Not verified inside the installed PWA window, which must take the explicit update to 0.5.0-44.
+- Follow-up: overlays now open in place over the card's footprint (options replace the pills; effort shows label, slider and Done in one row); outside click, Escape, Enter or Done dismiss. Removed the `display:none` override that cancelled the closing fade; live check measured mid-transition opacity on both open and close. Agent-card suite asserts overlay/card bounds match; terminal, issues, planning, workflows, editor and PWA suites passed. Shell version: 0.5.0-45.
+- Follow-up: option pills now share the selection pills' size and style in an equal-width grid; the three pills fade out while an overlay is open (`data-open`). Inspected live Agent state (Codex | Claude, same footprint). Agent-card, terminal and issues suites passed. Shell version: 0.5.0-46.
+- Follow-up: agent-card motion built to the animate skill's bar. Overlay scales from the pressed pill (`--origin-x/y` set in `place()`), `scale(.96)`→`scale(1)` with `cubic-bezier(.23,1,.32,1)`; open 200ms, close 150ms (deliberate act slower than the system response). Pills recede at 120ms so they never ghost through the incoming options; `:active` press feedback at 160ms on selection pills, option pills and Done. Card hover gated behind `(hover:hover) and (pointer:fine)`. Reduced motion continues to use the project-wide `transition:none!important` rule. Live measurement on the running server: origins 61/168/276px on a 337px card, open 0.2s, close 0.15s, settling at scale(1). Agent-card, terminal, issues, planning, workflows, editor and settings suites passed. Shell version: 0.5.0-47.
+
 ## 2026-09-21 — Settings and Graft publication verification
 
 - Prepared the settings and Graft dependency, API, theme, model-filter, System
@@ -504,3 +604,36 @@ Double-click `Launch Flow Bench.command` or run `npm start` here. Stop with Ctrl
 - Inspected the snapshot's desktop settings screenshot. The approved settings UI
   and Graft wrapper match the working checkout; no installed-app update or server
   restart was performed by the publication step.
+
+## 2026-09-21 — Knowledge navigation and Graft explorer
+
+- Home now places global Knowledge Graph, Skills, and Connections (MCP) cards
+  above Projects. Knowledge Graph is active at `/#knowledge`; Skills and
+  Connections are visibly planned and have no action. Project overviews link to
+  `/#knowledge/<project-id>` and keep project Skills/Connections planned.
+- The project Graft API discovers only `graft/` under the connected project or
+  its inspected Git root. It bounds file, node, relation, context-file and result
+  sizes; rejects escaping index/wiring symlinks and unsupported schemas; drops
+  dangling relations with a diagnostic; and exposes no path override, build,
+  enrichment or model action.
+- The project page provides Code, Context and Outline views with search, node and
+  relation filters, node/relation details, supplied confidence labels,
+  neighborhood expansion, pan/zoom/fit, keyboard tab navigation and a
+  synchronized accessible node list. Orchestration remains visibly planned.
+- `npm test` passed 83/83. The full Chrome suite passed all 17 scripts, including
+  offline/update behavior with network-only APIs. A final focused Graft browser
+  pass covered the keyboard follow-up, global connected/missing status, route
+  reload, Code/Context/Outline, filters, details, neighborhood, zoom, 390px
+  overflow and zero execution requests. Fixture providers and temporary stores
+  were used; no model or Graft build ran.
+- Inspected `output/projects-overview-desktop.png`,
+  `output/graft-explorer-desktop.png`, `output/graft-explorer-mobile.png` and
+  `output/knowledge-live.png`.
+  The existing Workbench index was also read directly through the final adapter:
+  467 code nodes, 1,662 valid relations and 238 dangling relations omitted. Shell
+  cache is `skd-shell-0.5.0-49`; Knowledge and Cytoscape assets are explicit.
+- After confirming all live sessions were completed and all workflows cancelled,
+  restarted the transient `com.shelbyklein.skd-workbench` service. The live
+  project route rendered the 467-node index as a bounded 180-node view with no
+  page errors. At verification time, the work remained in the local checkout;
+  no installed-PWA update, GitHub write, commit, push or deployment had occurred.

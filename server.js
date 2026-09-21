@@ -15,8 +15,9 @@ import { CodexRuns } from './lib/codex.js';
 import { Store } from './lib/store.js';
 import { Problem, assert } from './lib/domain.js';
 import { canonicalFolder, inspectFolder } from './lib/projects.js';
+import {projectGraft} from './lib/graft-view.js';
 const root = path.dirname(fileURLToPath(import.meta.url));
-const files = {'/settings-ui.js':'settings-ui.js','/theme.js':'theme.js','/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
+const files = {'/agent-card.js':'agent-card.js','/planning-ui.js':'planning-ui.js','/knowledge-ui.js':'knowledge-ui.js','/settings-ui.js':'settings-ui.js','/theme.js':'theme.js','/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
   '/icons/icon-192.png':'icons/icon-192.png','/icons/icon-512.png':'icons/icon-512.png','/icons/maskable-512.png':'icons/maskable-512.png','/icons/apple-touch-icon.png':'icons/apple-touch-icon.png'};
 const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
 async function body(req) {
@@ -103,6 +104,10 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       if(issues){const project=store.project(issues[1]);
         if(req.method==='GET'&&issues[3])return json(proposals.list(project,issues[2]));
         if(req.method==='POST'&&issues[3])return json(await proposals.start(project,issues[2],await body(req)),202);
+        if(req.method==='GET'&&issues[2]&&url.searchParams.get('view')==='initial'){
+          const settings=await issueWork.resolve(project,issues[2]);
+          return json({repository:settings.source.repository,issue:settings.source,settings,comments:[],commentsPage:0,hasMoreComments:settings.source.commentCount>0});
+        }
         if(req.method==='GET'&&issues[2])return json(await github.detail(project,issues[2],url.searchParams.get('page')||1));
         if(req.method==='GET')return json(await github.list(project,{state:url.searchParams.get('state')||'open',page:url.searchParams.get('page')||1}));
       }
@@ -111,6 +116,8 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
         if(req.method==='GET')return json(await issueWork.resolve(project,workSettings[2],{validate:true}));
         if(req.method==='PUT')return json(await issueWork.saveSettings(project,workSettings[2],await body(req)));
       }
+      const issuePlanRuns=pathname.match(/^\/api\/projects\/([\w-]+)\/issues\/(\d+)\/plan-runs$/);
+      if(issuePlanRuns&&req.method==='POST')return json(await issueWork.startPlanning(store.project(issuePlanRuns[1]),issuePlanRuns[2],await body(req)),202);
       const issueWorkRuns=pathname.match(/^\/api\/projects\/([\w-]+)\/issues\/(\d+)\/work-runs$/);
       if(issueWorkRuns&&req.method==='POST'){const project=store.project(issueWorkRuns[1]);return json(await issueWork.startSolo(project,issueWorkRuns[2],await body(req)),202);}
       const issueWorkRun=pathname.match(/^\/api\/projects\/([\w-]+)\/issue-work-runs\/([\w-]+)$/);
@@ -137,6 +144,8 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
         try {return json({projectID:project.id,projectVersion:project.version,...await inspectFolder(project.folderPath)});}
         catch(e){if(!(e instanceof Problem))throw e;return json({projectID:project.id,projectVersion:project.version,available:false,folderPath:project.folderPath,git:null,message:e.message});}
       }
+      const graft=pathname.match(/^\/api\/projects\/([\w-]+)\/graft$/);
+      if(graft&&req.method==='GET')return json(await projectGraft(store.project(graft[1]),{view:url.searchParams.get('view')||'',tab:url.searchParams.get('tab')||'',query:url.searchParams.get('query')||'',focus:url.searchParams.get('focus')||'',kind:url.searchParams.get('kind')||'',relation:url.searchParams.get('relation')||'',limit:url.searchParams.get('limit')||''}));
       if(req.method==='POST' && pathname==='/api/flows') return json(store.createFlow(await body(req)),201);
       const settings=pathname.match(/^\/api\/flows\/([\w-]+)\/settings$/);
       if(settings&&req.method==='PUT')return json(store.saveRunSettings(settings[1],await body(req)));
@@ -154,7 +163,7 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       }
       const run=pathname.match(/^\/api\/runs\/([\w-]+)\/action$/);
       if(run && req.method==='POST') return json(store.transition(run[1],await body(req)));
-      const vendor={'/vendor/xterm.js':'@xterm/xterm/lib/xterm.js','/vendor/xterm.css':'@xterm/xterm/css/xterm.css','/vendor/fit.js':'@xterm/addon-fit/lib/addon-fit.js'};
+      const vendor={'/vendor/xterm.js':'@xterm/xterm/lib/xterm.js','/vendor/xterm.css':'@xterm/xterm/css/xterm.css','/vendor/fit.js':'@xterm/addon-fit/lib/addon-fit.js','/vendor/cytoscape.js':'cytoscape/dist/cytoscape.min.js'};
       if(req.method==='GET'&&vendor[pathname]){res.setHeader('Content-Type',mime[path.extname(pathname)]);return res.end(readFileSync(path.join(root,'node_modules',vendor[pathname])));}
       if(req.method==='GET' && files[pathname]) {
         const name=files[pathname];

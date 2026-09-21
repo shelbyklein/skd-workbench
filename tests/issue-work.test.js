@@ -30,18 +30,58 @@ test('approval is bound to exact server-recorded plan and issue hashes',async t=
  f.state.issue.body='Changed';r=await f.work.resolve(f.project,7);assert.equal(r.readiness,'stale');assert.equal(r.approval,null);assert.equal(r.defaults,null);assert.notEqual(issueSourceHash({...f.state.issue}),source.sourceHash);
 });
 
-test('overrides validate provider support, reset to plan, and gate orchestration on a graph',async t=>{
+test('overrides validate provider support and reset to plan',async t=>{
  const f=setup(t),source=await f.work.source(f.project,7),plan=f.work.recordPlan(f.project,source,{schema:1,planID:'plan-1',version:1,settings,graph});f.work.approvePlan(plan.planID,1,source.sourceHash,'Approved.');
  let r=await f.work.saveSettings(f.project,7,{action:'save',sourceHash:source.sourceHash,settings:{...settings,effort:'low'}});assert.equal(r.origin,'override');assert.equal(r.effective.effort,'low');
  await assert.rejects(f.work.saveSettings(f.project,7,{action:'save',sourceHash:source.sourceHash,settings:{...settings,model:'missing'}}),/unavailable/);
  r=await f.work.saveSettings(f.project,7,{action:'reset',sourceHash:source.sourceHash});assert.equal(r.origin,'approved_plan');assert.equal(r.effective.effort,'high');
- const g=setup(t),s=await g.work.source(g.project,7);await assert.rejects(g.work.saveSettings(g.project,7,{action:'save',sourceHash:s.sourceHash,settings:{...settings,orchestration:true}}),/approved executable plan/);
+ const g=setup(t),s=await g.work.source(g.project,7);
+ const draft=await g.work.saveSettings(g.project,7,{action:'save',sourceHash:s.sourceHash,settings:{...settings,orchestration:true},prompt:'Plan and implement this issue.',orchestrationConfig:{orchestrator:settings,worker:settings}});
+ assert.equal(draft.prompt,'Plan and implement this issue.');
+ assert.equal(draft.effective.orchestration,true);
+ assert.equal(draft.effective.orchestrationConfig.planHash,null);
+ assert.deepEqual(draft.effective.orchestrationConfig.tasks,{});
+ assert.equal(draft.canStartOrchestration,false);
+ assert.equal(draft.approval,null);
+ const reloaded=await g.work.resolve(g.project,7);assert.equal(reloaded.prompt,draft.prompt);
+ await assert.rejects(g.work.startSolo(g.project,7,{requestKey:'draft-orchestration',sourceHash:s.sourceHash}),/single-agent settings/);
+ assert.equal(g.state.starts.length,0);
 });
 
+test('one worker choice applies to all approved plan tasks',async t=>{
+ const f=setup(t),source=await f.work.source(f.project,7);
+ const plan=f.work.recordPlan(f.project,source,{schema:1,planID:'assigned-plan',version:1,settings,graph:{tasks:[{...graph.tasks[0],agent:'codex',model:'gpt-5.6-sol',effort:'low'},{...graph.tasks[0],id:'two',dependencies:['one']}]}});
+ f.work.approvePlan(plan.planID,1,source.sourceHash,'Approved.');
+ const result=await f.work.saveSettings(f.project,7,{action:'save',sourceHash:source.sourceHash,settings:{...settings,orchestration:true},orchestrationConfig:{orchestrator:settings,worker:{agent:'claude',model:'sonnet',effort:'medium'}}});
+ assert.deepEqual(result.effective.orchestrationConfig.worker,{agent:'claude',model:'sonnet',effort:'medium'});
+ assert.deepEqual(result.effective.orchestrationConfig.tasks,{one:result.effective.orchestrationConfig.worker,two:result.effective.orchestrationConfig.worker});
+ assert.equal(result.effective.orchestrationConfig.orchestrator.effort,'high');
+});
+test('saved CLI prompt reaches the launch and rejected edits preserve it',async t=>{
+ const f=setup(t),source=await f.work.source(f.project,7);
+ await f.work.saveSettings(f.project,7,{action:'save',sourceHash:source.sourceHash,settings,prompt:'Implement the acceptance checks.'});
+ await assert.rejects(f.work.saveSettings(f.project,7,{action:'save',sourceHash:source.sourceHash,settings,prompt:'x'.repeat(8001)}),/8,000/);
+ assert.equal((await f.work.resolve(f.project,7)).prompt,'Implement the acceptance checks.');
+ const run=await f.work.startSolo(f.project,7,{requestKey:'saved-prompt-launch',sourceHash:source.sourceHash});
+ assert.equal(run.prompt,'Implement the acceptance checks.');assert.match(f.state.starts[0].input.initialPrompt,/User direction:\nImplement the acceptance checks\./);
+});
 test('directed solo launch freezes context and a request key launches once',async t=>{
  const f=setup(t),source=await f.work.source(f.project,7);await f.work.saveSettings(f.project,7,{action:'save',sourceHash:source.sourceHash,settings});
  const input={requestKey:'launch-12345678',sourceHash:source.sourceHash,instruction:'Keep the public API stable.'},first=await f.work.startSolo(f.project,7,input),second=await f.work.startSolo(f.project,7,input);
  assert.equal(first.id,second.id);assert.equal(f.state.starts.length,1);assert.match(f.state.starts[0].input.initialPrompt,/owner\/repo#7/);assert.match(f.state.starts[0].input.initialPrompt,/Keep the public API stable/);assert.equal(f.state.starts[0].input.model,'gpt-5.6-sol');
  await assert.rejects(f.work.startSolo(f.project,7,{...input,instruction:'Different'}),/already used/);
  f.state.issue.title='Changed after launch';assert.equal(f.work.getRun(first.id,f.project).source.title,'Build it');
+});
+
+test('planning launches once with planning-only instructions even when orchestration is enabled',async t=>{
+ const f=setup(t),source=await f.work.source(f.project,7);
+ await f.work.saveSettings(f.project,7,{action:'save',sourceHash:source.sourceHash,prompt:'Focus on accessibility.',settings:{...settings,orchestration:true},orchestrationConfig:{orchestrator:settings,worker:settings}});
+ const input={requestKey:'create-plan-once',sourceHash:source.sourceHash};
+ const first=await f.work.startPlanning(f.project,7,input),second=await f.work.startPlanning(f.project,7,input);
+ assert.equal(first.id,second.id);assert.equal(f.state.starts.length,1);
+ assert.equal(first.kind,'planning');assert.equal(f.state.starts[0].input.mode,'worktree');
+ assert.match(f.state.starts[0].input.initialPrompt,/Do not implement the work/);
+ assert.match(f.state.starts[0].input.initialPrompt,/Focus on accessibility/);
+ assert(f.state.starts[0].input.initialPrompt.includes(first.planFile));
+ assert.equal((await f.work.resolve(f.project,7)).approval,null);
 });

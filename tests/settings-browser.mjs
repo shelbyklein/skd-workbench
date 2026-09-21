@@ -48,7 +48,7 @@ try{
  await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});
  await page.goto(url+'/#system/'+project.id);await page.reload();await page.getByText('AGENTS.md',{exact:true}).click();assert.match(await page.locator('#project-instructions pre').innerText(),/Fixture agent instructions/);assert.equal(await page.locator('#project-instructions script').count(),0);
  await page.screenshot({path:'output/project-system.png',fullPage:true});
- await page.goto(url+'/#sessions/'+project.id);await page.reload();await page.getByRole('radio',{name:'Model Two',exact:true}).waitFor();assert.equal(await page.getByRole('radio',{name:'Model One',exact:true}).count(),0);
+ await page.goto(url+'/#sessions/'+project.id);await page.reload();await page.locator('[data-agent-parameter="model"]').click();await page.getByRole('radio',{name:'Model Two',exact:true}).waitFor();assert.equal(await page.getByRole('radio',{name:'Model One',exact:true}).count(),0);
  await page.keyboard.press('Escape');await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'Global settings',exact:true}).first().click();await page.getByLabel('Dark mode',{exact:true}).waitFor();assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  await dialog.getByLabel('Settings section',{exact:true}).selectOption('codex');await one.waitFor();
  await page.screenshot({path:'output/settings-mobile-models.png'});

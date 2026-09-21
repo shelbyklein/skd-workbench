@@ -40,17 +40,17 @@ try {
   await page.locator('#dialog').getByRole('button',{name:'Duplicate',exact:true}).click();
   await page.getByRole('heading',{name:'Editor verification'}).waitFor();console.log('configure');
   await page.locator('[data-step]').first().click();
-  await page.locator('[name="step-model"][value="fixture-sol"]').check();
-  await page.getByLabel('Effort',{exact:true}).focus();await page.keyboard.press('End');
+  await page.locator('[data-agent-parameter="model"]').click();await page.locator('[name="step-model"][value="fixture-sol"]').check();
+  await page.locator('[data-agent-parameter="effort"]').click();await page.getByLabel('Effort',{exact:true}).focus();await page.keyboard.press('End');
   assert.equal(await page.getByLabel('Effort',{exact:true}).getAttribute('aria-valuetext'),'xhigh');
-  await page.getByRole('button',{name:'Save flow',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#save').disabled);
+  await page.keyboard.press('Escape');await page.getByRole('button',{name:'Save flow',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#save').disabled);
   await page.reload();await page.locator('[data-step]').first().click();
   assert.equal(await page.getByLabel('Effort',{exact:true}).getAttribute('aria-valuetext'),'xhigh');
   await page.getByLabel('Step name',{exact:true}).fill('Investigate the task');
   await page.getByText('Custom model label',{exact:true}).click();await page.getByLabel('Custom model',{exact:true}).fill('custom-model-v1');
-  await page.getByLabel('Effort',{exact:true}).focus();await page.keyboard.press('Home');
-  await page.getByLabel('Instructions',{exact:true}).fill('Find the root cause and write acceptance checks.');
-  await page.getByRole('button',{name:'Save flow',exact:true}).click();
+  await page.locator('[data-agent-parameter="effort"]').click();await page.getByLabel('Effort',{exact:true}).focus();await page.keyboard.press('Home');
+  await page.keyboard.press('Escape');await page.getByLabel('Instructions',{exact:true}).fill('Find the root cause and write acceptance checks.');
+  await page.keyboard.press('Escape');await page.getByRole('button',{name:'Save flow',exact:true}).click();
   await page.waitForFunction(()=>document.querySelector('#save').disabled);
   console.log('reload');await page.reload();
 
@@ -62,7 +62,7 @@ try {
   await page.mouse.move(first.x+first.width/2,first.y+first.height/2);
   await page.mouse.down();await page.mouse.move(second.x+second.width/2,second.y+second.height-4,{steps:12});await page.mouse.up();
   assert.deepEqual(await page.locator('[data-step]').evaluateAll(els=>els.map(el=>el.dataset.step)),[ids[1],ids[0],...ids.slice(2)]);
-  await page.getByRole('button',{name:'Save flow',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#save').disabled);
+  await page.keyboard.press('Escape');await page.getByRole('button',{name:'Save flow',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#save').disabled);
   await page.reload();await page.locator('[data-step]').first().waitFor();
   assert.equal(await page.locator('[data-step]').nth(1).getAttribute('data-step'),ids[0]);
   await page.locator('[data-step]').nth(1).focus();await page.keyboard.press('Alt+ArrowUp');
@@ -94,12 +94,12 @@ try {
   await page.getByRole('button',{name:'Remove step',exact:true}).click();
   await page.locator('#dialog').getByRole('button',{name:'Remove step',exact:true}).click();
   assert.equal(await page.locator('[data-step]').count(),6);
-  await page.getByRole('button',{name:'Save flow',exact:true}).click();
+  await page.keyboard.press('Escape');await page.getByRole('button',{name:'Save flow',exact:true}).click();
   await page.waitForFunction(()=>document.querySelector('#save').disabled);
   await page.getByRole('button',{name:'Rename',exact:true}).click();
   await page.getByLabel('Flow name',{exact:true}).fill('Renamed flow');
   await page.locator('#dialog').getByRole('button',{name:'Rename',exact:true}).click();
-  await page.getByRole('button',{name:'Save flow',exact:true}).click();
+  await page.keyboard.press('Escape');await page.getByRole('button',{name:'Save flow',exact:true}).click();
   await page.waitForFunction(()=>document.querySelector('#save').disabled);
   await page.locator('[data-crumb-view=overview]').click();await page.getByRole('button',{name:'Create a flow',exact:true}).click();
   await page.getByLabel('Flow name',{exact:true}).fill('Empty flow');

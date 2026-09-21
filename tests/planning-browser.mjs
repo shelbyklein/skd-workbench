@@ -1,0 +1,40 @@
+import {chooseAgentCard} from './agent-card-helpers.mjs';
+import {chromium} from 'playwright';
+import assert from 'node:assert/strict';
+import {mkdtempSync,mkdirSync,writeFileSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+import {execFileSync} from 'node:child_process';
+import {createServer} from '../server.js';
+const root=mkdtempSync(path.join(tmpdir(),'skd-plan-browser-')),repo=path.join(root,'repo');mkdirSync(repo);
+execFileSync('git',['init','-b','main',repo]);writeFileSync(path.join(repo,'README.md'),'Planning fixture');execFileSync('git',['-C',repo,'add','.']);execFileSync('git',['-C',repo,'-c','user.name=Test','-c','user.email=test@example.invalid','commit','-m','baseline']);
+execFileSync('git',['-C',repo,'remote','add','origin','https://github.com/fixture/planning']);
+const binary=path.join(root,'agent');writeFileSync(binary,`#!/usr/bin/env node
+const fs=require('node:fs');
+const prompt=process.argv.at(-1),file=prompt.match(/skd-plan-[a-f0-9-]+\\.md/)[0];
+fs.writeFileSync(file,'# Draft plan\\nInspect the project.');
+console.log('Planning fixture started');
+process.stdin.on('data',()=>{fs.writeFileSync(file,'# Draft plan\\n1. Inspect the project.\\n2. Implement acceptance checks.\\nUser direction received: '+prompt.includes('Focus on accessibility.'));console.log('Plan updated');});
+`,{mode:0o755});
+const provider={version:'fixture',auth:'fixture',models:[{id:'fixture',name:'Fixture model',efforts:['low','high'],defaultEffort:'high'}]};
+const server=createServer({directory:path.join(root,'data'),codexOptions:{discover:async()=>provider},terminalOptions:{binaries:{codex:binary},discover:async()=>provider},githubOptions:{inspect:async()=>({git:{remotes:[{name:'origin',webURL:'https://github.com/fixture/planning'}]}}),request:async(endpoint,method='GET')=>{assert.equal(method,'GET');return {id:1,number:1,title:'Plan this issue',body:'Add accessible search.',state:'open',user:{login:'fixture'},labels:[],assignees:[],comments:0,updated_at:'2026-09-21T00:00:00Z'};}}});
+await new Promise(r=>server.listen(0,'127.0.0.1',r));const url='http://127.0.0.1:'+server.address().port;
+const project=await(await fetch(url+'/api/projects',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Planning project',folderPath:repo})})).json();
+const browser=await chromium.launch({channel:'chrome'});
+try{
+ const page=await browser.newPage({viewport:{width:1512,height:1100}});page.setDefaultTimeout(12000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto(url+'/#issues/'+project.id+'/1');await page.getByRole('button',{name:'Edit plan',exact:true}).click();await chooseAgentCard(page,page.locator('.agent-selection-card').first(),'Codex','Fixture model');await page.locator('#work-prompt').fill('Focus on accessibility.');
+ await page.getByRole('button',{name:'Create plan',exact:true}).click();await page.waitForURL('**/#planning/**');
+ await page.waitForFunction(()=>document.querySelector('#planning-content')?.textContent.includes('Inspect the project.'));
+ await page.locator('.xterm-helper-textarea').focus();await page.keyboard.type('Update the plan');await page.keyboard.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#planning-content')?.textContent.includes('User direction received: true'));
+ const route=page.url();await page.reload();await page.waitForFunction(()=>document.querySelector('#planning-content')?.textContent.includes('Implement acceptance checks.'));
+ assert.equal(page.url(),route);assert.equal((await(await fetch(url+'/api/sessions')).json()).length,1);
+ assert((await page.locator('#planning-content').boundingBox()).width>300);
+ await page.screenshot({path:'output/issue-planning-live.png',fullPage:true,animations:'disabled'});
+ await page.setViewportSize({width:390,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+ await page.getByRole('button',{name:'End session',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.terminal-status')?.textContent==='cancelled');
+ await page.getByRole('button',{name:'Hide',exact:true}).click();
+ await page.goto(url+'/#issues/'+project.id+'/1');await page.reload();await page.getByRole('button',{name:'Open plan',exact:true}).click();await page.waitForURL(route);await page.getByRole('button',{name:'Hide',exact:true}).click();await page.goto(url+'/#home');await page.reload();await page.waitForFunction(()=>document.querySelector('[data-folder-repository]')?.textContent.includes('github.com/fixture/planning'));
+ assert.deepEqual(errors,[]);console.log('Planning browser passed: Create plan launches fixture CLI in real PTY, receives instructions, incremental file preview, reload without relaunch, stop.');
+}finally{await browser.close();server.shutdownCodex();server.closeAllConnections();await new Promise(r=>server.close(r));rmSync(root,{recursive:true,force:true});}

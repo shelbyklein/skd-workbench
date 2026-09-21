@@ -4,7 +4,7 @@ A standalone local workbench for development projects. Choose a project, compose
 
 ## Open it
 
-Requires Node.js 22 or newer. Runtime dependencies provide the embedded terminal (node-pty and xterm.js). Flow previews need no account; real Codex runs require an installed, signed-in Codex CLI.
+Requires Node.js 22 or newer. Runtime dependencies provide the embedded terminal (node-pty and xterm.js) and the local graph renderer (Cytoscape). Flow previews and Graft browsing need no account; real Codex runs require an installed, signed-in Codex CLI.
 
 Double-click **Launch SKD Workbench.command**, or run:
 
@@ -29,6 +29,12 @@ rerun setup after moving the checkout or changing Node installations. Telemetry
 is disabled by the wrapper. This configures external development agents;
 Workbench's restricted execution adapters retain their existing MCP rules.
 
+The **Knowledge Graph** page reads an existing Graft index from a connected
+project folder or its Git repository root. Code, Context and Outline views are
+read-only: opening the page does not run `graft`, rebuild an index, enrich it
+with a model or change project files. Graph reads are size-bounded and scoped to
+the selected project. A missing or unsupported index is reported in the page.
+
 ## Install as an app
 
 Open **http://127.0.0.1:4390** in Chrome or Edge on this Mac, then choose **Install app** in the sidebar or the browser's install menu. The installed app opens in its own window. If the Codex browser does not offer installation, the sidebar action provides the address to open in a supported browser. Installation itself uses the browser's confirmation dialog.
@@ -41,11 +47,11 @@ When a new version is available, **Update app** reloads it after you save edits 
 
 ## Navigation
 
-**Home** lists connected project cards. The internal Unassigned group is available through the Unassigned workflows link for older workflows, but has no Home card. Opening a project shows its **Project Overview**, with links to Workflows and Sessions. Issues reads the project’s GitHub repository and offers agent edit proposals. Scratchpad and Knowledge are labeled planned and are not available yet.
+**Home** places global page cards above the project list. **Knowledge Graph** is available and summarizes the Graft status of every project. **Skills** and **Connections (MCP)** are labeled planned and have no action yet. The internal Unassigned group is available through the Unassigned workflows link for older workflows, but has no Home card. Opening a project shows its **Project Overview**, with links to Workflows, Sessions, Issues, System and Knowledge Graph. Scratchpad, project Skills and project Connections are labeled planned and are not available yet.
 
 **Workflows** has its own overview of saved workflows and recent runs. The sidebar always lists projects, highlights the active project, and offers Add project. Project details are available on the project overview. The left header breadcrumb links Home → project → view → current item; choose the project name to return to its views, or Home to return to project cards. Navigation preserves unsaved-change protection.
 
-Routes are `/#home`, `/#project/<project-id>` and `/#workflows/<project-id>`. The old `/#projects` alias and existing flow, run and history URLs still work.
+Routes include `/#home`, `/#project/<project-id>`, `/#knowledge`, `/#knowledge/<project-id>` and `/#workflows/<project-id>`. The old `/#projects` alias and existing flow, run and history URLs still work.
 
 Sessions are provider-neutral: choose Codex or Claude when starting one. Start session opens the interactive CLI in a right-side terminal column for back-and-forth conversation. Session URLs use `/#sessions/<project-id>`, with old `/#codex/…` links preserved.
 
@@ -129,9 +135,11 @@ Browser tests use Playwright with installed Google Chrome by default (`PLAYWRIGH
 - `lib/codex.js`: installed CLI discovery, persistent single-task execution, usage and process lifecycle.
 - `public/codex-ui.js`: Sessions entry and results (Codex and Claude).
 - `lib/projects.js`: folder validation and bounded, read-only Git inspection.
+- `lib/graft-view.js`: project-bound Graft discovery, validation, filtering and bounded graph reads.
 - `lib/domain.js`: validation, immutable run creation, bounded simulation transitions.
 - `lib/store.js`: local persistence, revisions, durable attempts.
 - `server.js`: loopback HTTP app and JSON endpoints.
+- `public/knowledge-ui.js`: global Graft status and the accessible Code, Context and Outline explorer.
 - `public/`: browser interface; no build step.
 - `instructions/2026-09-20-simple-flow-workbench.md`: original TT implementation plan.
 - `instructions/2026-09-20-skd-project-scopes.md`: project/Git TT implementation plan.
@@ -248,3 +256,13 @@ inside `instructions/`, `.claude/rules/`, and `.codex/rules/`. Previews stay wit
 project folder and are bounded to 64 files and 128 KB per file. This is a file viewer,
 not a guarantee of a CLI's full effective system prompt: provider/user-level rules
 and launch-specific prompts can also apply. Viewing files does not inject or edit them.
+
+### Create an issue plan
+
+In Edit plan, **Create plan** saves the instructions and launches the selected CLI
+with the issue context in an isolated worktree. The planner is directed to edit only
+its generated Markdown plan file, which the planning page refreshes while the CLI
+runs. The terminal accepts follow-up instructions. **Open plan** returns to the latest
+planning session; reloading does not launch it again. **Save draft** only stores inputs.
+Planning uses the existing clean-Git/worktree and CLI permission requirements. A
+created Markdown plan is a draft, not automatic approval or orchestration execution.

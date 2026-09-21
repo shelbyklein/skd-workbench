@@ -1,3 +1,4 @@
+import {workflowAgentCard} from './agent-card.js';
 import {visibleModels} from './settings-ui.js';
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels={launching:'Starting next step',running:'Codex is working',waiting:'Waiting for your review',checking:'Waiting for verification',failed:'Step failed',interrupted:'Interrupted',stopping:'Stopping',cancelled:'Stopped',completed:'Flow finished'};
@@ -7,7 +8,7 @@ export function workflowForm(flow,provider,project={}){
 export function bindWorkflowForm(host,flow,provider){
  const modelSelects=[...host.querySelectorAll('[data-workflow-model]')];
  const update=select=>{const effort=host.querySelector(`[data-workflow-effort="${CSS.escape(select.dataset.workflowModel)}"]`),m=provider.models.find(m=>m.id===select.value),saved=flow.steps.find(s=>s.id===select.dataset.workflowModel);effort.innerHTML=m?m.efforts.map(e=>`<option ${e===(m.efforts.includes(saved.effort)?saved.effort:m.defaultEffort)?'selected':''}>${esc(e)}</option>`).join(''):'<option value="">Choose a model first</option>';};
- modelSelects.forEach(s=>{update(s);s.onchange=()=>update(s);});host.querySelector('#workflow-all-model').onchange=e=>{if(!e.target.value)return;modelSelects.forEach(s=>{s.value=e.target.value;update(s);});};
+ modelSelects.forEach(s=>{update(s);s.onchange=()=>update(s);workflowAgentCard(s.closest('fieldset'),s,host.querySelector(`[data-workflow-effort="${CSS.escape(s.dataset.workflowModel)}"]`));});host.querySelector('#workflow-all-model').onchange=e=>{if(!e.target.value)return;modelSelects.forEach(s=>{s.value=e.target.value;s.dispatchEvent(new Event('change',{bubbles:true}));});};
  return ()=>Object.fromEntries(modelSelects.map(s=>[s.dataset.workflowModel,{model:s.value,effort:host.querySelector(`[data-workflow-effort="${CSS.escape(s.dataset.workflowModel)}"]`).value}]));
 }
 export function mountWorkflow({host,runID,projectID,api,onOpen,notify}){

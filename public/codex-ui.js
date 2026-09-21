@@ -1,3 +1,4 @@
+import {agentCard,requireAgentCards} from './agent-card.js';
 import {visibleModels} from './settings-ui.js';
 import {mountTerminal} from './terminal-ui.js';
 import {benchmarkNotice,resetNotice} from './workflows-ui.js';
@@ -15,7 +16,7 @@ export function mountCodex({host,project,runID,api,onOpen,onNew,notify,prefill='
   if(runID){await poll();return;}
   host.innerHTML=`${project.benchmark?'<div class="session-reset-warning" role="note"><strong>Reset after each run</strong><span>Benchmark session: files and results are archived, then the worktree is cleared when the session ends.</span></div>':''}<div class="codex-grid"><section class="codex-card"><span class="eyebrow">SINGLE AGENT</span><h2>New session</h2><form id="codex-form"><fieldset class="pill-field"><legend>Agent</legend><div class="pill-options" id="session-agents">${['codex','claude'].map(a=>`<label class="choice-pill"><input type="radio" name="agent" value="${a}" ${a===chosenAgent?'checked':''}><span>${a==='codex'?'Codex':'Claude'}</span></label>`).join('')}</div></fieldset><fieldset class="pill-field"><legend>Model</legend><div class="pill-options" id="session-models"><span>Loading models…</span></div></fieldset><label for="session-effort">Effort <output id="effort-value">—</output></label><input type="range" id="session-effort" aria-label="Effort" min="0" max="0" step="1" value="0" disabled><div class="effort-ticks" aria-hidden="true"></div><label>Workspace<select name="mode" id="codex-mode"><option value="worktree">Worktree — a separate copy for this session</option>${project.benchmark?'':'<option value="read-only">Read only — inspect the project</option>'}</select></label><details class="worktree-help"><summary>What is a worktree?</summary><p>A worktree is a separate checkout used for this session. Changes remain there for review and are never merged automatically.</p></details><p id="codex-provider" class="field-help">Checking the installed agent…</p><p id="codex-error" class="form-error" role="alert"></p><button id="codex-start" class="primary" disabled>Start session</button></form>${!project.folderPath?'<p class="connection-warning">Choose or add a project with a local folder first.</p>':''}</section><section class="codex-card"><span class="eyebrow">THIS PROJECT</span><h2>Recent sessions</h2><div id="codex-history">Loading…</div></section></div>`;
   $('#codex-form').oninput=()=>{dirty=true;};
-  $('#codex-form').onsubmit=async e=>{e.preventDefault();if(pending||$('#codex-start').disabled)return;pending=true;$('#codex-start').disabled=true;$('#codex-error').textContent='';
+  $('#codex-form').onsubmit=async e=>{e.preventDefault();if(pending||$('#codex-start').disabled||!requireAgentCards($('#codex-form')))return;pending=true;$('#codex-start').disabled=true;$('#codex-error').textContent='';
    try{const run=await api('terminal-sessions','POST',{projectID:project.id,agent:chosenAgent,model:chosenModel,effort:efforts[Number($('#session-effort').value)],mode:$('#codex-mode').value});dirty=false;pending=false;onOpen(run.id);}catch(e){fail(e);if(guard())$('#codex-start').disabled=false;}finally{pending=false;}
   };
   api('sessions?projectID='+encodeURIComponent(project.id)).then(runs=>{
@@ -37,6 +38,7 @@ export function mountCodex({host,project,runID,api,onOpen,onNew,notify,prefill='
    }catch(e){if(guard()&&request===providerRequest){$('#codex-provider').textContent=name+' is unavailable.';fail(e);}}
   }
   host.querySelectorAll('[name="agent"]').forEach(r=>r.onchange=()=>{chosenAgent=r.value;loadProvider();});await loadProvider();
+  if(guard())agentCard({agentNodes:[$('#session-agents').closest('fieldset')],modelNodes:[$('#session-models').closest('fieldset')],effortNodes:[$('label[for="session-effort"]'),$('#session-effort'),$('.effort-ticks')],seed:prefill?.model?prefill:null,cacheKey:'main'});
  };
  async function poll(){
   try{

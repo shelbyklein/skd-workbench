@@ -6,25 +6,27 @@
   "scripts": {
     "start": "node server.js",
     "test": "node --test tests/*.test.js",
-    "test:browser": "node tests/sidebar-browser.mjs && node tests/editor.mjs && node tests/browser.mjs && node tests/accessibility.mjs && node tests/projects-browser.mjs && node tests/pwa-browser.mjs && node tests/codex-browser.mjs && node tests/workflows-browser.mjs && node tests/benchmarks-browser.mjs && node tests/overview-browser.mjs && node tests/claude-browser.mjs && node tests/terminal-browser.mjs && node tests/issues-browser.mjs && node tests/settings-browser.mjs",
+    "test:browser": "node tests/sidebar-browser.mjs && node tests/editor.mjs && node tests/browser.mjs && node tests/accessibility.mjs && node tests/projects-browser.mjs && node tests/pwa-browser.mjs && node tests/codex-browser.mjs && node tests/workflows-browser.mjs && node tests/benchmarks-browser.mjs && node tests/overview-browser.mjs && node tests/claude-browser.mjs && node tests/terminal-browser.mjs && node tests/issues-browser.mjs && node tests/settings-browser.mjs && node tests/planning-browser.mjs && node tests/agent-card-browser.mjs && node tests/graft-browser.mjs",
     "icons": "node scripts/generate-icons.mjs",
-    "postinstall": "node scripts/prepare-terminal.mjs",
     "graft": "node scripts/graft.mjs",
     "graft:setup": "node scripts/graft.mjs setup",
     "graft:build": "node scripts/graft.mjs build",
     "graft:check": "node scripts/graft.mjs check",
-    "graft:map": "node scripts/graft.mjs map"
+    "graft:map": "node scripts/graft.mjs map",
+    "postinstall": "node scripts/prepare-terminal.mjs"
   },
   "engines": {
     "node": ">=22"
   },
   "devDependencies": {
-    "playwright": "^1.63.0",
-    "@nanonets/graft": "0.18.0"
+    "@nanonets/graft": "0.18.0",
+    "playwright": "^1.63.0"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
+    "cytoscape": "3.34.3",
+    "gray-matter": "4.0.3",
     "node-pty": "^1.1.0"
   },
   "allowScripts": {
