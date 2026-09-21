@@ -1,3 +1,4 @@
+import { mountIssues } from './issues-ui.js';
 import { workflowForm, bindWorkflowForm, mountWorkflow } from './workflows-ui.js';
 import { mountCodex } from './codex-ui.js';
 import { installApp, isStandalone, setupPWA, serverAvailable } from './pwa.js';
@@ -5,6 +6,7 @@ const $ = s => document.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const clone = v=>structuredClone(v);
 const uid = ()=>crypto.randomUUID();
+let issuesView=null,issueNumber=null;
 let workflowView=null,workflowRunID=null;
 let codexView=null,codexRunID=null,codexPrefill='';
 let projectID='unassigned';
@@ -27,8 +29,8 @@ const scopedRuns=()=>data.runs.filter(r=>r.projectID===projectID);
 const currentProject=()=>data.projects.find(p=>p.id===projectID)||data.projects[0];
 function markDirty() { dirty=true; const save=$('#save'); if(save) save.disabled=false; const note=$('#saved-note'); if(note) note.textContent='Unsaved changes'; }
 function confirmLeave(action) {
-  if(codexView?.isPending()||workflowView?.isPending()){toast('Wait for Codex to accept the task before leaving.');return;}
-  if(!dirty&&!codexView?.isDirty()&&!workflowView?.isDirty()) return action();
+  if(issuesView?.isPending()||codexView?.isPending()||workflowView?.isPending()){toast('Wait for the current request to finish before leaving.');return;}
+  if(!dirty&&!issuesView?.isDirty()&&!codexView?.isDirty()&&!workflowView?.isDirty()) return action();
   modal('Keep your changes?', '<p>You have unsaved changes. Save them or discard them before leaving.</p>', [{label:'Keep editing',close:true},{label:'Discard changes',run:()=>{dirty=false;action();}}]);
 }
 function openFlow(flowID) { confirmLeave(()=>{const flow=data.flows.find(f=>f.id===flowID); if(!flow)return; projectID=flow.projectID;draft=clone(flow);selected=null;view='flow';dirty=false;render();}); }
@@ -51,22 +53,22 @@ function modal(title,content,buttons=[],onSubmit=null) {
   };
 }
 function shell(content) {
-  const home=view==='projects',project=view==='project',codex=view==='codex',current=view==='flow'?draft?.id:null;
-  const section=home?'HOME':project?'PROJECT':codex?'SESSIONS':'WORKFLOWS';
-  const overviewActive=home||project||view==='overview'||codex&&!codexRunID;
-  const sideContent=home?'<p class="side-hint">Choose a project to get started.</p>':project?'<nav aria-label="Project views"><button class="flow-nav" data-view-link="overview">Workflows</button><button class="flow-nav" data-view-link="codex">Sessions</button></nav>':codex?'<p class="side-hint">Work directly with an agent, one conversation at a time.</p>':`<nav aria-label="Saved flows">${scopedFlows().map(f=>`<button class="flow-nav ${current===f.id?'active':''}" ${current===f.id?'aria-current="page"':''} data-flow="${f.id}"><span class="flow-dot"></span><span>${esc(f.name)}</span></button>`).join('')||'<p class="side-hint">Your first flow starts here.</p>'}</nav><button class="new-flow" data-action="new">+ New flow</button>`;
-  const label=home?'HOME':project?'PROJECT OVERVIEW':view==='overview'?'WORKFLOWS':view==='workflow'?'WORKFLOW RUN':codex?'SESSIONS':view==='flow'?'FLOW EDITOR':view==='run'?'SIMULATION':view==='compare'?'COMPARISON':'RUN HISTORY';
-  $('#app').innerHTML=`<aside class="sidebar"><a class="brand" href="/#home" aria-label="SKD Workbench home"><img src="/icon.svg" alt=""><span>SKD Workbench<span class="brand-sub">YOUR DEVELOPMENT WORKSPACE</span></span></a>${home?'':`<section class="project-picker"><label for="project-picker" class="side-label">PROJECT</label><select id="project-picker" aria-label="Project">${data.projects.map(p=>`<option value="${p.id}" ${p.id===projectID?'selected':''}>${esc(p.name)}</option>`).join('')}</select><div class="project-actions"><button class="text-button" id="add-project">+ Add project</button><button class="text-button" id="project-details">Details</button></div><p id="project-summary" class="project-summary"></p></section>`}<div class="side-row"><div class="side-label">${section}</div>${home||project||codex?'':'<button class="icon-button" data-action="new" aria-label="Create new flow">+</button>'}</div><button class="nav-button ${overviewActive?'active':''}" id="sidebar-overview" ${overviewActive?'aria-current="page"':''}>${home?'Home':'Overview'}</button>${sideContent}<div class="side-bottom">${isStandalone()?'':'<button id="install-app" class="install-button">↓ Install app</button>'}<span class="local-dot"></span> Local on your Mac<p>Your projects. Your way of working.</p></div></aside><main><header class="topbar"><span class="breadcrumb">${home?'SKD Workbench':esc(currentProject()?.name||'Unassigned')} <span class="crumb">/</span> ${label}</span><div class="topbar-actions">${home?'':'<button class="text-button" id="open-projects">Home</button>'}${!home&&!project?'<button class="text-button" id="project-home">Project overview</button>':''}<span class="mode-tag">${['codex','workflow'].includes(view)?'REAL EXECUTION':home?'HOME':project?'PROJECT':view==='overview'?'WORKFLOWS':view==='flow'?'FLOW DESIGN':'SIMULATION'}</span></div></header>${content}</main>`;
+  const home=view==='projects',project=view==='project',issues=view==='issues',codex=view==='codex',current=view==='flow'?draft?.id:null;
+  const section=home?'HOME':project?'PROJECT':issues?'ISSUES':codex?'SESSIONS':'WORKFLOWS';
+  const overviewActive=home||project||view==='overview'||issues||codex&&!codexRunID;
+  const sideContent=home?'<p class="side-hint">Choose a project to get started.</p>':project?'<nav aria-label="Project views"><button class="flow-nav" data-view-link="overview">Workflows</button><button class="flow-nav" data-view-link="codex">Sessions</button><button class="flow-nav" data-view-link="issues">Issues</button></nav>':issues?'<p class="side-hint">Read GitHub issues and review agent edit proposals.</p>':codex?'<p class="side-hint">Work directly with an agent, one conversation at a time.</p>':`<nav aria-label="Saved flows">${scopedFlows().map(f=>`<button class="flow-nav ${current===f.id?'active':''}" ${current===f.id?'aria-current="page"':''} data-flow="${f.id}"><span class="flow-dot"></span><span>${esc(f.name)}</span></button>`).join('')||'<p class="side-hint">Your first flow starts here.</p>'}</nav><button class="new-flow" data-action="new">+ New flow</button>`;
+  const label=home?'HOME':project?'PROJECT OVERVIEW':issues?'ISSUES':view==='overview'?'WORKFLOWS':view==='workflow'?'WORKFLOW RUN':codex?'SESSIONS':view==='flow'?'FLOW EDITOR':view==='run'?'SIMULATION':view==='compare'?'COMPARISON':'RUN HISTORY';
+  $('#app').innerHTML=`<aside class="sidebar"><a class="brand" href="/#home" aria-label="SKD Workbench home"><img src="/icon.svg" alt=""><span>SKD Workbench<span class="brand-sub">YOUR DEVELOPMENT WORKSPACE</span></span></a>${home?'':`<section class="project-picker"><label for="project-picker" class="side-label">PROJECT</label><select id="project-picker" aria-label="Project">${data.projects.map(p=>`<option value="${p.id}" ${p.id===projectID?'selected':''}>${esc(p.name)}</option>`).join('')}</select><div class="project-actions"><button class="text-button" id="add-project">+ Add project</button><button class="text-button" id="project-details">Details</button></div><p id="project-summary" class="project-summary"></p></section>`}<div class="side-row"><div class="side-label">${section}</div>${home||project||codex||issues?'':'<button class="icon-button" data-action="new" aria-label="Create new flow">+</button>'}</div><button class="nav-button ${overviewActive?'active':''}" id="sidebar-overview" ${overviewActive?'aria-current="page"':''}>${home?'Home':'Overview'}</button>${sideContent}<div class="side-bottom">${isStandalone()?'':'<button id="install-app" class="install-button">↓ Install app</button>'}<span class="local-dot"></span> Local on your Mac<p>Your projects. Your way of working.</p></div></aside><main><header class="topbar"><span class="breadcrumb">${home?'SKD Workbench':esc(currentProject()?.name||'Unassigned')} <span class="crumb">/</span> ${label}</span><div class="topbar-actions">${home?'':'<button class="text-button" id="open-projects">Home</button>'}${!home&&!project?'<button class="text-button" id="project-home">Project overview</button>':''}<span class="mode-tag">${['codex','workflow'].includes(view)?'REAL EXECUTION':home?'HOME':project?'PROJECT':issues?'GITHUB ISSUES':view==='overview'?'WORKFLOWS':view==='flow'?'FLOW DESIGN':'SIMULATION'}</span></div></header>${content}</main>`;
   bindCommon();updateProjectSummary();
   if(!home&&currentProject()?.folderPath&&!connections.has(projectID+':'+currentProject().version))refreshConnection();
 }
 function bindCommon() {
-  const overview=()=>confirmLeave(()=>{if(view==='codex'){codexRunID=null;codexPrefill='';}else if(!['projects','project'].includes(view))view='overview';selected=null;render();});
+  const overview=()=>confirmLeave(()=>{if(view==='codex'){codexRunID=null;codexPrefill='';}else if(view==='issues'){issueNumber=null;}else if(!['projects','project'].includes(view))view='overview';selected=null;render();});
   $('#sidebar-overview').onclick=overview;
   $('.brand').onclick=e=>{e.preventDefault();confirmLeave(()=>{view='projects';selected=null;render();});};
   if($('#open-projects'))$('#open-projects').onclick=()=>confirmLeave(()=>{view='projects';selected=null;render();});
   if($('#project-home'))$('#project-home').onclick=()=>confirmLeave(()=>{view='project';selected=null;render();});
-  document.querySelectorAll('[data-view-link]').forEach(b=>b.onclick=()=>confirmLeave(()=>{view=b.dataset.viewLink;codexRunID=null;codexPrefill='';selected=null;render();}));
+  document.querySelectorAll('[data-view-link]').forEach(b=>b.onclick=()=>confirmLeave(()=>{view=b.dataset.viewLink;issueNumber=null;codexRunID=null;codexPrefill='';selected=null;render();}));
   if($('#open-workflows'))$('#open-workflows').onclick=()=>confirmLeave(()=>{workflowRunID=null;view='workflow';render();});
   if($('#open-codex'))$('#open-codex').onclick=()=>confirmLeave(()=>{codexRunID=null;codexPrefill='';view='codex';render();});
   if($('#install-app'))$('#install-app').onclick=async()=>{try{if(!await installApp())installHelp();}catch(e){toast('Installation was not completed. Try your browser’s install menu.');}};
@@ -78,9 +80,9 @@ function bindCommon() {
   if($('[data-action="history"]'))$('[data-action="history"]').onclick=()=>confirmLeave(()=>{view='history';selected=null;render();});
 }
 function render() {
-  codexView?.dispose();codexView=null;workflowView?.dispose();workflowView=null;
-  history.replaceState(null,'','#'+(view==='projects'?'home':view==='overview'?'workflows/'+projectID:view==='workflow'?'workflow/'+projectID+(workflowRunID?'/'+workflowRunID:''):view==='codex'?'sessions/'+projectID+(codexRunID?'/'+codexRunID:''):view==='compare'?'compare/'+compareIDs.join(','):view==='run'?'run/'+runID:view==='flow'&&draft?'flow/'+draft.id:view==='history'?'history/'+projectID:'project/'+projectID));
-  if(view==='projects')renderProjects();else if(view==='project')renderProjectOverview();else if(view==='overview')renderOverview();else if(view==='workflow')renderWorkflow();else if(view==='codex')renderCodex();else if(view==='flow')renderFlow(); else if(view==='run')renderRun(); else if(view==='compare')renderCompare();else renderHistory();
+  issuesView?.dispose();issuesView=null;codexView?.dispose();codexView=null;workflowView?.dispose();workflowView=null;
+  history.replaceState(null,'','#'+(view==='projects'?'home':view==='issues'?'issues/'+projectID+(issueNumber?'/'+issueNumber:''):view==='overview'?'workflows/'+projectID:view==='workflow'?'workflow/'+projectID+(workflowRunID?'/'+workflowRunID:''):view==='codex'?'sessions/'+projectID+(codexRunID?'/'+codexRunID:''):view==='compare'?'compare/'+compareIDs.join(','):view==='run'?'run/'+runID:view==='flow'&&draft?'flow/'+draft.id:view==='history'?'history/'+projectID:'project/'+projectID));
+  if(view==='projects')renderProjects();else if(view==='project')renderProjectOverview();else if(view==='issues')renderIssues();else if(view==='overview')renderOverview();else if(view==='workflow')renderWorkflow();else if(view==='codex')renderCodex();else if(view==='flow')renderFlow(); else if(view==='run')renderRun(); else if(view==='compare')renderCompare();else renderHistory();
 }
 function renderProjects(){
  shell(`<section class="page-heading"><div><div class="eyebrow">YOUR DEVELOPMENT WORKSPACE</div><h1>Home</h1><p>Choose a project to open its workspace.</p></div><button class="primary" id="add-project">+ Add project</button></section><section class="workflow-overview"><div class="overview-section-heading"><h2>Projects</h2><span>${data.projects.filter(p=>p.folderPath).length} connected</span></div><div class="overview-grid">${[...data.projects.filter(p=>p.id!=='unassigned'),...data.projects.filter(p=>p.id==='unassigned')].map(p=>{const count=data.flows.filter(f=>f.projectID===p.id).length;return `<button class="overview-flow project-card" data-project="${p.id}"><span class="eyebrow">${p.folderPath?'LOCAL PROJECT':'WITHOUT A PROJECT'}</span><strong>${esc(p.name)}</strong><span>${esc(p.folderPath||'Workflows not yet connected to a project folder.')}</span><span class="overview-flow-footer">${count} workflow${count===1?'':'s'} <span aria-hidden="true">↗</span></span></button>`;}).join('')}</div></section>`);
@@ -88,7 +90,7 @@ function renderProjects(){
 }
 function renderProjectOverview(){
  const project=currentProject();
- shell(`<section class="page-heading" data-project-overview><div><div class="eyebrow">PROJECT OVERVIEW</div><h1>${esc(project.name)}</h1><p>Choose a view for this project.</p></div></section><section class="workflow-overview"><div class="overview-section-heading"><h2>Project views</h2></div><div class="overview-grid project-views"><button class="overview-flow" data-view-link="overview"><span class="eyebrow">${scopedFlows().length} SAVED WORKFLOW${scopedFlows().length===1?'':'S'}</span><strong>Workflows</strong><span>Design flows, run work, and review results.</span><span class="overview-flow-footer">Open Workflows <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="codex"><span class="eyebrow">SINGLE AGENT</span><strong>Sessions</strong><span>Work directly with an agent, one conversation at a time.</span><span class="overview-flow-footer">Open Sessions <span aria-hidden="true">↗</span></span></button>${[['Issues','Track development tasks and their progress.'],['Scratchpad','Keep notes and early ideas for this project.'],['Knowledge','Organize project reference material and development memory.']].map(([name,description])=>`<article class="overview-flow planned-view" aria-label="${name} — planned"><span class="eyebrow">PLANNED</span><h3>${name}</h3><p>${description}</p><span class="overview-flow-footer">Not available yet</span></article>`).join('')}</div></section>`);
+ shell(`<section class="page-heading" data-project-overview><div><div class="eyebrow">PROJECT OVERVIEW</div><h1>${esc(project.name)}</h1><p>Choose a view for this project.</p></div></section><section class="workflow-overview"><div class="overview-section-heading"><h2>Project views</h2></div><div class="overview-grid project-views"><button class="overview-flow" data-view-link="overview"><span class="eyebrow">${scopedFlows().length} SAVED WORKFLOW${scopedFlows().length===1?'':'S'}</span><strong>Workflows</strong><span>Design flows, run work, and review results.</span><span class="overview-flow-footer">Open Workflows <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="codex"><span class="eyebrow">SINGLE AGENT</span><strong>Sessions</strong><span>Work directly with an agent, one conversation at a time.</span><span class="overview-flow-footer">Open Sessions <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="issues"><span class="eyebrow">GITHUB</span><strong>Issues</strong><span>Read issues and review agent edit proposals.</span><span class="overview-flow-footer">Open Issues <span aria-hidden="true">↗</span></span></button>${[['Scratchpad','Keep notes and early ideas for this project.'],['Knowledge','Organize project reference material and development memory.']].map(([name,description])=>`<article class="overview-flow planned-view" aria-label="${name} — planned"><span class="eyebrow">PLANNED</span><h3>${name}</h3><p>${description}</p><span class="overview-flow-footer">Not available yet</span></article>`).join('')}</div></section>`);
 }
 function renderOverview(){
  const flows=scopedFlows(),scope=projectID;
@@ -225,12 +227,13 @@ function renderHistory(){
   });
   $('#compare-runs').onclick=()=>{view='compare';render();};
 }
-const hasUnsaved=()=>dirty||codexView?.isDirty()||workflowView?.isDirty()||[...reviewDrafts.values()].some(Boolean)||$('#dialog').open||busy;
+const hasUnsaved=()=>dirty||issuesView?.isDirty()||issuesView?.isPending()||codexView?.isDirty()||workflowView?.isDirty()||[...reviewDrafts.values()].some(Boolean)||$('#dialog').open||busy;
 let loaded=false;
 window.addEventListener('beforeunload',e=>{if(hasUnsaved()){e.preventDefault();e.returnValue='';}});
 async function boot(){try{
   await reload();const route=location.hash.slice(1).split('/');
-  if(route[0]==='workflow'){view='workflow';projectID=route[1]||'unassigned';workflowRunID=route[2]||null;}
+  if(route[0]==='issues'){view='issues';projectID=route[1]||'unassigned';issueNumber=/^[1-9][0-9]*$/.test(route[2]||'')?Number(route[2]):null;}
+  else if(route[0]==='workflow'){view='workflow';projectID=route[1]||'unassigned';workflowRunID=route[2]||null;}
   else if(['sessions','codex'].includes(route[0])){view='codex';projectID=route[1]||'unassigned';codexRunID=route[2]||null;}
   else if(route[0]==='run'&&data.runs.some(r=>r.id===route[1])){runID=route[1];view='run';projectID=data.runs.find(r=>r.id===runID).projectID;}
   else if(route[0]==='history'){view='history';projectID=route[1]||'unassigned';}
@@ -376,4 +379,9 @@ function renderWorkflow(){
  shell(`<section class="page-heading"><div><div class="eyebrow">CONNECTED STEPS · REAL EXECUTION</div><h1>Workflow runs</h1><p>Codex works between your review checkpoints.</p></div>${workflowRunID?'<button id="workflow-history">All workflow runs</button>':''}</section><section id="workflow-view" class="codex-view"></section>`);
  if($('#workflow-history'))$('#workflow-history').onclick=()=>confirmLeave(()=>{workflowRunID=null;render();});
  workflowView=mountWorkflow({host:$('#workflow-view'),runID:workflowRunID,projectID,api,notify:toast,onOpen:id=>confirmLeave(()=>{workflowRunID=id;view='workflow';render();})});
+}
+
+function renderIssues(){
+ shell(`<section class="page-heading"><div><div class="eyebrow">${esc(currentProject().name)}</div><h1>Issues</h1><p>Read the work. Shape the next step.</p></div></section><div id="issues-view"></div>`);
+ issuesView=mountIssues({host:$('#issues-view'),project:currentProject(),number:issueNumber,api,confirmLeave,onOpen:number=>confirmLeave(()=>{issueNumber=number;render();})});
 }

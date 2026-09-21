@@ -1,3 +1,4 @@
+import {GitHubIssues,IssueProposals} from './lib/issues.js';
 import {TerminalSessions} from './lib/terminals.js';
 import http from 'node:http';
 import { readFileSync } from 'node:fs';
@@ -11,7 +12,7 @@ import { Store } from './lib/store.js';
 import { Problem, assert } from './lib/domain.js';
 import { canonicalFolder, inspectFolder } from './lib/projects.js';
 const root = path.dirname(fileURLToPath(import.meta.url));
-const files = {'/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
+const files = {'/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
   '/icons/icon-192.png':'icons/icon-192.png','/icons/icon-512.png':'icons/icon-512.png','/icons/maskable-512.png':'icons/maskable-512.png','/icons/apple-touch-icon.png':'icons/apple-touch-icon.png'};
 const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
 async function body(req) {
@@ -21,11 +22,12 @@ async function body(req) {
   try { const parsed=JSON.parse(result); assert(parsed && typeof parsed==='object' && !Array.isArray(parsed),'Expected a JSON object.'); return parsed; }
   catch(e) { if(e instanceof Problem) throw e; throw new Problem('Invalid JSON.'); }
 }
-export function createServer({directory = process.env.FLOW_BENCH_DATA || path.join(root,'.data'), publicDirectory=path.join(root,'public'), codexOptions={},claudeOptions={},terminalOptions={}} = {}) {
+export function createServer({directory = process.env.FLOW_BENCH_DATA || path.join(root,'.data'), publicDirectory=path.join(root,'public'), codexOptions={},claudeOptions={},terminalOptions={},githubOptions={}} = {}) {
   const store = new Store(directory);
   const codex = new CodexRuns(directory,{...codexOptions,claudeOptions});
   const workflows = new Workflows(directory,codex);
   const terminals = new TerminalSessions(directory,codex,terminalOptions);
+  const github=new GitHubIssues(githubOptions),proposals=new IssueProposals(directory,codex,github);
   const server = http.createServer(async (req,res)=>{
     const json=(value,status=200)=>{res.writeHead(status,{'Content-Type':'application/json'});res.end(JSON.stringify(value));};
     res.setHeader('Cache-Control','no-store');
@@ -83,6 +85,18 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       const codexRun=pathname.match(/^\/api\/(?:codex\/runs|sessions)\/([\w-]+)(\/stop)?$/);
       if(codexRun&&req.method==='GET'&&!codexRun[2])return json(terminals.has(codexRun[1])?terminals.get(codexRun[1]):codex.get(codexRun[1]));
       if(codexRun&&req.method==='POST'&&codexRun[2]){await body(req);return json(codex.stop(codexRun[1]));}
+      const issues=pathname.match(/^\/api\/projects\/([\w-]+)\/issues(?:\/(\d+))?(\/proposals)?$/);
+      if(issues){const project=store.project(issues[1]);
+        if(req.method==='GET'&&issues[3])return json(proposals.list(project,issues[2]));
+        if(req.method==='POST'&&issues[3])return json(await proposals.start(project,issues[2],await body(req)),202);
+        if(req.method==='GET'&&issues[2])return json(await github.detail(project,issues[2],url.searchParams.get('page')||1));
+        if(req.method==='GET')return json(await github.list(project,{state:url.searchParams.get('state')||'open',page:url.searchParams.get('page')||1}));
+      }
+      const proposal=pathname.match(/^\/api\/projects\/([\w-]+)\/issue-proposals\/([\w-]+)(?:\/(apply|stop|verify))?$/);
+      if(proposal){const project=store.project(proposal[1]);
+        if(req.method==='GET'&&!proposal[3])return json(proposals.get(proposal[2],project));
+        if(req.method==='POST'&&proposal[3]){await body(req);return json(await proposals[proposal[3]](proposal[2],project));}
+      }
       if(req.method==='GET' && pathname==='/api/state') return json(store.snapshot());
       if(req.method==='POST' && pathname==='/api/projects'){
         const input=await body(req);input.folderPath=await canonicalFolder(input.folderPath);

@@ -1,3 +1,60 @@
+# GitHub Issues and headless edit proposals — 2026-09-21
+
+- Added project Issues navigation, current GitHub origin detection, open/closed/all
+  filters, pagination, literal Markdown description/discussion reading and GitHub links.
+  Reads use the installed authenticated gh CLI. Missing CLI/auth/remote and unavailable
+  repositories are reported explicitly; no browsing action publishes or launches an agent.
+- Codex/Claude, model and effort controls launch draft-only headless runs under the
+  shared executor lock. Codex shell/unified-exec/web search are disabled for this purpose;
+  Claude tools are removed. Proposal records persist original target/content and selected
+  agent settings. Only explicit Apply submits saved title/body, checks for stale originals,
+  serializes local writes and verifies remote read-back. Uncertain results require read-only
+  verification, never automatic retry. Navigation and PWA updates respect unsaved input.
+- `npm test`: **65/65 passed**. Ten issue tests cover repository selection, GET-only reads,
+  PR exclusion, pagination/filter validation, both providers and exact model/effort argv,
+  malformed output, stale identity/content/repository, duplicate applies, read-back,
+  uncertain writes, cancellation/restart, and literal JSON via gh stdin. The adapter test
+  exposed an error-classification bug (callback stderr versus error.stderr), now fixed.
+- All **12 Chrome suites passed**. Issues covers real PTY-independent headless subprocess
+  fixtures, both providers/models/effort levels, preview/apply, conflict/uncertain recovery,
+  persisted history/reload, draft guard, literal HTML escaping, keyboard slider, errors,
+  and 390px layout. PWA caches 17 public assets; API data and writes remain uncached.
+  Final Issues rerun covers the compact controls and disabled inputs while requests run.
+- Actual GitHub reads succeeded for shelbyklein/skd-workbench and the live connected
+  Tracker Trapper project. Draft-only real invocations succeeded: Codex gpt-5.6-sol/low
+  (13,897 input / 719 output tokens) and Claude haiku/low (4,951 input / 1,046 output,
+  including 4,941 cache-creation input tokens). Both produced validated proposals.
+  Claude omitted the final newline in a requested no-op body; the smoke comparison
+  allows trailing whitespace differences, and the original/proposal remain separately
+  inspectable. No second inference was needed to inspect the retained result.
+- Real-agent smoke uses isolated stores under output/issues-smoke-* and rejects all
+  GitHub writes. Receipts: output/issues-codex-real-receipt.json and
+  output/issues-claude-real-receipt.json. Screenshots of actual issue/agent results and
+  fixture before/after proposals were captured and visually inspected.
+- Activated the existing transient localhost service after confirming no active sessions
+  or workflow gates. Resubmitted the launchctl job after its asynchronous removal initially
+  left the service absent; health and subsequent live UI checks passed. Live navigation,
+  issue reads, actual model controls and mobile inspection made zero API mutations.
+  Existing store.json/codex-runs.json/workflows.json SHA-256 hashes stayed identical.
+  Evidence: output/issues-activation-receipt.json, issues-live-desktop.png,
+  issues-live-agent-controls.png and issues-live-mobile.png. Shell cache: skd-shell-0.5.0-11.
+
+## Boundaries
+
+Only github.com repositories and issue title/body editing are supported. No issue
+creation/closure, labels, assignees, or issue-to-code execution was added. Proposal agents
+receive title/body plus the requested edit, not assembled code or discussion context.
+GitHub's update endpoint is not an atomic compare-and-swap; the final preflight/read-back
+checks cannot eliminate an external editor's race during the write. Apply is verified
+with fixture GitHub, not a live remote mutation. Real CLI model entitlement is established
+only for the two recorded invocations. Existing PWA windows may need **Update app**.
+
+Tracking: GitHub issue #2; TT plan 6C6A86F1-5A2F-4FEF-AE6E-A701DC147D2D;
+run 50BA5AA8-2ECD-40AA-9902-1B0B0AC4F95F. Local server activation is not external
+hosting or a login-item installation. Issue remains open for user acceptance.
+
+---
+
 # Interactive terminal Sessions — 2026-09-20
 
 - Session creation now uses accessible agent/model radio pills and a model-dependent discrete effort slider. Reset warning is at the top; plain-language worktree help explains one copy for the whole conversation and manual review/merge. Start session launches the selected interactive CLI without requiring or automatically sending a prompt.

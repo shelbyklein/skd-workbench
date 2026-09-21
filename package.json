@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "test": "node --test tests/*.test.js",
-    "test:browser": "node tests/editor.mjs && node tests/browser.mjs && node tests/accessibility.mjs && node tests/projects-browser.mjs && node tests/pwa-browser.mjs && node tests/codex-browser.mjs && node tests/workflows-browser.mjs && node tests/benchmarks-browser.mjs && node tests/overview-browser.mjs && node tests/claude-browser.mjs && node tests/terminal-browser.mjs",
+    "test:browser": "node tests/editor.mjs && node tests/browser.mjs && node tests/accessibility.mjs && node tests/projects-browser.mjs && node tests/pwa-browser.mjs && node tests/codex-browser.mjs && node tests/workflows-browser.mjs && node tests/benchmarks-browser.mjs && node tests/overview-browser.mjs && node tests/claude-browser.mjs && node tests/terminal-browser.mjs && node tests/issues-browser.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "postinstall": "node scripts/prepare-terminal.mjs"
   },

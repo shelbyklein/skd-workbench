@@ -4,7 +4,7 @@ A standalone local workbench for development projects. Choose a project, compose
 
 ## Open it
 
-Requires Node.js 22 or newer. No runtime npm packages required. Flow previews need no account; real Codex runs require an installed, signed-in Codex CLI.
+Requires Node.js 22 or newer. Runtime dependencies provide the embedded terminal (node-pty and xterm.js). Flow previews need no account; real Codex runs require an installed, signed-in Codex CLI.
 
 Double-click **Launch SKD Workbench.command**, or run:
 
@@ -27,7 +27,7 @@ When a new version is available, **Update app** reloads it after you save edits 
 
 ## Navigation
 
-**Home** lists project cards. Opening a project shows its **Project Overview**, with links to Workflows and Sessions. Issues, Scratchpad and Knowledge are labeled planned and are not available yet.
+**Home** lists project cards. Opening a project shows its **Project Overview**, with links to Workflows and Sessions. Issues reads the project’s GitHub repository and offers agent edit proposals. Scratchpad and Knowledge are labeled planned and are not available yet.
 
 **Workflows** has its own overview of saved workflows and recent runs. Its sidebar contains Overview, the project's saved workflows, and New flow. The **Project overview** button returns to the project's views; **Home** or the app logo returns to project cards. Navigation preserves unsaved-change protection.
 
@@ -158,3 +158,50 @@ For benchmark projects, the warning appears at the top. **Reset after each run**
 The terminal retains the most recent 1 MiB of terminal characters locally for reconnection, not a complete structured agent transcript. Native CLI usage/cost is not imported into Workbench totals yet; previous structured execution records remain available. API endpoints are `/api/terminal-agents/:agent` and `/api/terminal-sessions/:id` with output/input/resize/stop operations. The API only launches server-selected agent binaries and validates input/size. Transport stays localhost-only with existing origin protection; input is never queued offline or retried automatically.
 
 Run `npm install` after updating: xterm.js renders the terminal and node-pty provides its PTY. The postinstall script sets the executable bit on node-pty's packaged Unix helper. Dependencies are served locally and cached in the PWA; no CDN is used. Terminal rendering requires inline styles; script policy remains self-only. See [node-pty](https://github.com/microsoft/node-pty), [xterm.js](https://xtermjs.org/docs/api/terminal/classes/terminal/), and [Codex CLI reference](https://developers.openai.com/codex/cli/reference).
+
+
+## GitHub issues
+
+Open a project and choose **Issues**. SKD reads the current checkout's GitHub origin
+remote using your installed, signed-in GitHub CLI (`gh auth login`). Without origin,
+a single unambiguous GitHub remote is accepted. This first version supports
+`github.com`; other hosts and ambiguous repositories show an explanation. Set
+`SKD_GH_BIN` if gh is outside the usual local/Homebrew locations. Credentials remain
+with gh and are not copied into Workbench records.
+
+Browse open, closed, or all issues, page through results, read descriptions and
+comments, and open the original on GitHub. Issue text is shown as literal Markdown,
+including code and checklists. Pull requests are excluded; pages correspond to 50
+GitHub issue/PR records, so a page can be sparse or empty while Next remains available.
+Refresh is explicit. Browsing never edits GitHub or starts an agent.
+
+To edit an issue, choose **Codex** or **Claude**, a **model**, and an **effort** level.
+Describe the requested title/description change and choose **Generate proposal**.
+The headless CLI uses your agent account and the shared single-executor lock. Drafting
+runs in a dedicated folder with Codex shell/web execution disabled or Claude tools
+removed; it does not receive GitHub token environment variables. It receives the
+issue title/body and your instruction. Discussion and project file contents are not
+assembled into the draft prompt; installed CLI instruction loading still applies. It cannot
+apply through the app: only your **Apply changes to GitHub** action submits the saved
+proposal. Preview is read-only; to revise a proposal, generate another one.
+
+The app rechecks the repository, original issue identity, title, description and update
+time before writing, sends only title/body, and reads back the result. If the issue
+changed, refresh and generate a new proposal. GitHub's issue update endpoint does not
+provide this app an atomic compare-and-swap: another editor could still write between
+the final check and update. Avoid simultaneous editing when applying. An interrupted
+or ambiguous write is never automatically retried; **Check GitHub** performs a read-only
+comparison, then either verifies the saved result or requires a new proposal.
+
+Proposals persist in `.data/issue-proposals.json`, linked to headless run history in
+`.data/codex-runs.json`; `.data/issue-drafts/` is their working directory. You can return
+to a generating proposal after navigating away or reloading. Restart interrupts active
+agents without relaunching them. Unsaved edit instructions are protected while navigating
+but are not persisted. Existing benchmark projects do not reset their code for issue drafts.
+Routes are `/#issues/<project-id>` and `/#issues/<project-id>/<issue-number>`.
+
+Validation: `node tests/issues-browser.mjs` uses fixture GitHub and agent processes.
+`node scripts/smoke-issues.mjs` checks actual GitHub reads in an isolated local store;
+adding `--agent codex` or `--agent claude` makes one real draft-only inference call and
+consumes account usage. That smoke server rejects every GitHub write. Full regression
+commands remain `npm test` and `npm run test:browser`.
