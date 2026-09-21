@@ -15,6 +15,20 @@ npm start
 
 Open **http://127.0.0.1:4390**. Keep the terminal/server running; Ctrl-C stops it. If the port is busy, use `PORT=4391 npm start`. Use one server process per data directory.
 
+## Graft for source development
+
+[Graft](https://github.com/NanoNets/context-graph-engine) is pinned as a local
+development dependency. Run `npm run graft:build` to build its structural source
+index, `npm run graft:map` to inspect it, or
+`npm run graft -- ask "global settings"` to query it. These commands do not use
+a model; enrichment with `--deep` is a separate, explicit operation.
+Run `npm run graft:setup` to register `graft_development` in this checkout's
+Codex and Claude MCP configuration, then reopen the development session.
+Generated indexes and machine-specific MCP configurations are ignored by Git;
+rerun setup after moving the checkout or changing Node installations. Telemetry
+is disabled by the wrapper. This configures external development agents;
+Workbench's restricted execution adapters retain their existing MCP rules.
+
 ## Install as an app
 
 Open **http://127.0.0.1:4390** in Chrome or Edge on this Mac, then choose **Install app** in the sidebar or the browser's install menu. The installed app opens in its own window. If the Codex browser does not offer installation, the sidebar action provides the address to open in a supported browser. Installation itself uses the browser's confirmation dialog.
@@ -212,3 +226,25 @@ Generating or opening a proposal navigates to its dedicated diff page, where App
 remains explicit. Breadcrumbs return to the issue or list; proposal URLs survive reload.
 
 Use **Delete flow** in the editor toolbar to remove a saved flow. Confirm the named flow; saved runs retain their original snapshots.
+
+## Global settings and project System pages
+
+The cog beside Add project opens a landscape settings dialog with a section menu
+and a separate content column. On phones, a section selector replaces the menu.
+Light and dark mode have separate accent colors. Each provider has its own model
+view; model buttons show explicit Shown/Hidden states and toggle default visibility.
+Existing saved selections remain visible. Preferences are persisted in the local
+server's `.data/settings.json` and apply across projects; they do not change provider
+access or rewrite saved plans.
+
+Repository guidance separates Workbench's repository rule files from feature
+reference documents, with a file selector, read-only preview, and an explicit
+document status when the source provides one. Viewing documents preserves pending
+preference edits; the title and Save/Cancel actions remain visible while content
+scrolls. Each project's overview also has a
+System page with project settings and read-only previews of `AGENTS.md`,
+`AGENTS.override.md`, `CLAUDE.md`, system Markdown files, and Markdown files directly
+inside `instructions/`, `.claude/rules/`, and `.codex/rules/`. Previews stay within the
+project folder and are bounded to 64 files and 128 KB per file. This is a file viewer,
+not a guarantee of a CLI's full effective system prompt: provider/user-level rules
+and launch-specific prompts can also apply. Viewing files does not inject or edit them.

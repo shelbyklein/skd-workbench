@@ -46,7 +46,8 @@ try{
  await openDetails();await page.getByLabel('Project name',{exact:true}).fill('Newton Dev');await page.getByRole('button',{name:'Save project',exact:true}).click();
  await page.waitForFunction(()=>document.querySelector('[data-sidebar-project][aria-current]')?.textContent.replace('▱','').trim()==='Newton Dev');
  writeFileSync(path.join(repo,'README.md'),'changed');
- await page.reload();await page.getByText('Project & code at run start',{exact:true}).click();assert.match(await page.locator('.run-context').textContent(),/Newton/);assert.doesNotMatch(await page.locator('.run-context').textContent(),/Newton Dev/);assert.match(await page.locator('.run-context').textContent(),/Clean/);
+ await page.waitForURL('**/#run/'+r.id);await page.waitForLoadState('load');
+ await page.getByText('Project & code at run start',{exact:true}).click();assert.match(await page.locator('.run-context').textContent(),/Newton/);assert.doesNotMatch(await page.locator('.run-context').textContent(),/Newton Dev/);assert.match(await page.locator('.run-context').textContent(),/Clean/);
  await openDetails();await page.waitForFunction(()=>document.querySelector('#connection-details').textContent.includes('Uncommitted changes'));await page.keyboard.press('Escape');
  // A second, non-Git project remains usable, with a useful missing-folder state.
  await page.locator('[data-add-project]').click();await page.getByLabel('Project name',{exact:true}).fill('TT');await page.getByLabel('Local folder',{exact:true}).fill(plain);await page.locator('#dialog').getByRole('button',{name:'Add project',exact:true}).click();

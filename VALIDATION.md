@@ -453,3 +453,54 @@ Implementation mode: solo, authorized now. No subagents dispatched.
 ## Launch again
 
 Double-click `Launch Flow Bench.command` or run `npm start` here. Stop with Ctrl-C in the server terminal. One server per data directory. Backup `.data/store.json` while stopped. Alternate port: `PORT=4391 npm start`.
+
+## 2026-09-21 — Graft installation and settings landscape layout
+
+- Installed exact development dependency `@nanonets/graft@0.18.0`, with lockfile.
+  Added a repository-relative CLI wrapper and build/check/map/setup scripts. The
+  wrapper disables telemetry. Graph caches and machine-specific MCP config are
+  ignored; setup preserves other entries and rejects conflicting registrations.
+- Structural build parsed all 64 source files (462 nodes, 1,889 edges at the first
+  build). `graft:check` passed; a subsequent `ask 'global settings'` refreshed edited
+  files and returned `public/settings-ui.js#openSettings` first. No deep/model
+  enrichment was run. MCP initialize and tools/list advertised version 0.18.0 and
+  all six tools; a real graft_file_api call found openSettings. Launching the MCP
+  command from `/tmp` still resolved this repository. `codex mcp get
+  graft_development` confirmed the project registration. The current desktop
+  session has not reloaded its tool list; Workbench execution restrictions remain
+  unchanged. Existing global settings and Claude permissions were preserved.
+- Global settings now uses a 1,200px landscape dialog, a 220px hierarchical menu,
+  and independently scrolling content. Appearance, Codex, Claude, repository
+  rules, and reference documents have separate views. Documents use escaped
+  read-only previews and display source status only when explicitly supplied.
+  A native section selector replaces the menu on mobile. Preferences retain their
+  drafts across sections and save from any view; header/footer remain visible.
+- `npm test`: 79/79 passed after dependency installation. Settings Chrome suite
+  passed: keyboard selection, provider isolation, draft retention, save from a
+  document view, Cancel/Escape, reload persistence, model filtering, document
+  categories/status, project System previews, footer position, and overflow at
+  1,440px, 1,100px and 390px. PWA Chrome suite passed including explicit updates,
+  retained drafts, network-only APIs and offline shell. Browser execution uses
+  fixture providers and temporary stores.
+- Visually inspected desktop live settings and mobile fixture screenshots in
+  `output/settings-live-models.png`, `output/settings-live-guidance.png`, and
+  `output/settings-mobile-guidance.png`. The existing loopback server serves the
+  updated assets and shell `skd-shell-0.5.0-48`; measured live dialog 1,200 × 740,
+  with no browser errors. No live preferences were saved or agent executions
+  started, and no server restart was needed. Installed PWA windows must use their
+  existing explicit Update app action; the installed window itself was not tested.
+- Changes remain local in the existing dirty checkout; unrelated work is retained.
+
+## 2026-09-21 — Settings and Graft publication verification
+
+- Prepared the settings and Graft dependency, API, theme, model-filter, System
+  page, and PWA changes as an isolated snapshot from `091b0ef`. Other pending
+  agent-card, planning/execution, skills, and knowledge-handoff work remains local.
+- The publication snapshot passed 76 Node tests and all 14 browser suites. Counts
+  differ from the 79-test working checkout above because unrelated pending tests
+  are excluded. Reused the existing project-browser synchronization fix to avoid
+  two competing reloads; its original failing attempt and subsequent passing
+  continuation were inspected. All execution/GitHub coverage used fixtures.
+- Inspected the snapshot's desktop settings screenshot. The approved settings UI
+  and Graft wrapper match the working checkout; no installed-app update or server
+  restart was performed by the publication step.

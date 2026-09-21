@@ -23,7 +23,7 @@ try{
  const before=await(await fetch(url+'/api/state')).json();
  await context.setOffline(true);await page.reload();await page.getByRole('heading',{name:'Server unavailable'}).waitFor();
  const failed=await page.evaluate(async()=>{const r=await fetch('/api/flows',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Must not be queued'})});return {status:r.status,body:await r.json()};});assert.equal(failed.status,503);assert.equal(failed.body.code,'SERVER_UNAVAILABLE');
- const keys=await page.evaluate(async()=>{const keys=[];for(const name of await caches.keys())for(const r of await(await caches.open(name)).keys())keys.push(new URL(r.url).pathname);return keys;});assert(!keys.some(k=>k.startsWith('/api/')));assert.equal(keys.length,17);for(const asset of ['/issues-ui.js','/terminal-ui.js','/vendor/xterm.js','/vendor/xterm.css','/vendor/fit.js'])assert(keys.includes(asset));
+ const keys=await page.evaluate(async()=>{const keys=[];for(const name of await caches.keys())for(const r of await(await caches.open(name)).keys())keys.push(new URL(r.url).pathname);return keys;});assert(!keys.some(k=>k.startsWith('/api/')));assert.equal(keys.length,19);for(const asset of ['/settings-ui.js','/issues-ui.js','/terminal-ui.js','/vendor/xterm.js','/vendor/xterm.css','/vendor/fit.js'])assert(keys.includes(asset));
  mkdirSync('output',{recursive:true});await page.screenshot({path:'output/skd-pwa-offline.png',fullPage:true});
  await context.setOffline(false);await page.locator('#retry-load').click();await page.locator('.project-list').waitFor();
  assert.deepEqual(await(await fetch(url+'/api/state')).json(),before);

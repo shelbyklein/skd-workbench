@@ -1,3 +1,4 @@
+import {Settings,instructionFiles} from './lib/settings.js';
 import {createFolderPicker} from './lib/folder-picker.js';
 import {captureIssueSteps} from './lib/issue-steps.js';
 import {GitHubIssues,IssueProposals} from './lib/issues.js';
@@ -15,7 +16,7 @@ import { Store } from './lib/store.js';
 import { Problem, assert } from './lib/domain.js';
 import { canonicalFolder, inspectFolder } from './lib/projects.js';
 const root = path.dirname(fileURLToPath(import.meta.url));
-const files = {'/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
+const files = {'/settings-ui.js':'settings-ui.js','/theme.js':'theme.js','/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
   '/icons/icon-192.png':'icons/icon-192.png','/icons/icon-512.png':'icons/icon-512.png','/icons/maskable-512.png':'icons/maskable-512.png','/icons/apple-touch-icon.png':'icons/apple-touch-icon.png'};
 const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
 async function body(req) {
@@ -27,6 +28,7 @@ async function body(req) {
 }
 export function createServer({directory = process.env.FLOW_BENCH_DATA || path.join(root,'.data'), publicDirectory=path.join(root,'public'), codexOptions={},claudeOptions={},terminalOptions={},githubOptions={},folderPicker=createFolderPicker()} = {}) {
   const store = new Store(directory);
+  const globalSettings=new Settings(directory);
   const codex = new CodexRuns(directory,{...codexOptions,claudeOptions});
   const github=new GitHubIssues(githubOptions);
   const captureIssues=async(flow,project)=>{const snapshots=await captureIssueSteps(flow,project,github);assert(store.snapshot().flows.some(f=>f.id===flow.id&&f.version===flow.version&&f.projectID===project.id)&&store.project(project.id).version===project.version,'Flow or project changed while reading issues. Reload before running.',409);return snapshots;};
@@ -45,6 +47,11 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       const origin=req.headers.origin;
       assert(!origin || origin===`http://${host}`,'Cross-origin requests are not allowed.',403);
       const url=new URL(req.url,`http://${host}`), pathname=url.pathname;
+      if(pathname==='/api/settings'&&req.method==='GET')return json(globalSettings.data);
+      if(pathname==='/api/settings'&&req.method==='PUT')return json(globalSettings.save(await body(req)));
+      if(pathname==='/api/instructions'&&req.method==='GET')return json(await instructionFiles(root));
+      const projectInstructions=pathname.match(/^\/api\/projects\/([\w-]+)\/instructions$/);
+      if(projectInstructions&&req.method==='GET')return json(await instructionFiles(store.project(projectInstructions[1]).folderPath));
       if(req.method==='POST'&&pathname==='/api/choose-folder'){await body(req);return json(await folderPicker());}
       if(req.method==='GET'&&pathname==='/api/health')return json({app:'skd-workbench',ok:true,version:'0.5.0'});
       const artifact=pathname.match(/^\/api\/artifacts\/([a-f0-9-]{36})$/);

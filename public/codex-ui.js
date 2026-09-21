@@ -1,3 +1,4 @@
+import {visibleModels} from './settings-ui.js';
 import {mountTerminal} from './terminal-ui.js';
 import {benchmarkNotice,resetNotice} from './workflows-ui.js';
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -30,7 +31,7 @@ export function mountCodex({host,project,runID,api,onOpen,onNew,notify,prefill='
    $('#codex-provider').textContent=`Checking your installed ${name}…`;
    try{const provider=await api('terminal-agents/'+chosenAgent);if(!guard()||request!==providerRequest)return;
     $('#codex-provider').textContent=`${provider.auth}. The terminal opens without sending a message. Use the CLI for conversation and permissions; usage totals are not imported yet.`;
-    models=provider.models;chosenModel=(models.find(m=>m.isDefault)||models[0])?.id||'';
+    models=visibleModels(provider.models,chosenAgent,prefill?.model);chosenModel=(models.find(m=>m.isDefault)||models[0])?.id||'';
     $('#session-models').innerHTML=models.map(m=>`<label class="choice-pill"><input type="radio" name="model" value="${escape(m.id)}" ${m.id===chosenModel?'checked':''}><span>${escape(m.name)}</span></label>`).join('')||'<span>No models available.</span>';
     host.querySelectorAll('[name="model"]').forEach(r=>r.onchange=()=>selectModel(r.value));selectModel(chosenModel);$('#codex-start').disabled=!project.folderPath||!chosenModel||!efforts.length;
    }catch(e){if(guard()&&request===providerRequest){$('#codex-provider').textContent=name+' is unavailable.';fail(e);}}

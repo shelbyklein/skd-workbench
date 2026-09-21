@@ -2,3 +2,7 @@ node_modules/
 .data/
 output/
 .DS_Store
+/graft/
+/.graft/
+/.codex/config.toml
+/.mcp.json

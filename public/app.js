@@ -1,3 +1,4 @@
+import {loadSettings,openSettings,settingsButton,showInstructions,visibleModels} from './settings-ui.js';
 import { mountIssues } from './issues-ui.js';
 import { workflowForm, bindWorkflowForm, mountWorkflow } from './workflows-ui.js';
 import { mountCodex } from './codex-ui.js';
@@ -56,7 +57,8 @@ function breadcrumbs() {
   const items=[{name:'Home',view:'projects',href:'#home',id:'open-projects'}];
   if(view!=='projects')items.push({name:currentProject()?.name||'Unassigned',view:'project',href:'#project/'+projectID,id:'project-home'});
   if(!['projects','project'].includes(view)){
-    if(view==='issues'){
+    if(view==='system'){items.push({name:'System'});
+    }else if(view==='issues'){
       items.push({name:'Issues',view:'issues',href:'#issues/'+projectID});
       if(issueNumber)items.push({name:'Issue #'+issueNumber,view:'issue-detail',href:'#issues/'+projectID+'/'+issueNumber});
       if(issueProposalID)items.push({name:'Proposal diff'});else if(issueEditMode)items.push({name:'Edit issue'});
@@ -80,11 +82,15 @@ function breadcrumbs() {
 }
 function shell(content) {
   const home=view==='projects';
-  $('#app').innerHTML=`<aside class="sidebar"><a class="brand" href="/#home" aria-label="SKD Workbench home"><img src="/icon.svg" alt=""><span>SKD Workbench</span></a><div class="projects-sidebar-heading"><span class="side-label">PROJECTS</span></div><nav class="project-list" aria-label="Projects">${data.projects.filter(p=>p.id!=='unassigned').map(p=>`<button class="project-link ${!home&&p.id===projectID?'active':''}" data-sidebar-project="${esc(p.id)}" ${!home&&p.id===projectID?'aria-current="true"':''}><span class="project-list-icon" aria-hidden="true">▱</span><span>${esc(p.name)}</span></button>`).join('')||'<p class="side-hint">Add your first project.</p>'}</nav><button class="sidebar-add-project" data-add-project>+ Add project</button>${data.flows.some(f=>f.projectID==='unassigned')?`<a class="unassigned-link" href="#project/unassigned" data-sidebar-project="unassigned" ${!home&&projectID==='unassigned'?'aria-current="true"':''}>Unassigned workflows</a>`:''}<div class="side-bottom">${isStandalone()?'':'<button id="install-app" class="install-button">↓ Install app</button>'}<span class="local-dot"></span> Local on your Mac</div></aside><main class="${view==='flow'?'flow-editor-main':''}"><header class="topbar">${breadcrumbs()}</header>${content}</main>`;
+  $('#app').innerHTML=`<aside class="sidebar"><a class="brand" href="/#home" aria-label="SKD Workbench home"><img src="/icon.svg" alt=""><span>SKD Workbench</span></a><div class="projects-sidebar-heading"><span class="side-label">PROJECTS</span></div><nav class="project-list" aria-label="Projects">${data.projects.filter(p=>p.id!=='unassigned').map(p=>`<button class="project-link ${!home&&p.id===projectID?'active':''}" data-sidebar-project="${esc(p.id)}" ${!home&&p.id===projectID?'aria-current="true"':''}><span class="project-list-icon" aria-hidden="true">▱</span><span>${esc(p.name)}</span></button>`).join('')||'<p class="side-hint">Add your first project.</p>'}</nav><div class="sidebar-project-actions"><button class="sidebar-add-project" data-add-project>+ Add project</button>${settingsButton}</div>${data.flows.some(f=>f.projectID==='unassigned')?`<a class="unassigned-link" href="#project/unassigned" data-sidebar-project="unassigned" ${!home&&projectID==='unassigned'?'aria-current="true"':''}>Unassigned workflows</a>`:''}<div class="side-bottom">${isStandalone()?'':'<button id="install-app" class="install-button">↓ Install app</button>'}<span class="local-dot"></span> Local on your Mac</div></aside><main class="${view==='flow'?'flow-editor-main':''}"><header class="topbar">${breadcrumbs()}</header>${content}</main>`;
+  const themeControl=document.createElement('label');themeControl.className='theme-control';
+  themeControl.innerHTML='Appearance<select data-theme-picker aria-label="Appearance"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>';
+  $('.sidebar').append(themeControl);window.workbenchTheme?.sync();
   bindCommon();updateProjectSummary();
   if(!home&&currentProject()?.folderPath&&!connections.has(projectID+':'+currentProject().version))refreshConnection();
 }
 function bindCommon() {
+  document.querySelectorAll('[data-global-settings]').forEach(b=>b.onclick=()=>confirmLeave(()=>openSettings({api,modal,onSaved:()=>{render();toast('Settings saved.');}})));
   document.querySelectorAll('[data-sidebar-project]').forEach(b=>b.onclick=e=>{e.preventDefault();confirmLeave(()=>switchProject(b.dataset.sidebarProject));});
   document.querySelectorAll('[data-add-project]').forEach(b=>b.onclick=()=>confirmLeave(()=>projectDialog()));
   $('.brand').onclick=e=>{e.preventDefault();confirmLeave(()=>{view='projects';selected=null;render();});};
@@ -105,16 +111,16 @@ function bindCommon() {
 }
 function render() {
   issuesView?.dispose();issuesView=null;codexView?.dispose();codexView=null;workflowView?.dispose();workflowView=null;
-  history.replaceState(null,'','#'+(view==='projects'?'home':view==='issues'?'issues/'+projectID+(issueNumber?'/'+issueNumber:'')+(issueProposalID?'/proposals/'+issueProposalID:issueEditMode?'/edit':''):view==='overview'?'workflows/'+projectID:view==='workflow'?'workflow/'+projectID+(workflowRunID?'/'+workflowRunID:''):view==='codex'?'sessions/'+projectID+(codexRunID?'/'+codexRunID:''):view==='compare'?'compare/'+compareIDs.join(','):view==='run'?'run/'+runID:view==='flow'&&draft?'flow/'+draft.id:view==='history'?'history/'+projectID:'project/'+projectID));
-  if(view==='projects')renderProjects();else if(view==='project')renderProjectOverview();else if(view==='issues')renderIssues();else if(view==='overview')renderOverview();else if(view==='workflow')renderWorkflow();else if(view==='codex')renderCodex();else if(view==='flow')renderFlow(); else if(view==='run')renderRun(); else if(view==='compare')renderCompare();else renderHistory();
+  history.replaceState(null,'','#'+(view==='projects'?'home':view==='system'?'system/'+projectID:view==='issues'?'issues/'+projectID+(issueNumber?'/'+issueNumber:'')+(issueProposalID?'/proposals/'+issueProposalID:issueEditMode?'/edit':''):view==='overview'?'workflows/'+projectID:view==='workflow'?'workflow/'+projectID+(workflowRunID?'/'+workflowRunID:''):view==='codex'?'sessions/'+projectID+(codexRunID?'/'+codexRunID:''):view==='compare'?'compare/'+compareIDs.join(','):view==='run'?'run/'+runID:view==='flow'&&draft?'flow/'+draft.id:view==='history'?'history/'+projectID:'project/'+projectID));
+  if(view==='projects')renderProjects();else if(view==='system')renderSystem();else if(view==='project')renderProjectOverview();else if(view==='issues')renderIssues();else if(view==='overview')renderOverview();else if(view==='workflow')renderWorkflow();else if(view==='codex')renderCodex();else if(view==='flow')renderFlow(); else if(view==='run')renderRun(); else if(view==='compare')renderCompare();else renderHistory();
 }
 function renderProjects(){
- shell(`<section class="page-heading"><div><h1>Home</h1></div><button class="primary" id="add-project">+ Add project</button></section><section class="workflow-overview"><div class="overview-section-heading"><h2>Projects</h2><span>${data.projects.filter(p=>p.folderPath).length} connected</span></div><div class="overview-grid">${data.projects.filter(p=>p.id!=='unassigned').map(p=>{const count=data.flows.filter(f=>f.projectID===p.id).length;return `<button class="overview-flow project-card" data-project="${p.id}"><span class="eyebrow">LOCAL PROJECT</span><strong>${esc(p.name)}</strong><span>${esc(p.folderPath||'Workflows not yet connected to a project folder.')}</span><span class="overview-flow-footer">${count} workflow${count===1?'':'s'} <span aria-hidden="true">↗</span></span></button>`;}).join('')}</div></section>`);
+ shell(`<section class="page-heading"><div><h1>Home</h1></div><div class="heading-actions"><button class="primary" id="add-project">+ Add project</button>${settingsButton}</div></section><section class="workflow-overview"><div class="overview-section-heading"><h2>Projects</h2><span>${data.projects.filter(p=>p.folderPath).length} connected</span></div><div class="overview-grid">${data.projects.filter(p=>p.id!=='unassigned').map(p=>{const count=data.flows.filter(f=>f.projectID===p.id).length;return `<button class="overview-flow project-card" data-project="${p.id}"><span class="eyebrow">LOCAL PROJECT</span><strong>${esc(p.name)}</strong><span>${esc(p.folderPath||'Workflows not yet connected to a project folder.')}</span><span class="overview-flow-footer">${count} workflow${count===1?'':'s'} <span aria-hidden="true">↗</span></span></button>`;}).join('')}</div></section>`);
  document.querySelectorAll('[data-project]').forEach(b=>b.onclick=()=>confirmLeave(()=>switchProject(b.dataset.project)));
 }
 function renderProjectOverview(){
  const project=currentProject();
- shell(`<section class="page-heading" data-project-overview><div><div class="eyebrow">PROJECT OVERVIEW</div><h1>${esc(project.name)}</h1></div><button id="project-details">Project details</button></section><section class="workflow-overview"><div class="overview-section-heading"><h2>Project views</h2></div><div class="overview-grid project-views"><button class="overview-flow" data-view-link="overview"><span class="eyebrow">${scopedFlows().length} SAVED WORKFLOW${scopedFlows().length===1?'':'S'}</span><strong>Workflows</strong><span class="overview-flow-footer">Open Workflows <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="codex"><span class="eyebrow">SINGLE AGENT</span><strong>Sessions</strong><span class="overview-flow-footer">Open Sessions <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="issues"><span class="eyebrow">GITHUB</span><strong>Issues</strong><span>Read issues and review agent edit proposals.</span><span class="overview-flow-footer">Open Issues <span aria-hidden="true">↗</span></span></button>${[['Scratchpad','Keep notes and early ideas for this project.'],['Knowledge','Organize project reference material and development memory.']].map(([name,description])=>`<article class="overview-flow planned-view" aria-label="${name} — planned"><span class="eyebrow">PLANNED</span><h3>${name}</h3><p>${description}</p><span class="overview-flow-footer">Not available yet</span></article>`).join('')}</div></section>`);
+ shell(`<section class="page-heading" data-project-overview><div><div class="eyebrow">PROJECT OVERVIEW</div><h1>${esc(project.name)}</h1></div><button id="project-details">Project details</button></section><section class="workflow-overview"><div class="overview-section-heading"><h2>Project views</h2></div><div class="overview-grid project-views"><button class="overview-flow" data-view-link="overview"><span class="eyebrow">${scopedFlows().length} SAVED WORKFLOW${scopedFlows().length===1?'':'S'}</span><strong>Workflows</strong><span class="overview-flow-footer">Open Workflows <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="codex"><span class="eyebrow">SINGLE AGENT</span><strong>Sessions</strong><span class="overview-flow-footer">Open Sessions <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="issues"><span class="eyebrow">GITHUB</span><strong>Issues</strong><span>Read issues and review agent edit proposals.</span><span class="overview-flow-footer">Open Issues <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="system"><strong>System</strong><span>Project settings and agent instructions</span></button>${[['Scratchpad','Keep notes and early ideas for this project.'],['Knowledge','Organize project reference material and development memory.']].map(([name,description])=>`<article class="overview-flow planned-view" aria-label="${name} — planned"><span class="eyebrow">PLANNED</span><h3>${name}</h3><p>${description}</p><span class="overview-flow-footer">Not available yet</span></article>`).join('')}</div></section>`);
 }
 function renderOverview(){
  const flows=scopedFlows(),scope=projectID;
@@ -321,8 +327,9 @@ const hasUnsaved=()=>dirty||issuesView?.isDirty()||issuesView?.isPending()||code
 let loaded=false;
 window.addEventListener('beforeunload',e=>{if(hasUnsaved()){e.preventDefault();e.returnValue='';}});
 async function boot(){try{
-  await reload();const route=location.hash.slice(1).split('/');
-  if(route[0]==='issues'){view='issues';projectID=route[1]||'unassigned';issueNumber=/^[1-9][0-9]*$/.test(route[2]||'')?Number(route[2]):null;issueProposalID=issueNumber&&route[3]==='proposals'&&/^[\w-]+$/.test(route[4]||'')?route[4]:null;issueEditMode=!!issueNumber&&route[3]==='edit';}
+  await reload();await loadSettings(api);const route=location.hash.slice(1).split('/');
+  if(route[0]==='system'&&data.projects.some(p=>p.id===route[1])){projectID=route[1];view='system';}
+  else if(route[0]==='issues'){view='issues';projectID=route[1]||'unassigned';issueNumber=/^[1-9][0-9]*$/.test(route[2]||'')?Number(route[2]):null;issueProposalID=issueNumber&&route[3]==='proposals'&&/^[\w-]+$/.test(route[4]||'')?route[4]:null;issueEditMode=!!issueNumber&&route[3]==='edit';}
   else if(route[0]==='workflow'){view='workflow';projectID=route[1]||'unassigned';workflowRunID=route[2]||null;}
   else if(['sessions','codex'].includes(route[0])){view='codex';projectID=route[1]||'unassigned';codexRunID=route[2]||null;}
   else if(route[0]==='run'&&data.runs.some(r=>r.id===route[1])){runID=route[1];view='run';projectID=data.runs.find(r=>r.id===runID).projectID;}
@@ -497,7 +504,7 @@ function bindStepModels(step){
   slider.oninput=()=>{step.effort=choices[Number(slider.value)];host.querySelector('#step-effort-value').textContent=step.effort;slider.setAttribute('aria-valuetext',step.effort);markDirty();updateCard(step);};
  };
  const renderModels=()=>{
-  const choices=models.some(m=>m.id===step.model)?models:[{id:step.model,name:step.model+' (saved label)'},...models];
+  const available=visibleModels(models,'codex',step.model);const choices=available.some(m=>m.id===step.model)?available:[{id:step.model,name:step.model+' (saved label)'},...available];
   host.querySelector('#step-models').innerHTML=choices.map(m=>`<label class="choice-pill"><input type="radio" name="step-model" value="${esc(m.id)}" ${m.id===step.model?'checked':''}><span>${esc(m.name||m.id)}</span></label>`).join('');
   host.querySelectorAll('[name="step-model"]').forEach(input=>input.onchange=()=>{step.model=input.value;const m=models.find(m=>m.id===step.model);if(m?.efforts?.length&&!m.efforts.includes(step.effort))step.effort=m.defaultEffort||m.efforts[0];host.querySelector('#model').value=step.model;markDirty();updateCard(step);renderEffort();});renderEffort();
  };
@@ -505,4 +512,11 @@ function bindStepModels(step){
  host.querySelector('#step-provider-note').textContent='Loading installed Codex models…';
  stepCatalog??=api('agents/codex').catch(e=>{stepCatalog=null;throw e;});
  stepCatalog.then(provider=>{if(!alive())return;models=provider.models;renderModels();host.querySelector('#step-provider-note').textContent='Codex workflow models. Availability is confirmed when a run starts. Saved labels stay unchanged until you select a model.';}).catch(e=>{if(alive())host.querySelector('#step-provider-note').textContent=e.message+' Saved model labels remain editable.';});
+}
+
+function renderSystem(){
+ const project=currentProject();
+ shell(`<section class="page-heading"><div><h1>System</h1></div><button id="project-details">Project settings</button></section><section class="workflow-overview"><h2>${esc(project.name)}</h2><p>${esc(project.folderPath||'No local folder')}</p><h3>Agent instructions</h3><div id="project-instructions"></div></section>`);
+
+ showInstructions($('#project-instructions'),api,'projects/'+project.id+'/instructions');
 }
