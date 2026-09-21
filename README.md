@@ -27,7 +27,7 @@ When a new version is available, **Update app** reloads it after you save edits 
 
 ## Navigation
 
-**Home** lists project cards. Opening a project shows its **Project Overview**, with links to Workflows and Sessions. Issues reads the project’s GitHub repository and offers agent edit proposals. Scratchpad and Knowledge are labeled planned and are not available yet.
+**Home** lists connected project cards. The internal Unassigned group is available in the project selector for older workflows, but has no Home card. Opening a project shows its **Project Overview**, with links to Workflows and Sessions. Issues reads the project’s GitHub repository and offers agent edit proposals. Scratchpad and Knowledge are labeled planned and are not available yet.
 
 **Workflows** has its own overview of saved workflows and recent runs. Its sidebar contains Overview, the project's saved workflows, and New flow. The **Project overview** button returns to the project's views; **Home** or the app logo returns to project cards. Navigation preserves unsaved-change protection.
 

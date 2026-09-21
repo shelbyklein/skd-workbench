@@ -1,3 +1,17 @@
+# Home project cards — 2026-09-21
+
+- Removed the Without a project / Unassigned Home card. Connected project cards remain.
+  Preserved the two starter workflows and the legacy project-selector/history access;
+  no project data migration or deletion. Shell cache: skd-shell-0.5.0-12.
+- Existing overview browser suite passed. Actual localhost Home inspected at desktop
+  and 390px mobile: exactly the two connected projects, no overflow or browser errors.
+  Verified both unassigned workflows remain accessible and the entire saved state is
+  identical before/after. Screenshot: output/home-connected-projects-desktop.png;
+  receipt: output/home-connected-projects-receipt.json. Static assets active locally;
+  existing PWA windows can choose Update app.
+
+---
+
 # Tiny Tasks GitHub sandbox and live Apply — 2026-09-21
 
 - Created private https://github.com/shelbyklein/tiny-tasks with explicit user approval.
