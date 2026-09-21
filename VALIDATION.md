@@ -1,3 +1,47 @@
+# Skills and Connections (MCP) — 2026-09-21
+
+- Added available global and project Skills and Connections pages above and within
+  projects. Skills provides bounded recognized-root discovery, managed text import,
+  versioned CRUD/archive, project/provider defaults and session/workflow-step overrides.
+  Connection inventory covers Codex TOML and Claude JSON with precedence, canonical
+  boundaries and redacted API/history records. Provider files are read-only.
+- Real launches retain exact skill text/version snapshots. Codex receives it as
+  `developer_instructions`; installed `codex debug prompt-input` showed the marker once
+  in a developer item and the task once in a separate user item. Claude interactive
+  launches use `--append-system-prompt`; issue-edit proposals remain skill-free.
+  Workflow retries reuse the frozen snapshot after eligibility revalidation.
+- Native or managed MCP policy applies only to future sessions. Read-only, structured,
+  workflow and issue-edit paths are MCP-free. Managed Codex startup enumerates effective
+  configuration, disables every unselected server and reconstructs the selected server.
+  An installed-CLI fixture check reported only `skd_fixture_keep` enabled and the other
+  fixture disabled. Managed Claude uses restricted/strict config, disabled hooks and an
+  exact tool allowlist from a successful explicit catalog check. A live Haiku fixture
+  run reported one connected server and exactly
+  `mcp__skd_fixture_keep__skd_fixture_tool`; no tool was called.
+- Explicit stdio checks perform initialize and `tools/list` only, with timeout/output
+  bounds. Fingerprints are stored with assignment and revalidated before launch. Inline
+  credentials and unsafe names cannot use managed activation. Claude's temporary config
+  is private and deleted after use/startup; secrets and raw provider definitions are not
+  returned through APIs or persisted in run history.
+- Focused Node coverage passed inventory, symlink/malformed/oversize/corrupt storage,
+  versions, exclusions, explicit empty selections, cross-project scope, frozen snapshots,
+  provider argv/instruction channels, fingerprint changes, adapter isolation and cleanup.
+  Skills/Connections Chrome coverage passed global/project routes, CRUD/import/reload,
+  assignment persistence, dirty navigation, redaction, explicit tool-list verification,
+  invalid routes, dark desktop and mobile overflow. `npm test` passed 93/93 and the
+  complete 18-script Chrome suite passed with fixture providers and temporary stores.
+- After confirming 0 active sessions and 0 active workflows, restarted the existing
+  `com.shelbyklein.skd-workbench` loopback service. Live read-only traversal found 81
+  recognized skills and 33 redacted connections, exercised Home plus global/project
+  Skills and Connections at desktop and 390px, produced no browser errors or write
+  requests, and left all persisted-data hashes unchanged after startup initialization.
+  Inspected `output/skills-connections-live-home.png` and
+  `output/skills-connections-live-project-mobile.png`. Shell cache is
+  `skd-shell-0.5.0-50`; an installed PWA window still needs its explicit Update app
+  action and was not separately tested.
+
+---
+
 # Flow deletion — 2026-09-21
 
 - Deleted the two live Unassigned flows through version-checked DELETE requests:

@@ -16,8 +16,10 @@ import { Store } from './lib/store.js';
 import { Problem, assert } from './lib/domain.js';
 import { canonicalFolder, inspectFolder } from './lib/projects.js';
 import {projectGraft} from './lib/graft-view.js';
+import {Skills} from './lib/skills.js';
+import {Connections} from './lib/connections.js';
 const root = path.dirname(fileURLToPath(import.meta.url));
-const files = {'/agent-card.js':'agent-card.js','/planning-ui.js':'planning-ui.js','/knowledge-ui.js':'knowledge-ui.js','/settings-ui.js':'settings-ui.js','/theme.js':'theme.js','/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
+const files = {'/agent-card.js':'agent-card.js','/planning-ui.js':'planning-ui.js','/knowledge-ui.js':'knowledge-ui.js','/skills-ui.js':'skills-ui.js','/connections-ui.js':'connections-ui.js','/settings-ui.js':'settings-ui.js','/theme.js':'theme.js','/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
   '/icons/icon-192.png':'icons/icon-192.png','/icons/icon-512.png':'icons/icon-512.png','/icons/maskable-512.png':'icons/maskable-512.png','/icons/apple-touch-icon.png':'icons/apple-touch-icon.png'};
 const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
 async function body(req) {
@@ -27,14 +29,16 @@ async function body(req) {
   try { const parsed=JSON.parse(result); assert(parsed && typeof parsed==='object' && !Array.isArray(parsed),'Expected a JSON object.'); return parsed; }
   catch(e) { if(e instanceof Problem) throw e; throw new Problem('Invalid JSON.'); }
 }
-export function createServer({directory = process.env.FLOW_BENCH_DATA || path.join(root,'.data'), publicDirectory=path.join(root,'public'), codexOptions={},claudeOptions={},terminalOptions={},githubOptions={},folderPicker=createFolderPicker()} = {}) {
+export function createServer({directory = process.env.FLOW_BENCH_DATA || path.join(root,'.data'), publicDirectory=path.join(root,'public'), codexOptions={},claudeOptions={},terminalOptions={},githubOptions={},skillsOptions={},connectionsOptions={},folderPicker=createFolderPicker()} = {}) {
   const store = new Store(directory);
   const globalSettings=new Settings(directory);
-  const codex = new CodexRuns(directory,{...codexOptions,claudeOptions});
+  const skills=new Skills(directory,skillsOptions);
+  const mcpConnections=new Connections(directory,{...connectionsOptions,...(codexOptions.binary?{codexBinary:codexOptions.binary}:{})});
+  const codex = new CodexRuns(directory,{...codexOptions,claudeOptions,skills,connections:mcpConnections});
   const github=new GitHubIssues(githubOptions);
   const captureIssues=async(flow,project)=>{const snapshots=await captureIssueSteps(flow,project,github);assert(store.snapshot().flows.some(f=>f.id===flow.id&&f.version===flow.version&&f.projectID===project.id)&&store.project(project.id).version===project.version,'Flow or project changed while reading issues. Reload before running.',409);return snapshots;};
   const workflows = new Workflows(directory,codex,{captureIssues});
-  const terminals = new TerminalSessions(directory,codex,terminalOptions);
+  const terminals = new TerminalSessions(directory,codex,{...terminalOptions,skills,connections:mcpConnections});
   const proposals=new IssueProposals(directory,codex,github);
   const issueWork=new IssueWork(directory,{github,terminals,providers:agent=>agent==='claude'?codex.discoverClaude():codex.discover()});
   const server = http.createServer(async (req,res)=>{
@@ -55,6 +59,18 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       if(projectInstructions&&req.method==='GET')return json(await instructionFiles(store.project(projectInstructions[1]).folderPath));
       if(req.method==='POST'&&pathname==='/api/choose-folder'){await body(req);return json(await folderPicker());}
       if(req.method==='GET'&&pathname==='/api/health')return json({app:'skd-workbench',ok:true,version:'0.5.0'});
+      if(pathname==='/api/skills'&&req.method==='GET')return json(await skills.inventory(store.snapshot().projects,url.searchParams.get('scope')==='project'?{kind:'project',projectID:url.searchParams.get('projectID')}:{kind:'global'}));
+      if(pathname==='/api/skills'&&req.method==='POST'){const input=await body(req);return json(input.discoveredID?await skills.import(input,store.snapshot().projects):skills.create(input,store.snapshot().projects),201);}
+      if(pathname==='/api/skills/policies'&&req.method==='PUT')return json(skills.savePolicy(await body(req),store.snapshot().projects));
+      const skill=pathname.match(/^\/api\/skills\/([\w-]+)(?:\/(archive))?$/);
+      if(skill&&req.method==='PUT'&&!skill[2])return json(skills.update(skill[1],await body(req),store.snapshot().projects));
+      if(skill&&req.method==='POST'&&skill[2])return json(skills.archive(skill[1],await body(req)));
+      if(pathname==='/api/connections'&&req.method==='GET')return json(await mcpConnections.inventory(store.snapshot().projects,url.searchParams.get('scope')==='project'?{kind:'project',projectID:url.searchParams.get('projectID')}:{kind:'global'}));
+      if(pathname==='/api/connections/policies'&&req.method==='PUT')return json(await mcpConnections.savePolicy(await body(req),store.snapshot().projects));
+      const connectionCheck=pathname.match(/^\/api\/projects\/([\w-]+)\/connections\/([a-f0-9]{64})\/checks$/);
+      if(connectionCheck&&req.method==='POST'){await body(req);return json(await mcpConnections.startCheck(store.project(connectionCheck[1]),connectionCheck[2]),202);}
+      const checkStatus=pathname.match(/^\/api\/projects\/([\w-]+)\/connection-checks\/([\w-]+)$/);
+      if(checkStatus&&req.method==='GET')return json(mcpConnections.check(checkStatus[2],checkStatus[1]));
       const artifact=pathname.match(/^\/api\/artifacts\/([a-f0-9-]{36})$/);
       if(artifact&&req.method==='GET'){
         const records=[...codex.runs,...workflows.runs,...terminals.runs];assert(records.some(r=>r.artifact?.id===artifact[1]||r.reset?.artifact?.id===artifact[1]),'Archive not found.',404);
@@ -173,8 +189,8 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       throw new Problem('Not found.',404);
     } catch(e) { json({error:e instanceof Problem?e.message:'Could not save or load data. Your previous saved state is intact.'},e.status||500); if(!(e instanceof Problem)) console.error(e); }
   });
-  server.on('close',()=>{terminals.shutdown();workflows.shutdown();});
-  server.shutdownCodex=()=>{terminals.shutdown();workflows.shutdown();};
+  server.on('close',()=>{mcpConnections.shutdown();terminals.shutdown();workflows.shutdown();});
+  server.shutdownCodex=()=>{mcpConnections.shutdown();terminals.shutdown();workflows.shutdown();};
   return server;
 }
 if(process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) {

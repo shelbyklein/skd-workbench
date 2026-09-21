@@ -5,6 +5,8 @@ import { mountIssues } from './issues-ui.js';
 import { workflowForm, bindWorkflowForm, mountWorkflow } from './workflows-ui.js';
 import { mountCodex } from './codex-ui.js';
 import { mountKnowledgeHome, mountKnowledgeProject } from './knowledge-ui.js';
+import { mountSkills } from './skills-ui.js';
+import { mountConnections } from './connections-ui.js';
 import { installApp, isStandalone, setupPWA, serverAvailable } from './pwa.js';
 const $ = s => document.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -13,11 +15,12 @@ const uid = ()=>crypto.randomUUID();
 let issuesView=null,issueNumber=null,issueProposalID=null,issueEditMode=false;
 let planningView=null,planningRunID=null;
 let knowledgeView=null;
+let skillsView=null,connectionsView=null;
 let workflowView=null,workflowRunID=null;
 let codexView=null,codexRunID=null,codexPrefill='';
 let projectID='unassigned';
 const connections=new Map();
-let data={projects:[],flows:[],runs:[]}, draft=null, selected=null, view='projects', runID=null, dirty=false, busy=false, compareIDs=[];
+let data={projects:[],flows:[],runs:[]}, draft=null, selected=null, view='projects', routeError='',runID=null, dirty=false, busy=false, compareIDs=[];
 const typeName={agent:'Agent',human:'My review',check:'Check'};
 const symbol={agent:'✳',human:'◉',check:'✓'};
 let toastTimer;
@@ -35,8 +38,8 @@ const scopedRuns=()=>data.runs.filter(r=>r.projectID===projectID);
 const currentProject=()=>data.projects.find(p=>p.id===projectID)||data.projects[0];
 function markDirty() { dirty=true; const save=$('#save'); if(save) save.disabled=false; }
 function confirmLeave(action) {
-  if(issuesView?.isPending()||codexView?.isPending()||workflowView?.isPending()){toast('Wait for the current request to finish before leaving.');return;}
-  if(!dirty&&!issuesView?.isDirty()&&!codexView?.isDirty()&&!workflowView?.isDirty()) return action();
+  if(issuesView?.isPending()||codexView?.isPending()||workflowView?.isPending()||skillsView?.isPending()||connectionsView?.isPending()){toast('Wait for the current request to finish before leaving.');return;}
+  if(!dirty&&!issuesView?.isDirty()&&!codexView?.isDirty()&&!workflowView?.isDirty()&&!skillsView?.isDirty()&&!connectionsView?.isDirty()) return action();
   modal('Keep your changes?', '<p>You have unsaved changes. Save them or discard them before leaving.</p>', [{label:'Keep editing',close:true},{label:'Discard changes',run:()=>{dirty=false;action();}}]);
 }
 function openFlow(flowID) { confirmLeave(()=>{const flow=data.flows.find(f=>f.id===flowID); if(!flow)return; projectID=flow.projectID;draft=clone(flow);selected=null;view='flow';dirty=false;render();}); }
@@ -61,10 +64,14 @@ function modal(title,content,buttons=[],onSubmit=null) {
 function breadcrumbs() {
   const items=[{name:'Home',view:'projects',href:'#home',id:'open-projects'}];
   if(view==='knowledge-global')items.push({name:'Knowledge Graph'});
+  else if(view==='skills-global')items.push({name:'Skills'});
+  else if(view==='connections-global')items.push({name:'Connections (MCP)'});
   else if(view!=='projects')items.push({name:currentProject()?.name||'Unassigned',view:'project',href:'#project/'+projectID,id:'project-home'});
-  if(!['projects','project','knowledge-global'].includes(view)){
+  if(!['projects','project','knowledge-global','skills-global','connections-global'].includes(view)){
     if(view==='planning'){items.push({name:'Issues',view:'issues',href:'#issues/'+projectID},{name:'Create plan'});
     }else if(view==='knowledge'){items.push({name:'Knowledge Graph'});
+    }else if(view==='skills'){items.push({name:'Skills'});
+    }else if(view==='connections'){items.push({name:'Connections (MCP)'});
     }else if(view==='system'){items.push({name:'System'});
     }else if(view==='issues'){
       items.push({name:'Issues',view:'issues',href:'#issues/'+projectID});
@@ -90,14 +97,14 @@ function breadcrumbs() {
 }
 function shell(content) {
   const home=view==='projects';
-  const projectScoped=!['projects','knowledge-global'].includes(view);
+  const projectScoped=!['projects','knowledge-global','skills-global','connections-global'].includes(view);
   $('#app').innerHTML=`<aside class="sidebar"><a class="brand" href="/#home" aria-label="SKD Workbench home"><img src="/icon.svg" alt=""><span>SKD Workbench</span></a><div class="projects-sidebar-heading"><span class="side-label">PROJECTS</span></div><nav class="project-list" aria-label="Projects">${data.projects.filter(p=>p.id!=='unassigned').map(p=>`<button class="project-link ${projectScoped&&p.id===projectID?'active':''}" data-sidebar-project="${esc(p.id)}" ${projectScoped&&p.id===projectID?'aria-current="true"':''}><span class="project-list-icon" aria-hidden="true">▱</span><span>${esc(p.name)}</span></button>`).join('')||'<p class="side-hint">Add your first project.</p>'}</nav><div class="sidebar-project-actions"><button class="sidebar-add-project" data-add-project>+ Add project</button>${settingsButton}</div>${data.flows.some(f=>f.projectID==='unassigned')?`<a class="unassigned-link" href="#project/unassigned" data-sidebar-project="unassigned" ${projectScoped&&projectID==='unassigned'?'aria-current="true"':''}>Unassigned workflows</a>`:''}<div class="side-bottom">${isStandalone()?'':'<button id="install-app" class="install-button">↓ Install app</button>'}<span class="local-dot"></span> Local on your Mac</div></aside><main class="${view==='flow'?'flow-editor-main':''}"><header class="topbar">${breadcrumbs()}</header>${content}</main>`;
   const heading=$('main > .page-heading'),topbar=$('main > .topbar');
   if(heading){
     const title=heading.firstElementChild;
     title.classList.add('view-title');
     // Project context is already present in the breadcrumb.
-    if(['projects','project','overview','issues','codex','workflow','knowledge-global','knowledge'].includes(view))title.querySelector('.eyebrow')?.remove();
+    if(['projects','project','overview','issues','codex','workflow','knowledge-global','knowledge','skills-global','skills','connections-global','connections'].includes(view))title.querySelector('.eyebrow')?.remove();
     const actions=document.createElement('div');actions.className='view-actions';
     while(title.nextElementSibling)actions.append(title.nextElementSibling);
     heading.classList.add('view-header');
@@ -123,6 +130,8 @@ function bindCommon() {
   });
   document.querySelectorAll('[data-view-link]').forEach(b=>b.onclick=()=>confirmLeave(()=>{view=b.dataset.viewLink;issueNumber=null;issueProposalID=null;codexRunID=null;codexPrefill='';selected=null;render();}));
   if($('[data-global-knowledge]'))$('[data-global-knowledge]').onclick=()=>confirmLeave(()=>{view='knowledge-global';selected=null;render();});
+  if($('[data-global-skills]'))$('[data-global-skills]').onclick=()=>confirmLeave(()=>{view='skills-global';selected=null;render();});
+  if($('[data-global-connections]'))$('[data-global-connections]').onclick=()=>confirmLeave(()=>{view='connections-global';selected=null;render();});
   if($('#open-workflows'))$('#open-workflows').onclick=()=>confirmLeave(()=>{workflowRunID=null;view='workflow';render();});
   if($('#open-codex'))$('#open-codex').onclick=()=>confirmLeave(()=>{codexRunID=null;codexPrefill='';view='codex';render();});
   if($('#install-app'))$('#install-app').onclick=async()=>{try{if(!await installApp())installHelp();}catch(e){toast('Installation was not completed. Try your browser’s install menu.');}};
@@ -134,18 +143,19 @@ function bindCommon() {
   if($('[data-action="history"]'))$('[data-action="history"]').onclick=()=>confirmLeave(()=>{view='history';selected=null;render();});
 }
 function render() {
-  knowledgeView?.dispose();knowledgeView=null;planningView?.dispose();planningView=null;issuesView?.dispose();issuesView=null;codexView?.dispose();codexView=null;workflowView?.dispose();workflowView=null;
-  history.replaceState(null,'','#'+(view==='projects'?'home':view==='knowledge-global'?'knowledge':view==='knowledge'?'knowledge/'+projectID:view==='issues'?'issues/'+projectID+(issueNumber?'/'+issueNumber:'')+(issueProposalID?'/proposals/'+issueProposalID:issueEditMode?'/edit':''):view==='planning'?'planning/'+projectID+'/'+planningRunID:view==='system'?'system/'+projectID:view==='overview'?'workflows/'+projectID:view==='workflow'?'workflow/'+projectID+(workflowRunID?'/'+workflowRunID:''):view==='codex'?'sessions/'+projectID+(codexRunID?'/'+codexRunID:''):view==='compare'?'compare/'+compareIDs.join(','):view==='run'?'run/'+runID:view==='flow'&&draft?'flow/'+draft.id:view==='history'?'history/'+projectID:'project/'+projectID));
-  if(view==='projects')renderProjects();else if(view==='knowledge-global')renderKnowledgeHome();else if(view==='knowledge')renderKnowledgeProject();else if(view==='project')renderProjectOverview();else if(view==='planning')renderPlanning();else if(view==='system')renderSystem();else if(view==='issues')renderIssues();else if(view==='overview')renderOverview();else if(view==='workflow')renderWorkflow();else if(view==='codex')renderCodex();else if(view==='flow')renderFlow(); else if(view==='run')renderRun(); else if(view==='compare')renderCompare();else renderHistory();
+  connectionsView?.dispose();connectionsView=null;skillsView?.dispose();skillsView=null;knowledgeView?.dispose();knowledgeView=null;planningView?.dispose();planningView=null;issuesView?.dispose();issuesView=null;codexView?.dispose();codexView=null;workflowView?.dispose();workflowView=null;
+  const nextHash='#'+routePath();if(location.hash!==nextHash)history.pushState(null,'',nextHash);lastRenderedHash=nextHash;
+  if(view==='invalid')renderInvalidRoute();else if(view==='projects')renderProjects();else if(view==='knowledge-global')renderKnowledgeHome();else if(view==='knowledge')renderKnowledgeProject();else if(view==='skills-global'||view==='skills')renderSkills();else if(view==='connections-global'||view==='connections')renderConnections();else if(view==='project')renderProjectOverview();else if(view==='planning')renderPlanning();else if(view==='system')renderSystem();else if(view==='issues')renderIssues();else if(view==='overview')renderOverview();else if(view==='workflow')renderWorkflow();else if(view==='codex')renderCodex();else if(view==='flow')renderFlow(); else if(view==='run')renderRun(); else if(view==='compare')renderCompare();else renderHistory();
 }
+function renderInvalidRoute(){shell(`<section class="empty"><h1>Page unavailable</h1><p>${esc(routeError||'This project page does not exist.')}</p><button id="invalid-home">Return home</button></section>`);$('#invalid-home').onclick=()=>{view='projects';routeError='';render();};}
 function renderProjects(){
- shell(`<section class="page-heading"><div><h1>Home</h1></div><div class="heading-actions"><button class="primary" id="add-project">+ Add project</button>${settingsButton}</div></section><section class="workflow-overview global-pages"><div class="overview-section-heading"><h2>Global pages</h2></div><div class="overview-grid global-page-grid"><button class="overview-flow" data-global-knowledge><span class="eyebrow">ALL PROJECTS</span><strong>Knowledge Graph</strong><span>Browse connected Graft indexes.</span><span class="overview-flow-footer">Open Knowledge Graph <span aria-hidden="true">↗</span></span></button>${[['Skills','See skills available across projects.'],['Connections (MCP)','Manage shared MCP connections.']].map(([name,description])=>`<article class="overview-flow planned-view" aria-label="${name} — planned"><span class="eyebrow">PLANNED</span><h3>${name}</h3><p>${description}</p><span class="overview-flow-footer">Not available yet</span></article>`).join('')}</div></section><section class="workflow-overview projects-section"><div class="overview-section-heading"><h2>Projects</h2><span>${data.projects.filter(p=>p.folderPath).length} connected</span></div><div class="overview-grid">${data.projects.filter(p=>p.id!=='unassigned').map(p=>{const count=data.flows.filter(f=>f.projectID===p.id).length;return `<button class="overview-flow project-card" data-project="${p.id}"><span class="eyebrow">LOCAL PROJECT</span><strong>${esc(p.name)}</strong><span>${esc(p.folderPath||'Workflows not yet connected to a project folder.')}</span><span class="folder-repository" data-folder-repository="${p.id}"></span><span class="overview-flow-footer">${count} workflow${count===1?'':'s'} <span aria-hidden="true">↗</span></span></button>`;}).join('')}</div></section>`);
+ shell(`<section class="page-heading"><div><h1>Home</h1></div><div class="heading-actions"><button class="primary" id="add-project">+ Add project</button>${settingsButton}</div></section><section class="workflow-overview global-pages"><div class="overview-section-heading"><h2>Global pages</h2></div><div class="overview-grid global-page-grid"><button class="overview-flow" data-global-knowledge><span class="eyebrow">ALL PROJECTS</span><strong>Knowledge Graph</strong><span>Browse connected Graft indexes.</span><span class="overview-flow-footer">Open Knowledge Graph <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-global-skills><span class="eyebrow">ALL PROJECTS</span><strong>Skills</strong><span>Manage instruction libraries and assignments.</span><span class="overview-flow-footer">Open Skills <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-global-connections><span class="eyebrow">ALL PROJECTS</span><strong>Connections (MCP)</strong><span>Inspect and assign provider connections.</span><span class="overview-flow-footer">Open Connections <span aria-hidden="true">↗</span></span></button></div></section><section class="workflow-overview projects-section"><div class="overview-section-heading"><h2>Projects</h2><span>${data.projects.filter(p=>p.folderPath).length} connected</span></div><div class="overview-grid">${data.projects.filter(p=>p.id!=='unassigned').map(p=>{const count=data.flows.filter(f=>f.projectID===p.id).length;return `<button class="overview-flow project-card" data-project="${p.id}"><span class="eyebrow">LOCAL PROJECT</span><strong>${esc(p.name)}</strong><span>${esc(p.folderPath||'Workflows not yet connected to a project folder.')}</span><span class="folder-repository" data-folder-repository="${p.id}"></span><span class="overview-flow-footer">${count} workflow${count===1?'':'s'} <span aria-hidden="true">↗</span></span></button>`;}).join('')}</div></section>`);
  fillFolderRepositories();
  document.querySelectorAll('[data-project]').forEach(b=>b.onclick=()=>confirmLeave(()=>switchProject(b.dataset.project)));
 }
 function renderProjectOverview(){
  const project=currentProject();
- shell(`<section class="page-heading" data-project-overview><div><div class="eyebrow">PROJECT OVERVIEW</div><h1>${esc(project.name)}</h1></div><button id="project-details">Project details</button></section><section class="workflow-overview"><div class="overview-section-heading"><h2>Project views</h2></div><div class="overview-grid project-views"><button class="overview-flow" data-view-link="overview"><span class="eyebrow">${scopedFlows().length} SAVED WORKFLOW${scopedFlows().length===1?'':'S'}</span><strong>Workflows</strong><span class="overview-flow-footer">Open Workflows <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="codex"><span class="eyebrow">SINGLE AGENT</span><strong>Sessions</strong><span class="overview-flow-footer">Open Sessions <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="issues"><span class="eyebrow">GITHUB</span><strong>Issues</strong><span>Read issues and review agent edit proposals.</span><span class="overview-flow-footer">Open Issues <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="knowledge"><span class="eyebrow">GRAFT</span><strong>Knowledge Graph</strong><span>Browse the connected project index.</span><span class="overview-flow-footer">Open Knowledge Graph <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="system"><strong>System</strong><span>Project settings and agent instructions</span></button>${[['Scratchpad','Keep notes and early ideas for this project.'],['Skills','See skills assigned to this project.'],['Connections (MCP)','See MCP connections assigned to this project.']].map(([name,description])=>`<article class="overview-flow planned-view" aria-label="${name} — planned"><span class="eyebrow">PLANNED</span><h3>${name}</h3><p>${description}</p><span class="overview-flow-footer">Not available yet</span></article>`).join('')}</div></section>`);
+ shell(`<section class="page-heading" data-project-overview><div><div class="eyebrow">PROJECT OVERVIEW</div><h1>${esc(project.name)}</h1></div><button id="project-details">Project details</button></section><section class="workflow-overview"><div class="overview-section-heading"><h2>Project views</h2></div><div class="overview-grid project-views"><button class="overview-flow" data-view-link="overview"><span class="eyebrow">${scopedFlows().length} SAVED WORKFLOW${scopedFlows().length===1?'':'S'}</span><strong>Workflows</strong><span class="overview-flow-footer">Open Workflows <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="codex"><span class="eyebrow">SINGLE AGENT</span><strong>Sessions</strong><span class="overview-flow-footer">Open Sessions <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="issues"><span class="eyebrow">GITHUB</span><strong>Issues</strong><span>Read issues and review agent edit proposals.</span><span class="overview-flow-footer">Open Issues <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="knowledge"><span class="eyebrow">GRAFT</span><strong>Knowledge Graph</strong><span>Browse the connected project index.</span><span class="overview-flow-footer">Open Knowledge Graph <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="skills"><span class="eyebrow">INSTRUCTIONS</span><strong>Skills</strong><span>Manage project assignments and available skill files.</span><span class="overview-flow-footer">Open Skills <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="connections"><span class="eyebrow">TOOLS</span><strong>Connections (MCP)</strong><span>Inspect provider configuration and project policy.</span><span class="overview-flow-footer">Open Connections <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="system"><strong>System</strong><span>Project settings and agent instructions</span></button>${[['Scratchpad','Keep notes and early ideas for this project.']].map(([name,description])=>`<article class="overview-flow planned-view" aria-label="${name} — planned"><span class="eyebrow">PLANNED</span><h3>${name}</h3><p>${description}</p><span class="overview-flow-footer">Not available yet</span></article>`).join('')}</div></section>`);
 }
 
 function renderKnowledgeHome(){
@@ -156,6 +166,16 @@ function renderKnowledgeHome(){
 function renderKnowledgeProject(){
  shell(`<section class="page-heading"><div><div class="eyebrow">${esc(currentProject().name)}</div><h1>Knowledge Graph</h1></div></section><section class="knowledge-page" id="knowledge-view"></section>`);
  knowledgeView=mountKnowledgeProject({host:$('#knowledge-view'),project:currentProject(),api,notify:toast});
+}
+function renderSkills(){
+ const global=view==='skills-global',scope=global?{kind:'global'}:{kind:'project',projectID};
+ shell(`<section class="page-heading"><div>${global?'':`<div class="eyebrow">${esc(currentProject().name)}</div>`}<h1>Skills</h1><p>${global?'Managed library and discovered instruction files':'Project assignments and available instructions'}</p></div></section><section class="resource-page" id="skills-view"></section>`);
+ skillsView=mountSkills({host:$('#skills-view'),scope,projects:data.projects,api,notify:toast});
+}
+function renderConnections(){
+ const global=view==='connections-global',scope=global?{kind:'global'}:{kind:'project',projectID};
+ shell(`<section class="page-heading"><div>${global?'':`<div class="eyebrow">${esc(currentProject().name)}</div>`}<h1>Connections (MCP)</h1><p>${global?'Configured provider resources':'Project policy and verification status'}</p></div></section><section class="resource-page" id="connections-view"></section>`);
+ connectionsView=mountConnections({host:$('#connections-view'),scope,projects:data.projects,api,notify:toast});
 }
 function renderOverview(){
  const flows=scopedFlows(),scope=projectID;
@@ -280,7 +300,7 @@ function addStep() {
   document.querySelectorAll('[data-type]').forEach(b=>b.onclick=()=>{
     if(draft.steps.length>=30){toast('Keep this flow to 30 steps or fewer.');return;}
     const type=b.dataset.type;
-    const step={id:uid(),type,name:type==='agent'?'New agent step':type==='human'?'My review':'Check the result',instructions:'',...(type==='agent'?{model:'Astra',effort:'low'}:type==='human'?{maxRetries:0,retryFrom:null}:{})};
+    const step={id:uid(),type,name:type==='agent'?'New agent step':type==='human'?'My review':'Check the result',instructions:'',...(type==='agent'?{model:'Astra',effort:'low',skills:{mode:'inherit',skillIDs:[]}}:type==='human'?{maxRetries:0,retryFrom:null}:{})};
     draft.steps.push(step);selected=step.id;markDirty();$('#dialog').close();renderFlow();$('#step-name').focus();
   });
 }
@@ -358,27 +378,39 @@ function renderHistory(){
   });
   $('#compare-runs').onclick=()=>{view='compare';render();};
 }
-const hasUnsaved=()=>dirty||issuesView?.isDirty()||issuesView?.isPending()||codexView?.isDirty()||workflowView?.isDirty()||[...reviewDrafts.values()].some(Boolean)||$('#dialog').open||busy;
+const hasUnsaved=()=>dirty||issuesView?.isDirty()||issuesView?.isPending()||codexView?.isDirty()||workflowView?.isDirty()||skillsView?.isDirty()||skillsView?.isPending()||connectionsView?.isDirty()||connectionsView?.isPending()||[...reviewDrafts.values()].some(Boolean)||$('#dialog').open||busy;
 let loaded=false;
 window.addEventListener('beforeunload',e=>{if(hasUnsaved()){e.preventDefault();e.returnValue='';}});
-async function boot(){try{
-  await reload();await loadSettings(api);try{primeAgentCache(await api('sessions'));}catch{}const route=location.hash.slice(1).split('/');
-  if(route[0]==='planning'){projectID=route[1];planningRunID=route[2];view='planning';}
-  else if(route[0]==='knowledge'&&!route[1]){view='knowledge-global';}
-  else if(route[0]==='knowledge'&&data.projects.some(p=>p.id===route[1])){projectID=route[1];view='knowledge';}
-  else if(route[0]==='system'&&data.projects.some(p=>p.id===route[1])){projectID=route[1];view='system';}
-  else if(route[0]==='issues'){view='issues';projectID=route[1]||'unassigned';issueNumber=/^[1-9][0-9]*$/.test(route[2]||'')?Number(route[2]):null;issueProposalID=issueNumber&&route[3]==='proposals'&&/^[\w-]+$/.test(route[4]||'')?route[4]:null;issueEditMode=!!issueNumber&&route[3]==='edit';}
-  else if(route[0]==='workflow'){view='workflow';projectID=route[1]||'unassigned';workflowRunID=route[2]||null;}
-  else if(['sessions','codex'].includes(route[0])){view='codex';projectID=route[1]||'unassigned';codexRunID=route[2]||null;}
-  else if(route[0]==='run'&&data.runs.some(r=>r.id===route[1])){runID=route[1];view='run';projectID=data.runs.find(r=>r.id===runID).projectID;}
-  else if(route[0]==='history'){view='history';projectID=route[1]||'unassigned';}
-  else if(route[0]==='compare'){compareIDs=(route[1]||'').split(',');view='compare';projectID=data.runs.find(r=>r.id===compareIDs[0])?.projectID||'unassigned';}
-  else if(route[0]==='workflows'){view='overview';projectID=route[1]||'unassigned';}
-  else if(route[0]==='project'){view='project';projectID=route[1]||'unassigned';}
-  else if(route[0]==='flow'){view='flow';projectID=data.flows.find(f=>f.id===route[1])?.projectID||'unassigned';}
-  if(!data.projects.some(p=>p.id===projectID))projectID='unassigned';
-  draft=clone(data.flows.find(f=>f.id===route[1]&&f.projectID===projectID)||scopedFlows()[0]||null);loaded=true;render();
- }catch(e){$('#app').innerHTML=`<section class="empty offline-startup"><img src="/icon.svg" alt=""><h1>Server unavailable</h1><p>The interface is ready. Your projects and workflows need the local server.</p><p>Open <strong>Launch SKD Workbench.command</strong> in the SKD Workbench folder, then reconnect.</p><button id="retry-load" class="primary">Reconnect</button><p class="offline-note">${esc(e.message)}</p></section>`;$('#retry-load').onclick=boot;}}
+let lastRenderedHash='';
+function routePath(){return view==='invalid'?(location.hash.slice(1)||'home'):view==='projects'?'home':view==='knowledge-global'?'knowledge':view==='knowledge'?'knowledge/'+projectID:view==='skills-global'?'skills':view==='skills'?'skills/'+projectID:view==='connections-global'?'connections':view==='connections'?'connections/'+projectID:view==='issues'?'issues/'+projectID+(issueNumber?'/'+issueNumber:'')+(issueProposalID?'/proposals/'+issueProposalID:issueEditMode?'/edit':''):view==='planning'?'planning/'+projectID+'/'+planningRunID:view==='system'?'system/'+projectID:view==='overview'?'workflows/'+projectID:view==='workflow'?'workflow/'+projectID+(workflowRunID?'/'+workflowRunID:''):view==='codex'?'sessions/'+projectID+(codexRunID?'/'+codexRunID:''):view==='compare'?'compare/'+compareIDs.join(','):view==='run'?'run/'+runID:view==='flow'&&draft?'flow/'+draft.id:view==='history'?'history/'+projectID:'project/'+projectID;}
+function applyRoute(hash=location.hash){
+ const route=hash.slice(1).split('/');view='projects';routeError='';issueNumber=null;issueProposalID=null;issueEditMode=false;planningRunID=null;workflowRunID=null;codexRunID=null;runID=null;compareIDs=[];
+ if(route[0]==='planning'){projectID=route[1];planningRunID=route[2];view='planning';}
+ else if(route[0]==='knowledge'&&!route[1])view='knowledge-global';
+ else if(route[0]==='knowledge'&&data.projects.some(p=>p.id===route[1])){projectID=route[1];view='knowledge';}
+ else if(route[0]==='skills'&&!route[1])view='skills-global';
+ else if(route[0]==='skills'&&data.projects.some(p=>p.id===route[1]&&p.id!=='unassigned')){projectID=route[1];view='skills';}
+ else if(route[0]==='connections'&&!route[1])view='connections-global';
+ else if(route[0]==='connections'&&data.projects.some(p=>p.id===route[1]&&p.id!=='unassigned')){projectID=route[1];view='connections';}
+ else if(['skills','connections','knowledge'].includes(route[0])){view='invalid';routeError='That project resource page is unavailable. Return home and choose a connected project.';}
+ else if(route[0]==='system'&&data.projects.some(p=>p.id===route[1])){projectID=route[1];view='system';}
+ else if(route[0]==='issues'){view='issues';projectID=route[1]||'unassigned';issueNumber=/^[1-9][0-9]*$/.test(route[2]||'')?Number(route[2]):null;issueProposalID=issueNumber&&route[3]==='proposals'&&/^[\w-]+$/.test(route[4]||'')?route[4]:null;issueEditMode=!!issueNumber&&route[3]==='edit';}
+ else if(route[0]==='workflow'){view='workflow';projectID=route[1]||'unassigned';workflowRunID=route[2]||null;}
+ else if(['sessions','codex'].includes(route[0])){view='codex';projectID=route[1]||'unassigned';codexRunID=route[2]||null;}
+ else if(route[0]==='run'&&data.runs.some(r=>r.id===route[1])){runID=route[1];view='run';projectID=data.runs.find(r=>r.id===runID).projectID;}
+ else if(route[0]==='history'){view='history';projectID=route[1]||'unassigned';}
+ else if(route[0]==='compare'){compareIDs=(route[1]||'').split(',');view='compare';projectID=data.runs.find(r=>r.id===compareIDs[0])?.projectID||'unassigned';}
+ else if(route[0]==='workflows'){view='overview';projectID=route[1]||'unassigned';}
+ else if(route[0]==='project'){view='project';projectID=route[1]||'unassigned';}
+ else if(route[0]==='flow'){view='flow';projectID=data.flows.find(f=>f.id===route[1])?.projectID||'unassigned';}
+ if(!data.projects.some(p=>p.id===projectID))projectID='unassigned';draft=clone(data.flows.find(f=>f.id===route[1]&&f.projectID===projectID)||scopedFlows()[0]||null);
+}
+async function boot(){try{await reload();await loadSettings(api);try{primeAgentCache(await api('sessions'));}catch{}applyRoute();loaded=true;render();}
+ catch(e){$('#app').innerHTML=`<section class="empty offline-startup"><img src="/icon.svg" alt=""><h1>Server unavailable</h1><p>The interface is ready. Your projects and workflows need the local server.</p><p>Open <strong>Launch SKD Workbench.command</strong> in the SKD Workbench folder, then reconnect.</p><button id="retry-load" class="primary">Reconnect</button><p class="offline-note">${esc(e.message)}</p></section>`;$('#retry-load').onclick=boot;}}
+let followingLocation=false;
+async function openLocation(target){if(followingLocation)return;followingLocation=true;try{await reload();applyRoute(target);render();}catch(error){history.replaceState(null,'',lastRenderedHash);toast(error.message);}finally{followingLocation=false;}}
+function followLocation(){if(!loaded||followingLocation||location.hash===lastRenderedHash)return;const target=location.hash;if(hasUnsaved()){history.replaceState(null,'',lastRenderedHash);confirmLeave(()=>{history.pushState(null,'',target);openLocation(target);});return;}openLocation(target);}
+window.addEventListener('hashchange',followLocation);window.addEventListener('popstate',followLocation);
 setupPWA({hasUnsaved,notify:toast,onReconnect:async()=>{
  if(!loaded){await boot();return;}
  // Reconnection never replaces an editor or dialog that may contain unsaved text.
@@ -496,7 +528,7 @@ async function launchConfigured(kind){
   }
   if(kind==='codex'){
    if(!currentProject()?.folderPath){toast('Move this flow into a project with a connected folder first.');return;}
-   const config=Object.fromEntries(draft.steps.filter(s=>s.type==='agent').map(s=>[s.id,{model:s.model,effort:s.effort}]));
+   const config=Object.fromEntries(draft.steps.filter(s=>s.type==='agent').map(s=>[s.id,{model:s.model,effort:s.effort,skills:s.skills||{mode:'inherit',skillIDs:[]}}]));
    const run=await api('workflows','POST',{flowID:draft.id,flowVersion:draft.version,projectVersion:currentProject().version,...settings,config});workflowRunID=run.id;view='workflow';render();
   }else{
    const run=await api('runs','POST',{flowID:draft.id,flowVersion:draft.version,projectVersion:currentProject().version,task:settings.task,acceptance:settings.acceptance});await reload();runID=run.id;selected=null;view='run';render();
@@ -507,8 +539,8 @@ async function launchConfigured(kind){
 async function workflowStartDialog(startAfterSave=false){
  try{
   if(dirty)await saveFlow();
-  const flow=clone(draft),provider=await api('codex/provider').catch(()=>({models:[],unavailable:true})),settings=runSettings();let readConfig;
-  modal(startAfterSave?'Run flow with Codex':'Run settings',(provider.unavailable?'<p class="form-error">Codex is unavailable. You can save task settings; existing model choices will be kept.</p>':'')+workflowForm(flow,provider,currentProject()),[{label:'Cancel',close:true},{label:startAfterSave?'Start real workflow':'Save run settings',primary:true,submit:true}],async form=>{
+  const flow=clone(draft),[provider,skillInventory]=await Promise.all([api('codex/provider').catch(()=>({models:[],unavailable:true})),api('skills?scope=project&projectID='+encodeURIComponent(projectID))]),settings=runSettings();let readConfig;
+  modal(startAfterSave?'Run flow with Codex':'Run settings',(provider.unavailable?'<p class="form-error">Codex is unavailable. You can save task settings; existing model choices will be kept.</p>':'')+workflowForm(flow,provider,currentProject(),skillInventory),[{label:'Cancel',close:true},{label:startAfterSave?'Start real workflow':'Save run settings',primary:true,submit:true}],async form=>{
    await saveRunSettings({task:form.get('task'),acceptance:form.get('acceptance'),mode:form.get('mode'),maxAttempts:Number(form.get('maxAttempts'))},provider.unavailable?undefined:readConfig());
    if(startAfterSave){await launchConfigured('codex');}else{render();toast('Run settings saved. Run buttons now start directly.');}
   });

@@ -57,7 +57,7 @@ try{
  assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('skd-agent-choice-main'))),{agent:'codex',model:'two',effort:'high'});
  await page.emulateMedia({reducedMotion:'reduce'});await card.locator('[data-agent-parameter="model"]').click();
  assert.equal(await page.locator(':popover-open').evaluate(el=>getComputedStyle(el).transitionDuration),'0s');await page.keyboard.press('Escape');await page.emulateMedia({reducedMotion:'no-preference'});
- await page.goto(url+'/#issues/'+project.id+'/1');await page.reload();await page.getByRole('button',{name:'Edit plan',exact:true}).click();await page.locator('.agent-selection-card').waitFor();await page.locator('#orchestration-card>summary').click();await page.waitForFunction(()=>document.querySelectorAll('.agent-selection-card').length===3);
+ await page.goto(url+'/#issues/'+project.id+'/1');const discard=page.getByRole('button',{name:'Discard changes',exact:true});if(await discard.isVisible({timeout:1000}).catch(()=>false))await discard.click();await page.waitForURL(new RegExp(`#issues/${project.id}/1$`));await page.reload();await page.getByRole('button',{name:'Edit plan',exact:true}).click();await page.locator('.agent-selection-card').waitFor();await page.locator('#orchestration-card>summary').click();await page.waitForFunction(()=>document.querySelectorAll('.agent-selection-card').length===3);
  await page.getByLabel('Appearance',{exact:true}).selectOption('dark');
  await page.waitForTimeout(250);
  await page.screenshot({path:'output/agent-cards.png',fullPage:true,animations:'disabled'});
