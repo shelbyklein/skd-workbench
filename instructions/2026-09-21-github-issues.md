@@ -36,7 +36,7 @@ writes, and reads back GitHub. Never blindly retry an uncertain write.
   Acceptance: browser exercise enters from Project Overview, reads/filter/pages issues,
   selects both providers/models/levels, previews and applies fixture edits, reconnects
   after reload, protects drafts, and passes mobile/keyboard/error checks with screenshots.
-- [ ] SKD-GH-03: Validate and activate the integrated feature.
+- [x] SKD-GH-03: Validate and activate the integrated feature.
   Acceptance: full Node/browser suites pass, actual GitHub reads work, local runtime UI
   inspected without editing unrelated issues, documentation updated and delivery committed.
   Live paid inference and live issue mutation are reported separately from fixture proof.
@@ -52,3 +52,13 @@ deployment. Keep implementation issue open for user acceptance.
 
 References: https://cli.github.com/manual/gh_api and
 https://docs.github.com/en/rest/issues/issues#update-an-issue.
+
+
+## Delivery evidence
+
+Implemented at 29d9118. All 65 Node tests and all 12 Chrome suites pass; the final
+Issues browser rerun also passes. Real GitHub reads and draft-only Codex Sol/low and
+Claude Haiku/low inference succeeded. Actual localhost UI inspected on desktop/mobile;
+existing user-state hashes unchanged. Apply is fixture-verified, not live-write verified.
+See VALIDATION.md for receipts and limits. Activated locally; awaiting user acceptance
+before issue closure. No orchestration or external deployment.
