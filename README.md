@@ -9,7 +9,7 @@ Requires Node.js 22 or newer. No runtime packages, account, or API key required.
 Double-click **Launch SKD Workbench.command**, or run:
 
 ```sh
-cd /Users/shelbyklein/Vibes/flow-bench
+cd /Users/shelbyklein/Vibes/skd-workbench
 npm start
 ```
 
@@ -81,7 +81,7 @@ Browser tests use Playwright with installed Google Chrome by default (`PLAYWRIGH
 
 Existing Testbench, Orchestration Bench and Tracker Trapper code/data are separate and unchanged.
 
-The project directory remains `flow-bench` to preserve existing paths. `Launch Flow Bench.command` remains a compatible launch alias. To roll back schema 2, stop the server and preserve the current store first; restore its schema-1 backup only after reconciling any projects/runs added since migration.
+The project lives independently at `/Users/shelbyklein/Vibes/skd-workbench`. `Launch Flow Bench.command` remains a compatible launch alias. To roll back schema 2, stop the server and preserve the current store first; restore its schema-1 backup only after reconciling any projects/runs added since migration.
 
 
 For this delivery the server is running as a transient macOS job (`com.shelbyklein.skd-workbench`), independent of the Codex terminal. No login-item plist was installed. Stop that background instance with `launchctl remove com.shelbyklein.skd-workbench`; then use the launcher or `npm start` to run it again. Current logs are `output/server.log` and `output/server-error.log`.
