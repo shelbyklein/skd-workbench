@@ -45,6 +45,38 @@ If the server stops, the app shows **Reconnect** and keeps unsaved edits in the 
 
 When a new version is available, **Update app** reloads it after you save edits and close dialogs. Other open windows are not force-reloaded. Developers must bump the cache version in `public/sw.js` whenever shell assets change; test updates against temporary assets with `npm run test:browser`. Regenerate PNGs from the existing mark with `npm run icons`.
 
+## Sequential delegation
+
+Open a project's **Workflows → Delegate task**. Enter the task, acceptance checks,
+and an optional existing issue URL or TT task ID. Choose a Codex lead and a Claude
+or Codex worker from the installed providers' model catalogs. For Astra → Fable →
+Astra, select Astra for the lead and Fable for the worker. Starting consumes the
+selected providers' account usage.
+
+Workbench registers a durable task/run and a single isolated worktree before
+inference. The lead plans, the worker implements, and the lead reviews and runs
+checks. Review can accept, request a bounded revision, or ask for clarification.
+Claude workers retain restricted file tools; the Codex lead executes checks.
+Normal workflows and interactive sessions share the same execution lock.
+
+The run page retains every turn, model/effort, output, available usage, review
+decision and observed command results. **Accepted** means the lead accepted and
+its selected acceptance commands exited successfully; it does not certify check relevance,
+full coverage, integration or release. Inspect the evidence and retained files.
+Missing or failed selected command evidence requires attention even if the lead accepts. Other command failures remain visible in the same evidence list.
+Unknown usage remains unknown. No merge, push or worktree deletion is automatic.
+
+Stop cancels execution; restart marks active work interrupted without relaunching.
+Retry is explicit and consumes the remaining attempt budget. Clarifications retain
+earlier evidence. A launch request is recoverable after a lost response. Interrupted
+workspace creation requires inspection and stopping the run before starting again.
+The optional task reference links context; this first version does not synchronize
+delegated task status back to TT or implement the full lifecycle registry in #9.
+
+`npm test` and `npm run test:browser` use fixtures. The explicitly invoked
+`node scripts/smoke-delegation.mjs` consumes real Astra/Fable usage against a
+disposable repository and retains its workspace and evidence in `output/`.
+
 ## Navigation
 
 **Home** places global page cards above the project list. **Knowledge Graph** summarizes the Graft status of every project. **Playbooks** saves reusable selections of managed Skills and Connections (MCP). **Skills** manages reusable instruction text, while **Connections (MCP)** inventories provider configuration without revealing commands, arguments, URLs, headers or values. The internal Unassigned group is available through the Unassigned workflows link for older workflows, but has no Home card. Opening a project shows its **Project Overview**, with links to Workflows, Sessions, Issues, System, Knowledge Graph, Playbooks, Skills and Connections. Scratchpad remains planned.

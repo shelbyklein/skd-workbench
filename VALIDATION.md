@@ -1,3 +1,45 @@
+# Sequential delegation — 2026-09-21
+
+- Issue #10 adds Workflows → Delegate task: one registered task/run/workspace,
+  a Codex lead, Claude or Codex worker, bounded revisions, explicit clarification,
+  cancellation, interrupted restart recovery and retained per-turn evidence.
+  Every turn verifies the worktree root, common Git directory and branch.
+  Existing workflow/terminal ownership remains shared; nested agents stay disabled.
+- `npm test` passed 150/150 tests. Node test file concurrency is capped at four
+  to avoid saturating process startup during the subprocess-heavy suite.
+- The full 26-script Chrome suite passed with fixture providers and temporary stores.
+  Delegation coverage includes keyboard entry, a lost launch response, reload without
+  duplicate execution, project/origin/stale guards, evidence, unsaved drafts and mobile
+  overflow. Desktop/mobile screenshots were inspected. The final evidence-reference
+  contract received an additional focused browser run.
+- A real installed-provider smoke used Codex 0.155.1 / gpt-6-astra and Claude Code
+  2.1.278 / claude-fable-5-1[1m], low effort, in a disposable repository. Astra planned,
+  Fable changed only sum.js, and Astra reviewed. The first review passed npm test but
+  exposed an unrelated TT permission failure being treated as failed acceptance.
+  The corrected contract explicitly references acceptance-command indices, preserving
+  all other failures. The same retained run was clarified and reviewed again, accepted,
+  and independently passed npm test. The original source file remained unchanged.
+- Real smoke run: 46e66e95-8c1a-402e-a4ee-f55df12e3cce; evidence:
+  output/delegation-live.json and output/delegation-live-resume.log. Retained root:
+  /var/folders/b1/72xt4z6s2l194sdlvr481ff00000gn/T/skd-delegation-live-EygKQG.
+  This was four real turns (including one additional review), not a model benchmark.
+- Earlier provider preflights hit Claude authentication-check timeouts under load.
+  Those now report unknown sign-in status accurately instead of claiming sign-out.
+  An older import test was isolated from the installed MCP inventory, and the existing
+  malformed-stream timeout fixture was given process-startup tolerance.
+- Integration attempt: main acquired concurrent icon/CSS/cache edits during
+  implementation. Git refused the fast-forward rather than overwriting those edits.
+  Source is committed on codex/sequential-delegation; activation is pending
+  reconciliation with that task. Delegation uses cache version 72 to avoid
+  reusing the icon task's pending cache version 71.
+- Accepted means model acceptance plus successful referenced command exits, not an
+  independently certified checkpoint, exhaustive coverage, integration or release.
+  TT references are contextual; automatic delegated-task TT synchronization and the
+  full worktree lifecycle registry remain #9 work. The restricted smoke providers
+  could not access TT; this implementation session reported progress separately.
+  Generic saved workflows remain Codex-only; mixed-provider execution uses Delegation.
+  Workspaces are never automatically merged, pushed or deleted.
+
 # Red glass workbench logo — 2026-09-21
 
 - Integrated the user-selected transparent red glass artwork as the sidebar,

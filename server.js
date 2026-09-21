@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import {pinBenchmark} from './lib/benchmarks.js';
+import { Delegations } from './lib/delegations.js';
 import { Workflows } from './lib/workflows.js';
 import { CodexRuns } from './lib/codex.js';
 import { Store } from './lib/store.js';
@@ -23,7 +24,7 @@ import {Connections} from './lib/connections.js';
 import {GitStatus} from './lib/git-status.js';
 import {Playbooks} from './lib/playbooks.js';
 const root = path.dirname(fileURLToPath(import.meta.url));
-const files = {'/quick-actions-ui.js':'quick-actions-ui.js','/session-import-ui.js':'session-import-ui.js','/git-status-ui.js':'git-status-ui.js','/agent-card.js':'agent-card.js','/planning-ui.js':'planning-ui.js','/knowledge-ui.js':'knowledge-ui.js','/skills-ui.js':'skills-ui.js','/connections-ui.js':'connections-ui.js','/playbooks-ui.js':'playbooks-ui.js','/settings-ui.js':'settings-ui.js','/markdown.js':'markdown.js','/theme.js':'theme.js','/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
+const files = {'/delegations-ui.js':'delegations-ui.js','/quick-actions-ui.js':'quick-actions-ui.js','/session-import-ui.js':'session-import-ui.js','/git-status-ui.js':'git-status-ui.js','/agent-card.js':'agent-card.js','/planning-ui.js':'planning-ui.js','/knowledge-ui.js':'knowledge-ui.js','/skills-ui.js':'skills-ui.js','/connections-ui.js':'connections-ui.js','/playbooks-ui.js':'playbooks-ui.js','/settings-ui.js':'settings-ui.js','/markdown.js':'markdown.js','/theme.js':'theme.js','/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
   '/icons/icon-192.png':'icons/icon-192.png','/icons/icon-512.png':'icons/icon-512.png','/icons/maskable-512.png':'icons/maskable-512.png','/icons/apple-touch-icon.png':'icons/apple-touch-icon.png'};
 const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
 async function body(req,limit=1024*1024) {
@@ -45,6 +46,7 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
   const github=new GitHubIssues(githubOptions);
   const captureIssues=async(flow,project)=>{const snapshots=await captureIssueSteps(flow,project,github);assert(store.snapshot().flows.some(f=>f.id===flow.id&&f.version===flow.version&&f.projectID===project.id)&&store.project(project.id).version===project.version,'Flow or project changed while reading issues. Reload before running.',409);return snapshots;};
   const workflows = new Workflows(directory,codex,{captureIssues});
+  const delegations = new Delegations(directory,codex);
   const terminals = new TerminalSessions(directory,codex,{...terminalOptions,skills,connections:mcpConnections,playbooks});
   const quickActions=new QuickActions(directory,{terminals,github,project:id=>store.project(id),...quickActionOptions});
   const proposals=new IssueProposals(directory,codex,github);
@@ -100,6 +102,13 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
         assert(typeof input.enabled==='boolean','Choose whether benchmark reset is enabled.');
         const pinned=input.enabled?await pinBenchmark(p.folderPath,input.ref||'HEAD'):null;
         return json(store.setBenchmark(p.id,input.version,pinned));
+      }
+      const delegationRoute=pathname.match(/^\/api\/projects\/([\w-]+)\/delegations(?:\/(requests)\/([\w-]+)|\/([\w-]+)(\/action)?)?$/);
+      if(delegationRoute){
+        const [,projectID,request,key,runID,action]=delegationRoute,project=store.project(projectID);
+        if(request&&req.method==='GET')return json(delegations.request(projectID,key));
+        if(runID){const run=delegations.get(runID);assert(run.projectID===projectID,'Delegation not found.',404);if(req.method==='GET'&&!action)return json(run);if(req.method==='POST'&&action)return json(delegations.action(runID,await body(req)));}
+        else if(!request){if(req.method==='GET')return json(delegations.list(projectID));if(req.method==='POST'){const input=await body(req);assert(input.projectVersion===project.version,'Project changed. Reload before running.',409);return json(await delegations.start(input,project,()=>assert(store.project(project.id).version===project.version,'Project changed while preparing delegation. Reload before running.',409)),202);}}
       }
       if(req.method==='GET'&&pathname==='/api/workflows')return json(workflows.list(url.searchParams.get('projectID')));
       if(req.method==='POST'&&pathname==='/api/workflows'){
@@ -228,8 +237,8 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       throw new Problem('Not found.',404);
     } catch(e) { json({error:e instanceof Problem?e.message:'Could not save or load data. Your previous saved state is intact.'},e.status||500); if(!(e instanceof Problem)) console.error(e); }
   });
-  server.on('close',()=>{mcpConnections.shutdown();terminals.shutdown();workflows.shutdown();});
-  server.shutdownCodex=()=>{mcpConnections.shutdown();terminals.shutdown();workflows.shutdown();};
+  server.on('close',()=>{mcpConnections.shutdown();terminals.shutdown();delegations.shutdown();workflows.shutdown();});
+  server.shutdownCodex=()=>{mcpConnections.shutdown();terminals.shutdown();delegations.shutdown();workflows.shutdown();};
   return server;
 }
 if(process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
