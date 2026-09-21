@@ -681,3 +681,48 @@ delivery to the launch adapter. No real inference or GitHub write was performed.
   project route rendered the 467-node index as a bounded 180-node view with no
   page errors. At verification time, the work remained in the local checkout;
   no installed-PWA update, GitHub write, commit, push or deployment had occurred.
+
+## 2026-09-21 — Home project issue counts
+
+- Home project cards show open GitHub issue totals instead of saved workflow counts. Repository-scoped GraphQL issue totals exclude pull requests and are not limited to a list page. Reads load asynchronously with at most three concurrent requests; unavailable reads remain distinct from zero.
+- `npm test`: 94 passed. Focused issue adapter tests passed again after tightening the failure assertion. Project-count browser coverage passed for 125/1/0 counts, unavailable GitHub, project navigation and 390px overflow; PWA browser suite passed. Desktop/mobile fixture screenshots inspected.
+- Confirmed no active local sessions or workflows before restarting the existing launch service. Live Home rendered all eight GitHub counts successfully (11, 2, 34, 0, 26, 2, 0, 2 at verification); inspected `output/project-issue-counts-live.png`. No GitHub writes or model execution. Shell cache is `skd-shell-0.5.0-51`; installed PWA clients still require their explicit Update app action. Changes remain local and uncommitted.
+
+## 2026-09-21 — Project tags
+
+- Added Global settings → Project tags: create, rename and delete shared tags, and choose project assignments with checkboxes. Projects accept multiple tags. All edits remain drafts until Save settings; Cancel discards them. Home cards and project overviews display tags, Home supports filtering, and the overview has an Edit tags shortcut.
+- Definitions and assignments share one atomic, revision-checked settings write. Stable tag/project IDs preserve assignments when renamed. Old settings receive an exact pre-migration backup; old clients omitting tags preserve existing assignments. Invalid/duplicate names, missing projects, malformed data and stale writes are rejected. Projects, workflows and historical execution snapshots are unchanged.
+- Full backend suite passed 96 tests; final focused settings suite passed all 5 tests including an added corrupt/empty-file regression. Project-tags browser suite passed twice, covering many-to-many assignments, rename/delete, Cancel, duplicate/stale errors, reload, filtering, project entry point and mobile. Existing settings, projects and PWA browser suites passed. Desktop/mobile Settings and Home screenshots inspected under `output/project-tags-*.png`.
+- Confirmed all local sessions completed and workflows cancelled, then restarted the existing launch service. Live Project tags settings rendered correctly without adding fixture tags or changing user preferences; inspected `output/project-tags-live.png`. No model execution or GitHub writes. Shell version `skd-shell-0.5.0-52`; installed clients use explicit Update app. Changes remain local and uncommitted, alongside the preceding issue-count change.
+
+## 2026-09-21 — Tag colors and Home card assignment
+
+- Global Project tags now includes a color picker. Validated hex colors persist with stable tags; older tags default to terracotta and receive a settings backup on migration. Older clients omitting colors preserve existing choices. Tag labels choose black/white text by relative luminance.
+- Each Home card has a separate, keyboard-accessible ⋯ button opening that project's multi-tag picker. Save updates assignments atomically with the existing settings revision check; Cancel leaves them unchanged. Card navigation remains separate. Desktop project grids use four columns, dropping to two below 1,150px and one below 650px.
+- 98 backend tests passed; all 6 focused settings tests passed after the migration follow-up. Project-tags, issue-counts, settings and PWA Chrome suites passed. Added coverage for persisted colors, invalid colors, old-client preservation, four-column layout, keyboard picker activation, assignment/removal and Cancel. Inspected desktop Home and mobile color settings screenshots.
+- Restarted the existing local service after confirming no active sessions/workflows. Live Home measured four columns at 1,920px; opened and inspected the card tag picker without saving assignments. Evidence: `output/project-tags-colors-live-home.png` and `output/project-tags-colors-live-picker.png`. Shell cache is `skd-shell-0.5.0-53`; installed PWA clients require explicit Update app. Changes remain local and uncommitted.
+
+## 2026-09-21 — Project header icons
+
+- Replaced Edit tags and Project details text buttons with tag and sliders SVG icons, retaining accessible names, tooltips and existing actions.
+- Project-tags, projects and PWA browser suites passed. Live dark desktop/mobile rendering and both dialog actions verified, including keyboard activation. Inspected `output/project-header-icons.png`. Static assets served without restarting; shell cache `skd-shell-0.5.0-54` uses the normal explicit PWA update.
+
+## 2026-09-21 — Project overview order and tag placement
+
+- Project tags sit immediately left of the tag icon in the header. Project views now follow Scratchpad, Issues, Sessions, Workflows, Knowledge Graph, Skills, Connections, System in DOM/reading order, with four desktop columns and responsive two/one-column layouts.
+- Project-tags, projects and PWA browser suites passed. Live checks verified exact card order, two rows/four columns at 1,920px, tag placement, and no overflow at 390px. Inspected `output/project-views-ordered-desktop.png`; mobile receipt also captured. Static change needs no restart; shell cache `skd-shell-0.5.0-55`.
+
+## 2026-09-21 — Project view icons and contextual sidebar
+
+- Added eight consistent SVG icons to project overview cards and the project sidebar: Scratchpad, Issues, Sessions, Workflows, Knowledge Graph, Skills, Connections and System. Inside a project, view links replace the project list; All projects returns Home, and the project name opens its overview. Home/global pages retain the project list. Scratchpad remains visibly planned and disabled.
+- Links preserve project scope, native URL behavior, unsaved-change protection and active-view highlighting (including workflow editor/history and issue planning). Mobile uses a two-column view menu. Icons are decorative alongside accessible text labels.
+- All 98 backend tests passed. All browser scripts passed across the full run and resumed remainder. Updated obsolete project-list navigation assertions and GitHub fixtures to recognize the preceding read-only GraphQL count query (POST transport); initial Issues assertion failure was a fixture assumption, not a GitHub write. Planning fixture was similarly updated and rerun.
+- Live desktop/mobile checks verified eight sidebar/card icons, project navigation, active System, reload and no overflow; inspected `output/project-view-sidebar-live.png` and `output/project-view-sidebar-mobile.png`. No user data writes or provider inference. Static assets are active without restart; shell cache `skd-shell-0.5.0-56` requires the normal explicit PWA update. Work remains local and uncommitted.
+
+## 2026-09-21 — Project overview widgets
+
+- Added a Priority issues widget above Project views. It reads open GitHub issues, excludes pull requests, recognizes Urgent/High/Medium/Low plus P0–P3 aliases, sorts prioritized issues before unprioritized issues, and shows the six highest results with fixed accessible-color pills. Rows open the issue detail; All issues opens the project list. Loading, empty, unavailable and narrow-screen states remain explicit.
+- Added a Last session widget beside it. It identifies the newest user session, reports completion state, shows recorded errors or blocker language, and links to the full session. “None reported” is deliberately evidence-bounded. Internal issue-edit proposal runs are excluded from session lists and this widget.
+- Added a dedicated browser suite covering sort order, pill colors, pull-request exclusion, issue/session links, internal-run exclusion, completion/blocker reporting and 390px overflow. All 98 Node tests and the full 21-script Chrome suite passed; the expected fixture-unavailable errors exercise recovery paths. Inspected `output/project-widgets-desktop.png` and `output/project-widgets-mobile.png`.
+- Restarted the local service after confirming all sessions finished and workflows cancelled. Live Tiny Tasks rendered Urgent → High → Medium → Low → unprioritized using GitHub data; no user session exists, so the session widget correctly shows “No sessions yet.” Inspected `output/project-widgets-live-tiny-tasks.png`. Shell cache is `skd-shell-0.5.0-57`; installed clients require explicit Update app.
+- Seeded `shelbyklein/tiny-tasks` with priority labels and open issues #3–#6 for safe live testing. The issues cover task selection, filter controls, storage recovery, and mobile/keyboard verification at Urgent, High, Medium, and Low respectively. Existing sandbox issues #1–#2 remain unprioritized. No model execution occurred.

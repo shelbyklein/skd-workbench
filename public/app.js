@@ -1,6 +1,6 @@
 import {agentCard,requireAgentCards,primeAgentCache} from './agent-card.js';
 import {mountPlanning} from './planning-ui.js';
-import {loadSettings,openSettings,settingsButton,showInstructions,visibleModels} from './settings-ui.js';
+import {loadSettings,openSettings,projectTags,tagMarkup,openProjectTags,settingsButton,showInstructions,visibleModels} from './settings-ui.js';
 import { mountIssues } from './issues-ui.js';
 import { workflowForm, bindWorkflowForm, mountWorkflow } from './workflows-ui.js';
 import { mountCodex } from './codex-ui.js';
@@ -67,7 +67,7 @@ function breadcrumbs() {
   else if(view==='skills-global')items.push({name:'Skills'});
   else if(view==='connections-global')items.push({name:'Connections (MCP)'});
   else if(view!=='projects')items.push({name:currentProject()?.name||'Unassigned',view:'project',href:'#project/'+projectID,id:'project-home'});
-  if(!['projects','project','knowledge-global','skills-global','connections-global'].includes(view)){
+  if(!['projects','project','knowledge-global','skills-global','connections-global','invalid'].includes(view)){
     if(view==='planning'){items.push({name:'Issues',view:'issues',href:'#issues/'+projectID},{name:'Create plan'});
     }else if(view==='knowledge'){items.push({name:'Knowledge Graph'});
     }else if(view==='skills'){items.push({name:'Skills'});
@@ -95,10 +95,20 @@ function breadcrumbs() {
   }
   return `<nav class="breadcrumbs" aria-label="Breadcrumb"><ol>${items.map((item,i)=>`<li>${i===items.length-1?`<span aria-current="page">${esc(item.name)}</span>`:`<a ${item.id?`id="${item.id}"`:''} href="${esc(item.href)}" data-crumb-view="${item.view}">${esc(item.name)}</a>`}</li>`).join('')}</ol></nav>`;
 }
+const projectViews=[['scratchpad','Scratchpad'],['issues','Issues'],['codex','Sessions'],['overview','Workflows'],['knowledge','Knowledge Graph'],['skills','Skills'],['connections','Connections'],['system','System']];
+function viewIcon(key){
+ const paths={scratchpad:'<path d="M5 3h14v18H5zM8 7h8M8 11h8M8 15h5"/>',issues:'<circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 17h.01"/>',codex:'<path d="M4 4h16v13H9l-5 4zM8 8l3 3-3 3M13 14h3"/>',overview:'<rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/><path d="M9 6h9v9M6 9v9h9"/>',knowledge:'<circle cx="12" cy="4" r="2"/><circle cx="4" cy="18" r="2"/><circle cx="20" cy="18" r="2"/><path d="m11 6-6 10m8-10 6 10M6 18h12"/>',skills:'<path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z"/>',connections:'<path d="M9 3v5m6-5v5M7 8h10v3a5 5 0 0 1-10 0zM12 16v5"/>',system:'<path d="M3 7h18M3 17h18"/><circle cx="8" cy="7" r="3" fill="var(--white)"/><circle cx="16" cy="17" r="3" fill="var(--white)"/>'};
+ return `<svg class="view-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[key]}</svg>`;
+}
+function projectNavigation(){
+ const active=['flow','workflow','history','run','compare'].includes(view)?'overview':view==='planning'?'issues':view;
+ const routes={overview:'workflows',codex:'sessions'};
+ return `<a class="sidebar-all-projects" href="#home" data-crumb-view="projects">← All projects</a><button class="sidebar-project-title" data-sidebar-project="${esc(projectID)}" aria-current="${view==='project'?'page':'false'}">${esc(currentProject().name)}</button><nav class="project-list project-view-list" aria-label="Project views">${projectViews.map(([key,name])=>key==='scratchpad'?`<button class="project-link" disabled title="Scratchpad is planned">${viewIcon(key)}<span>${name}<small>Planned</small></span></button>`:`<a class="project-link ${active===key?'active':''}" href="#${routes[key]||key}/${encodeURIComponent(projectID)}" data-sidebar-view="${key}" ${active===key?'aria-current="page"':''}>${viewIcon(key)}<span>${name}</span></a>`).join('')}</nav>`;
+}
 function shell(content) {
   const home=view==='projects';
-  const projectScoped=!['projects','knowledge-global','skills-global','connections-global'].includes(view);
-  $('#app').innerHTML=`<aside class="sidebar"><a class="brand" href="/#home" aria-label="SKD Workbench home"><img src="/icon.svg" alt=""><span>SKD Workbench</span></a><div class="projects-sidebar-heading"><span class="side-label">PROJECTS</span></div><nav class="project-list" aria-label="Projects">${data.projects.filter(p=>p.id!=='unassigned').map(p=>`<button class="project-link ${projectScoped&&p.id===projectID?'active':''}" data-sidebar-project="${esc(p.id)}" ${projectScoped&&p.id===projectID?'aria-current="true"':''}><span class="project-list-icon" aria-hidden="true">▱</span><span>${esc(p.name)}</span></button>`).join('')||'<p class="side-hint">Add your first project.</p>'}</nav><div class="sidebar-project-actions"><button class="sidebar-add-project" data-add-project>+ Add project</button>${settingsButton}</div>${data.flows.some(f=>f.projectID==='unassigned')?`<a class="unassigned-link" href="#project/unassigned" data-sidebar-project="unassigned" ${projectScoped&&projectID==='unassigned'?'aria-current="true"':''}>Unassigned workflows</a>`:''}<div class="side-bottom">${isStandalone()?'':'<button id="install-app" class="install-button">↓ Install app</button>'}<span class="local-dot"></span> Local on your Mac</div></aside><main class="${view==='flow'?'flow-editor-main':''}"><header class="topbar">${breadcrumbs()}</header>${content}</main>`;
+  const projectScoped=!['projects','knowledge-global','skills-global','connections-global','invalid'].includes(view);
+  $('#app').innerHTML=`<aside class="sidebar"><a class="brand" href="/#home" aria-label="SKD Workbench home"><img src="/icon.svg" alt=""><span>SKD Workbench</span></a>${projectScoped?projectNavigation():`<div class="projects-sidebar-heading"><span class="side-label">PROJECTS</span></div><nav class="project-list" aria-label="Projects">${data.projects.filter(p=>p.id!=='unassigned').map(p=>`<button class="project-link ${projectScoped&&p.id===projectID?'active':''}" data-sidebar-project="${esc(p.id)}" ${projectScoped&&p.id===projectID?'aria-current="true"':''}><span class="project-list-icon" aria-hidden="true">▱</span><span>${esc(p.name)}</span></button>`).join('')||'<p class="side-hint">Add your first project.</p>'}</nav>`}<div class="sidebar-project-actions"><button class="sidebar-add-project" data-add-project>+ Add project</button>${settingsButton}</div>${!projectScoped&&data.flows.some(f=>f.projectID==='unassigned')?`<a class="unassigned-link" href="#project/unassigned" data-sidebar-project="unassigned" ${projectScoped&&projectID==='unassigned'?'aria-current="true"':''}>Unassigned workflows</a>`:''}<div class="side-bottom">${isStandalone()?'':'<button id="install-app" class="install-button">↓ Install app</button>'}<span class="local-dot"></span> Local on your Mac</div></aside><main class="${view==='flow'?'flow-editor-main':''}"><header class="topbar">${breadcrumbs()}</header>${content}</main>`;
   const heading=$('main > .page-heading'),topbar=$('main > .topbar');
   if(heading){
     const title=heading.firstElementChild;
@@ -121,17 +131,19 @@ function shell(content) {
 }
 function bindCommon() {
   document.querySelectorAll('[data-sidebar-project]').forEach(b=>b.onclick=e=>{e.preventDefault();confirmLeave(()=>switchProject(b.dataset.sidebarProject));});
-  document.querySelectorAll('[data-global-settings]').forEach(b=>b.onclick=()=>confirmLeave(()=>openSettings({api,modal,onSaved:()=>{render();toast('Settings saved.');}})));
+  document.querySelectorAll('[data-global-settings]').forEach(b=>b.onclick=()=>confirmLeave(()=>openSettings({api,modal,projects:data.projects,onSaved:()=>{render();toast('Settings saved.');}})));
   document.querySelectorAll('[data-add-project]').forEach(b=>b.onclick=()=>confirmLeave(()=>projectDialog()));
   $('.brand').onclick=e=>{e.preventDefault();confirmLeave(()=>{view='projects';selected=null;render();});};
   document.querySelectorAll('[data-crumb-view]').forEach(link=>link.onclick=e=>{
     if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;
     e.preventDefault();confirmLeave(()=>{const destination=link.dataset.crumbView;view=destination==='issue-detail'?'issues':destination;selected=null;if(destination!=='issue-detail')issueNumber=null;issueProposalID=null;codexRunID=null;codexPrefill='';workflowRunID=null;render();});
   });
+  document.querySelectorAll('[data-sidebar-view]').forEach(link=>link.onclick=e=>{if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;e.preventDefault();confirmLeave(()=>{view=link.dataset.sidebarView;issueNumber=null;issueProposalID=null;issueEditMode=false;codexRunID=null;codexPrefill='';workflowRunID=null;selected=null;render();});});
   document.querySelectorAll('[data-view-link]').forEach(b=>b.onclick=()=>confirmLeave(()=>{view=b.dataset.viewLink;issueNumber=null;issueProposalID=null;codexRunID=null;codexPrefill='';selected=null;render();}));
   if($('[data-global-knowledge]'))$('[data-global-knowledge]').onclick=()=>confirmLeave(()=>{view='knowledge-global';selected=null;render();});
   if($('[data-global-skills]'))$('[data-global-skills]').onclick=()=>confirmLeave(()=>{view='skills-global';selected=null;render();});
   if($('[data-global-connections]'))$('[data-global-connections]').onclick=()=>confirmLeave(()=>{view='connections-global';selected=null;render();});
+  if($('#edit-project-tags'))$('#edit-project-tags').onclick=()=>openSettings({api,modal,projects:data.projects,section:'tags',onSaved:()=>{render();toast('Tags saved.');}});
   if($('#open-workflows'))$('#open-workflows').onclick=()=>confirmLeave(()=>{workflowRunID=null;view='workflow';render();});
   if($('#open-codex'))$('#open-codex').onclick=()=>confirmLeave(()=>{codexRunID=null;codexPrefill='';view='codex';render();});
   if($('#install-app'))$('#install-app').onclick=async()=>{try{if(!await installApp())installHelp();}catch(e){toast('Installation was not completed. Try your browser’s install menu.');}};
@@ -148,14 +160,87 @@ function render() {
   if(view==='invalid')renderInvalidRoute();else if(view==='projects')renderProjects();else if(view==='knowledge-global')renderKnowledgeHome();else if(view==='knowledge')renderKnowledgeProject();else if(view==='skills-global'||view==='skills')renderSkills();else if(view==='connections-global'||view==='connections')renderConnections();else if(view==='project')renderProjectOverview();else if(view==='planning')renderPlanning();else if(view==='system')renderSystem();else if(view==='issues')renderIssues();else if(view==='overview')renderOverview();else if(view==='workflow')renderWorkflow();else if(view==='codex')renderCodex();else if(view==='flow')renderFlow(); else if(view==='run')renderRun(); else if(view==='compare')renderCompare();else renderHistory();
 }
 function renderInvalidRoute(){shell(`<section class="empty"><h1>Page unavailable</h1><p>${esc(routeError||'This project page does not exist.')}</p><button id="invalid-home">Return home</button></section>`);$('#invalid-home').onclick=()=>{view='projects';routeError='';render();};}
+let projectTagFilter='';
 function renderProjects(){
- shell(`<section class="page-heading"><div><h1>Home</h1></div><div class="heading-actions"><button class="primary" id="add-project">+ Add project</button>${settingsButton}</div></section><section class="workflow-overview global-pages"><div class="overview-section-heading"><h2>Global pages</h2></div><div class="overview-grid global-page-grid"><button class="overview-flow" data-global-knowledge><span class="eyebrow">ALL PROJECTS</span><strong>Knowledge Graph</strong><span>Browse connected Graft indexes.</span><span class="overview-flow-footer">Open Knowledge Graph <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-global-skills><span class="eyebrow">ALL PROJECTS</span><strong>Skills</strong><span>Manage instruction libraries and assignments.</span><span class="overview-flow-footer">Open Skills <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-global-connections><span class="eyebrow">ALL PROJECTS</span><strong>Connections (MCP)</strong><span>Inspect and assign provider connections.</span><span class="overview-flow-footer">Open Connections <span aria-hidden="true">↗</span></span></button></div></section><section class="workflow-overview projects-section"><div class="overview-section-heading"><h2>Projects</h2><span>${data.projects.filter(p=>p.folderPath).length} connected</span></div><div class="overview-grid">${data.projects.filter(p=>p.id!=='unassigned').map(p=>{const count=data.flows.filter(f=>f.projectID===p.id).length;return `<button class="overview-flow project-card" data-project="${p.id}"><span class="eyebrow">LOCAL PROJECT</span><strong>${esc(p.name)}</strong><span>${esc(p.folderPath||'Workflows not yet connected to a project folder.')}</span><span class="folder-repository" data-folder-repository="${p.id}"></span><span class="overview-flow-footer">${count} workflow${count===1?'':'s'} <span aria-hidden="true">↗</span></span></button>`;}).join('')}</div></section>`);
+ const tags=projectTags();if(projectTagFilter&&!tags.some(t=>t.id===projectTagFilter))projectTagFilter='';
+ shell(`<section class="page-heading"><div><h1>Home</h1></div><div class="heading-actions"><button class="primary" id="add-project">+ Add project</button>${settingsButton}</div></section><section class="workflow-overview global-pages"><div class="overview-section-heading"><h2>Global pages</h2></div><div class="overview-grid global-page-grid"><button class="overview-flow" data-global-knowledge><span class="eyebrow">ALL PROJECTS</span><strong>Knowledge Graph</strong><span>Browse connected Graft indexes.</span><span class="overview-flow-footer">Open Knowledge Graph <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-global-skills><span class="eyebrow">ALL PROJECTS</span><strong>Skills</strong><span>Manage instruction libraries and assignments.</span><span class="overview-flow-footer">Open Skills <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-global-connections><span class="eyebrow">ALL PROJECTS</span><strong>Connections (MCP)</strong><span>Inspect and assign provider connections.</span><span class="overview-flow-footer">Open Connections <span aria-hidden="true">↗</span></span></button></div></section><section class="workflow-overview projects-section"><div class="overview-section-heading"><h2>Projects</h2><label class="project-tag-filter">Tag<select id="project-tag-filter"><option value="">All projects</option>${tags.map(tag=>`<option value="${esc(tag.id)}" ${projectTagFilter===tag.id?'selected':''}>${esc(tag.name)}</option>`).join('')}</select></label><span>${data.projects.filter(p=>p.folderPath).length} connected</span></div><div class="overview-grid">${data.projects.filter(p=>p.id!=='unassigned'&&(!projectTagFilter||tags.find(t=>t.id===projectTagFilter)?.projectIDs.includes(p.id))).map(p=>{return `<div class="project-card-wrap"><button class="overview-flow project-card" data-project="${p.id}"><span class="eyebrow">LOCAL PROJECT</span><strong>${esc(p.name)}</strong><span>${esc(p.folderPath||'Workflows not yet connected to a project folder.')}</span><span class="folder-repository" data-folder-repository="${p.id}"></span><span class="project-tags">${tags.filter(t=>t.projectIDs.includes(p.id)).map(tagMarkup).join('')}</span><span class="overview-flow-footer"><span data-project-issues="${p.id}">Loading issues…</span> <span aria-hidden="true">↗</span></span></button><button type="button" class="project-card-menu" data-project-tags="${p.id}" aria-label="Edit tags for ${esc(p.name)}" aria-haspopup="dialog">⋯</button></div>`;}).join('')}</div></section>`);
  fillFolderRepositories();
+ fillProjectIssueCounts();
+ $('#project-tag-filter').onchange=e=>{projectTagFilter=e.target.value;renderProjects();$('#project-tag-filter').focus();};
+ if(!document.querySelector('[data-project]'))$('.projects-section .overview-grid').innerHTML=projectTagFilter?'<p class="overview-empty">No projects with this tag.</p>':'<p class="overview-empty">No projects. Add a project to get started.</p>';
+ document.querySelectorAll('[data-project-tags]').forEach(b=>b.onclick=()=>openProjectTags({api,modal,project:data.projects.find(p=>p.id===b.dataset.projectTags),onSaved:()=>{render();toast('Tags saved.');}}));
  document.querySelectorAll('[data-project]').forEach(b=>b.onclick=()=>confirmLeave(()=>switchProject(b.dataset.project)));
+}
+async function fillProjectIssueCounts(){
+ const nodes=[...document.querySelectorAll('[data-project-issues]')];
+ // Bound concurrent GitHub requests when many projects are connected.
+ async function worker(){
+  while(nodes.length){
+   const node=nodes.shift();if(!node.isConnected)continue;
+   try{
+    const result=await api('projects/'+encodeURIComponent(node.dataset.projectIssues)+'/issue-count');
+    if(node.isConnected)node.textContent=`${result.count} open issue${result.count===1?'':'s'}`;
+   }catch(error){if(node.isConnected){node.textContent='Issues unavailable';node.title=error.message;}}
+  }
+ }
+ await Promise.all(Array.from({length:Math.min(3,nodes.length)},worker));
+}
+const issuePriorities=[
+ {key:'urgent',label:'Urgent',rank:0,pattern:/^(?:priority\s*[:/\-]?\s*)?(?:urgent|critical|p0)$/i},
+ {key:'high',label:'High',rank:1,pattern:/^(?:priority\s*[:/\-]?\s*)?(?:high|p1)$/i},
+ {key:'medium',label:'Medium',rank:2,pattern:/^(?:priority\s*[:/\-]?\s*)?(?:medium|normal|p2)$/i},
+ {key:'low',label:'Low',rank:3,pattern:/^(?:priority\s*[:/\-]?\s*)?(?:low|p3)$/i}
+];
+function issuePriority(issue){
+ for(const label of issue.labels||[]){const match=issuePriorities.find(priority=>priority.pattern.test(label.trim()));if(match)return match;}
+ return {key:'none',label:'No priority',rank:4};
+}
+function sessionBlocker(session){
+ if(session.error)return session.error;
+ const text=[session.output,...(session.activity||[]).map(item=>item.text)].filter(Boolean).join('\n');
+ if(/\b(?:no|without)\s+(?:known\s+)?blockers?\b/i.test(text))return null;
+ const line=text.split(/\r?\n/).map(value=>value.trim()).find(value=>/\b(?:blocked|blocker|unable to complete|cannot complete)\b/i.test(value));
+ return line?line.slice(0,220):null;
+}
+function sessionStatus(session){
+ const labels={preparing:'Preparing',running:'Running',stopping:'Stopping',completed:'Completed',failed:'Failed',cancelled:'Stopped',interrupted:'Interrupted'};
+ const active=['preparing','running','stopping'].includes(session.status),finished=session.status==='completed',blocker=sessionBlocker(session);
+ return {active,finished,blocker,label:labels[session.status]||session.status};
+}
+function openProjectIssue(number){issueNumber=number;issueProposalID=null;issueEditMode=false;view='issues';render();}
+function openProjectSession(id){codexRunID=id;codexPrefill='';view='codex';render();}
+async function loadPriorityIssues(project){
+ const host=$('#priority-issues-list'),meta=$('#priority-issues-meta');
+ try{
+  const result=await api('projects/'+encodeURIComponent(project.id)+'/issues?state=open&page=1');if(!host?.isConnected)return;
+  const sorted=result.issues.map((issue,index)=>({issue,index,priority:issuePriority(issue)})).sort((a,b)=>a.priority.rank-b.priority.rank||a.index-b.index),shown=sorted.slice(0,6);
+  meta.textContent=result.issues.length+(result.hasMore?'+':'')+` open issue${result.issues.length===1?'':'s'}`;
+  $('#priority-issues-note').textContent=sorted.length>shown.length?`Showing ${shown.length} highest priority`:'Highest priority first';
+  host.innerHTML=shown.length?shown.map(({issue,priority})=>`<li><button type="button" class="priority-issue-row" data-priority-issue="${issue.number}"><span class="priority-pill priority-${priority.key}">${priority.label}</span><span class="priority-issue-copy"><strong>${esc(issue.title)}</strong><small>#${issue.number}</small></span><span aria-hidden="true">↗</span></button></li>`).join(''):'<li class="widget-empty">No open issues.</li>';
+  host.querySelectorAll('[data-priority-issue]').forEach(button=>button.onclick=()=>openProjectIssue(Number(button.dataset.priorityIssue)));
+ }catch(error){if(host?.isConnected){meta.textContent='Unavailable';host.innerHTML=`<li class="widget-empty">${esc(error.message)}</li>`;}}
+}
+async function loadLastSession(project){
+ const host=$('#last-session-report');
+ try{
+  const sessions=await api('sessions?projectID='+encodeURIComponent(project.id));if(!host?.isConnected)return;
+  const session=[...sessions].sort((a,b)=>b.createdAt.localeCompare(a.createdAt))[0];
+  if(!session){host.innerHTML='<p class="widget-empty">No sessions yet.</p><button type="button" id="start-project-session">Start a session</button>';$('#start-project-session').onclick=()=>openProjectSession(null);return;}
+  const status=sessionStatus(session),blockers=status.blocker?esc(status.blocker):status.active?'Not reported yet':'None reported';
+  host.innerHTML=`<div class="session-report-heading"><span class="session-state session-state-${esc(session.status)}">${esc(status.label)}</span><span>${esc(session.agent==='claude'?'Claude':'Codex')} · ${esc(session.model)}</span></div><strong class="session-report-task">${esc(session.task||'Interactive session')}</strong><dl class="session-report-facts"><div><dt>Finished</dt><dd>${status.finished?'Yes':status.active?'No · still running':'No · '+esc(status.label.toLowerCase())}</dd></div><div><dt>Blockers</dt><dd class="${status.blocker?'has-blocker':''}">${blockers}</dd></div></dl><div class="widget-footer"><span>${esc(new Date(session.createdAt).toLocaleString())}</span><button type="button" id="open-last-session">Open session <span aria-hidden="true">↗</span></button></div>`;
+  $('#open-last-session').onclick=()=>openProjectSession(session.id);
+ }catch(error){if(host?.isConnected)host.innerHTML=`<p class="widget-empty">${esc(error.message)}</p>`;}
+}
+function mountProjectWidgets(project){
+ const views=$('.project-views')?.closest('.workflow-overview');if(!views)return;
+ views.insertAdjacentHTML('beforebegin',`<section class="project-dashboard" aria-label="Project overview widgets"><article class="project-widget priority-issues-widget"><header><div><span class="eyebrow">GITHUB</span><h2>Priority issues</h2></div><span id="priority-issues-meta">Loading…</span></header><ol id="priority-issues-list" class="priority-issue-list" aria-live="polite"><li class="widget-empty">Loading issues…</li></ol><div class="widget-footer"><span id="priority-issues-note">Highest priority first</span><button type="button" id="open-all-issues">All issues <span aria-hidden="true">↗</span></button></div></article><article class="project-widget session-report-widget"><header><div><span class="eyebrow">SESSION REPORT</span><h2>Last session</h2></div></header><div id="last-session-report" aria-live="polite"><p class="widget-empty">Loading session…</p></div></article></section>`);
+ $('#open-all-issues').onclick=()=>{issueNumber=null;issueProposalID=null;issueEditMode=false;view='issues';render();};
+ loadPriorityIssues(project);loadLastSession(project);
 }
 function renderProjectOverview(){
  const project=currentProject();
- shell(`<section class="page-heading" data-project-overview><div><div class="eyebrow">PROJECT OVERVIEW</div><h1>${esc(project.name)}</h1></div><button id="project-details">Project details</button></section><section class="workflow-overview"><div class="overview-section-heading"><h2>Project views</h2></div><div class="overview-grid project-views"><button class="overview-flow" data-view-link="overview"><span class="eyebrow">${scopedFlows().length} SAVED WORKFLOW${scopedFlows().length===1?'':'S'}</span><strong>Workflows</strong><span class="overview-flow-footer">Open Workflows <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="codex"><span class="eyebrow">SINGLE AGENT</span><strong>Sessions</strong><span class="overview-flow-footer">Open Sessions <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="issues"><span class="eyebrow">GITHUB</span><strong>Issues</strong><span>Read issues and review agent edit proposals.</span><span class="overview-flow-footer">Open Issues <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="knowledge"><span class="eyebrow">GRAFT</span><strong>Knowledge Graph</strong><span>Browse the connected project index.</span><span class="overview-flow-footer">Open Knowledge Graph <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="skills"><span class="eyebrow">INSTRUCTIONS</span><strong>Skills</strong><span>Manage project assignments and available skill files.</span><span class="overview-flow-footer">Open Skills <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="connections"><span class="eyebrow">TOOLS</span><strong>Connections (MCP)</strong><span>Inspect provider configuration and project policy.</span><span class="overview-flow-footer">Open Connections <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="system"><strong>System</strong><span>Project settings and agent instructions</span></button>${[['Scratchpad','Keep notes and early ideas for this project.']].map(([name,description])=>`<article class="overview-flow planned-view" aria-label="${name} — planned"><span class="eyebrow">PLANNED</span><h3>${name}</h3><p>${description}</p><span class="overview-flow-footer">Not available yet</span></article>`).join('')}</div></section>`);
+ shell(`<section class="page-heading" data-project-overview><div><div class="eyebrow">PROJECT OVERVIEW</div><h1>${esc(project.name)}</h1></div><div class="heading-actions"><div class="project-tags">${projectTags().filter(t=>t.projectIDs.includes(project.id)).map(tagMarkup).join('')}</div><button type="button" id="edit-project-tags" class="refresh-button" aria-label="Edit tags" title="Edit tags"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13 13 20a2 2 0 0 1-2.8 0L3 12.8V3h9.8l7.2 7.2a2 2 0 0 1 0 2.8Z"/><circle cx="7.5" cy="7.5" r="1.2"/></svg></button><button type="button" id="project-details" class="refresh-button" aria-label="Project details" title="Project details"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="var(--white)"/><circle cx="15" cy="17" r="3" fill="var(--white)"/></svg></button></div></section><section class="workflow-overview"><div class="overview-section-heading"><h2>Project views</h2></div><div class="overview-grid project-views">${[['Scratchpad','Keep notes and early ideas for this project.']].map(([name,description])=>`<article class="overview-flow planned-view" aria-label="${name} — planned">${viewIcon('scratchpad')}<span class="eyebrow">PLANNED</span><h3>${name}</h3><p>${description}</p><span class="overview-flow-footer">Not available yet</span></article>`).join('')}<button class="overview-flow" data-view-link="issues">${viewIcon('issues')}<span class="eyebrow">GITHUB</span><strong>Issues</strong><span>Read issues and review agent edit proposals.</span><span class="overview-flow-footer">Open Issues <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="codex">${viewIcon('codex')}<span class="eyebrow">SINGLE AGENT</span><strong>Sessions</strong><span class="overview-flow-footer">Open Sessions <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="overview">${viewIcon('overview')}<span class="eyebrow">${scopedFlows().length} SAVED WORKFLOW${scopedFlows().length===1?'':'S'}</span><strong>Workflows</strong><span class="overview-flow-footer">Open Workflows <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="knowledge">${viewIcon('knowledge')}<span class="eyebrow">GRAFT</span><strong>Knowledge Graph</strong><span>Browse the connected project index.</span><span class="overview-flow-footer">Open Knowledge Graph <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="skills">${viewIcon('skills')}<span class="eyebrow">INSTRUCTIONS</span><strong>Skills</strong><span>Manage project assignments and available skill files.</span><span class="overview-flow-footer">Open Skills <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="connections">${viewIcon('connections')}<span class="eyebrow">TOOLS</span><strong>Connections (MCP)</strong><span>Inspect provider configuration and project policy.</span><span class="overview-flow-footer">Open Connections <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-view-link="system">${viewIcon('system')}<strong>System</strong><span>Project settings and agent instructions</span></button></div></section>`);
+ mountProjectWidgets(project);
 }
 
 function renderKnowledgeHome(){

@@ -1,5 +1,20 @@
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let settings={version:1,accents:{light:'#bf502f',dark:'#ed9777'},hiddenModels:[]};
+export const projectTags=()=>settings.projectTags||[];
+export function tagMarkup(tag){
+ const color=/^#[0-9a-f]{6}$/i.test(tag.color||'')?tag.color:'#bf502f';
+ const rgb=[1,3,5].map(i=>parseInt(color.slice(i,i+2),16)/255).map(c=>c<=.04045?c/12.92:((c+.055)/1.055)**2.4);
+ const luminance=.2126*rgb[0]+.7152*rgb[1]+.0722*rgb[2];
+ return `<span class="project-tag" style="background:${color};color:${luminance>.179?'#000000':'#ffffff'}">${esc(tag.name)}</span>`;
+}
+export async function openProjectTags({api,modal,project,onSaved}){
+ let draft;try{draft=structuredClone(await loadSettings(api));}catch(e){modal('Project tags','<p>'+esc(e.message)+'</p>',[{label:'Close',close:true}]);return;}
+ modal('Tags · '+project.name,`<div class="tag-project-list">${draft.projectTags.map(tag=>`<label><input type="checkbox" name="tag" value="${esc(tag.id)}" ${tag.projectIDs.includes(project.id)?'checked':''}>${tagMarkup(tag)}</label>`).join('')||'<p>No tags. Create tags in Global settings → Project tags.</p>'}</div>`,[{label:'Cancel',close:true},{label:'Save tags',submit:true,primary:true}],async form=>{
+  const selected=new Set(form.getAll('tag'));
+  draft.projectTags=draft.projectTags.map(tag=>({...tag,projectIDs:[...tag.projectIDs.filter(id=>id!==project.id),...(selected.has(tag.id)?[project.id]:[])]}));
+  settings=await api('settings','PUT',draft);onSaved();
+ });
+}
 export function visibleModels(models,agent,selected){
  return models.filter(m=>m.id===selected||!m.legacyAlias&&!settings.hiddenModels.includes(agent+':'+m.id));
 }
@@ -14,16 +29,17 @@ export async function showInstructions(host,api,route){
   host.innerHTML='<p class="field-help">'+esc(result.note)+'</p>'+ (result.files.map(file=>'<details class="instruction-file"><summary>'+esc(file.name)+'</summary><pre>'+esc(file.content??file.error)+'</pre></details>').join('')||'<p>No instruction files found.</p>');
  }catch(e){if(host.isConnected)host.textContent=e.message;}
 }
-export async function openSettings({api,modal,onSaved}){
+export async function openSettings({api,modal,onSaved,projects=[],section='appearance'}){
  let draft;
  try{draft=structuredClone(await loadSettings(api));}catch(e){modal('Global settings','<p>'+esc(e.message)+'</p>',[{label:'Close',close:true}]);return;}
- const groups=[['Preferences',[['appearance','Appearance']]],['Models',[['codex','Codex'],['claude','Claude']]],['Repository guidance',[['rules','Repository rules'],['references','Reference documents']]]];
+ const groups=[['Preferences',[['appearance','Appearance'],['tags','Project tags']]],['Models',[['codex','Codex'],['claude','Claude']]],['Repository guidance',[['rules','Repository rules'],['references','Reference documents']]]];
  const guidance=(id,title,help)=>`<section data-settings-panel="${id}" hidden><div class="settings-section-heading"><h3>${title}</h3><span class="settings-readonly">Read only</span></div><p class="field-help">${help}</p><div id="settings-${id}" class="settings-documents">Loading documents…</div></section>`;
  modal('Global settings',`<section class="global-settings">
   <nav class="settings-menu" aria-label="Settings sections">${groups.map(([label,items])=>`<div class="settings-menu-group"><p>${label}</p>${items.map(([id,name])=>`<button type="button" data-settings-section="${id}" aria-controls="settings-panel-${id}" ${id==='appearance'?'aria-current="page"':''}>${name}</button>`).join('')}</div>`).join('')}</nav>
   <label class="settings-mobile-menu">Settings section<select id="settings-section" aria-label="Settings section">${groups.map(([label,items])=>`<optgroup label="${label}">${items.map(([id,name])=>`<option value="${id}">${name}</option>`).join('')}</optgroup>`).join('')}</select></label>
   <div class="settings-content" tabindex="0" role="region" aria-label="Settings content">
    <section data-settings-panel="appearance"><h3>Appearance</h3><p class="field-help">Accent colors apply across all projects.</p><h4>Accent colors</h4><div class="accent-settings"><label>Light mode<input type="color" name="light" value="${draft.accents.light}"></label><label>Dark mode<input type="color" name="dark" value="${draft.accents.dark}"></label></div></section>
+   <section data-settings-panel="tags" hidden><h3>Project tags</h3><p class="field-help">Projects can have multiple tags. Deleting a tag removes it from all projects when you save.</p><div id="settings-tags"></div><button type="button" id="add-project-tag">Add tag</button></section>
    ${['codex','claude'].map(agent=>`<section data-settings-panel="${agent}" hidden><h3>${agent==='codex'?'Codex':'Claude'} models</h3><p class="field-help">Choose which models appear in selectors. Saved model selections remain available.</p><div id="settings-models-${agent}" class="settings-models">Loading models…</div></section>`).join('')}
    ${guidance('rules','Repository rules',"Guidance for developing Workbench. Each project's own files are available in its System page. Agent loading rules determine which files apply; viewing them here does not activate them.")}
    ${guidance('references','Reference documents','Feature plans and historical notes for Workbench. Repository rules may direct agents to consult relevant documents; a plan alone does not authorize new work.')}
@@ -41,6 +57,22 @@ export async function openSettings({api,modal,onSaved}){
  };
  root.querySelectorAll('[data-settings-section]').forEach(button=>button.onclick=()=>activate(button.dataset.settingsSection));
  select.onchange=()=>activate(select.value);
+ activate(section);
+ draft.projectTags??=[];
+ const tagHost=root.querySelector('#settings-tags');
+ const renderTags=()=>{
+  tagHost.innerHTML=draft.projectTags.map((tag,index)=>`<fieldset class="tag-editor" data-tag-id="${esc(tag.id)}"><legend>Tag ${index+1}</legend><div class="tag-editor-heading"><label>Tag name<input data-tag-name maxlength="50" value="${esc(tag.name)}" aria-label="Tag ${index+1} name"></label><label class="tag-color-label">Color<input type="color" data-tag-color aria-label="Tag ${index+1} color" value="${esc(tag.color||'#bf502f')}"></label><button type="button" data-delete-tag aria-label="Delete tag ${index+1}">Delete</button></div><details><summary>Projects (${tag.projectIDs.length})</summary><div class="tag-project-list">${projects.filter(p=>p.id!=='unassigned').map(p=>`<label><input type="checkbox" data-tag-project="${esc(p.id)}" ${tag.projectIDs.includes(p.id)?'checked':''}>${esc(p.name)}</label>`).join('')||'<p>No projects. Add a project from Home.</p>'}</div></details></fieldset>`).join('')||'<p class="field-help">No tags. Add a tag to categorize projects.</p>';
+  tagHost.querySelectorAll('[data-tag-id]').forEach(row=>{
+   const tag=draft.projectTags.find(t=>t.id===row.dataset.tagId);
+   row.querySelector('[data-tag-name]').oninput=e=>tag.name=e.target.value;
+   row.querySelector('[data-tag-color]').oninput=e=>tag.color=e.target.value;
+   row.querySelector('[data-delete-tag]').onclick=()=>{const index=draft.projectTags.indexOf(tag);draft.projectTags.splice(index,1);renderTags();(tagHost.querySelectorAll('[data-tag-name]')[Math.min(index,draft.projectTags.length-1)]||root.querySelector('#add-project-tag')).focus();};
+   row.querySelectorAll('[data-tag-project]').forEach(input=>input.onchange=()=>{tag.projectIDs=[...row.querySelectorAll('[data-tag-project]:checked')].map(el=>el.dataset.tagProject);row.querySelector('summary').textContent=`Projects (${tag.projectIDs.length})`;});
+  });
+  root.querySelector('#add-project-tag').disabled=draft.projectTags.length>=100;
+ };
+ root.querySelector('#add-project-tag').onclick=()=>{draft.projectTags.push({id:crypto.randomUUID(),name:'',color:'#bf502f',projectIDs:[]});renderTags();tagHost.querySelectorAll('[data-tag-name]')[draft.projectTags.length-1].focus();};
+ renderTags();
  loadGuidance(root,api);
  const results=await Promise.allSettled(['codex','claude'].map(agent=>api('terminal-agents/'+agent)));
  if(!root.isConnected)return;

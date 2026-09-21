@@ -70,3 +70,12 @@ test('gh adapter uses explicit HTTP methods and stdin JSON, preserving literal i
  await assert.rejects(new GitHubIssues({binary:path.join(root,'missing')}).request('repos/owner/repo/issues'),/CLI is missing/);
  writeFileSync(binary,'#!/usr/bin/env node\nconsole.error("HTTP 401 authentication required");process.exit(1);',{mode:0o755});await assert.rejects(gh.request('repos/owner/repo/issues'),/sign-in/);
 });
+test('project issue totals use the open issue connection and reject unavailable counts',async()=>{
+ let response={data:{repository:{issues:{totalCount:125}}}};
+ const github=new GitHubIssues({inspect:async()=>({git:{remotes:[{name:'origin',webURL:'https://github.com/owner/repo'}]}}),request:async(endpoint,method,payload)=>{
+  assert.equal(endpoint,'graphql');assert.equal(method,'POST');assert.match(payload.query,/issues\(states:OPEN\)\{totalCount\}/);assert.deepEqual(payload.variables,{owner:'owner',name:'repo'});return response;
+ }});
+ assert.equal((await github.count({folderPath:'/fixture'})).count,125);
+ response={data:{repository:{issues:{totalCount:0}}}};assert.equal((await github.count({folderPath:'/fixture'})).count,0);
+ for(const invalid of [{data:{repository:null}},{errors:[{message:'denied'}]}, {data:{repository:{issues:{totalCount:-1}}}}]){response=invalid;await assert.rejects(github.count({folderPath:'/fixture'}),/unavailable/);}
+});

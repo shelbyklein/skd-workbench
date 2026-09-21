@@ -53,7 +53,7 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       assert(!origin || origin===`http://${host}`,'Cross-origin requests are not allowed.',403);
       const url=new URL(req.url,`http://${host}`), pathname=url.pathname;
       if(pathname==='/api/settings'&&req.method==='GET')return json(globalSettings.data);
-      if(pathname==='/api/settings'&&req.method==='PUT')return json(globalSettings.save(await body(req)));
+      if(pathname==='/api/settings'&&req.method==='PUT')return json(globalSettings.save(await body(req),store.snapshot().projects));
       if(pathname==='/api/instructions'&&req.method==='GET')return json(await instructionFiles(root));
       const projectInstructions=pathname.match(/^\/api\/projects\/([\w-]+)\/instructions$/);
       if(projectInstructions&&req.method==='GET')return json(await instructionFiles(store.project(projectInstructions[1]).folderPath));
@@ -108,7 +108,7 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       if(req.method==='GET'&&['/api/codex/provider','/api/agents/codex'].includes(pathname)){
         try{return json(await codex.discover());}catch(e){return json({available:false,error:e.code==='ENOENT'?'Codex CLI not found. Install it and sign in with codex login.':e.message},503);}
       }
-      if(req.method==='GET'&&['/api/codex/runs','/api/sessions'].includes(pathname))return json([...codex.list(url.searchParams.get('projectID')).filter(r=>!r.workflowID),...(pathname==='/api/sessions'?terminals.list(url.searchParams.get('projectID')):[])]);
+      if(req.method==='GET'&&['/api/codex/runs','/api/sessions'].includes(pathname))return json([...codex.list(url.searchParams.get('projectID')).filter(r=>!r.workflowID&&!r.purpose),...(pathname==='/api/sessions'?terminals.list(url.searchParams.get('projectID')):[])]);
       if(req.method==='POST'&&['/api/codex/runs','/api/sessions'].includes(pathname)){
         const input=await body(req),project=store.project(input.projectID);
         return json(await codex.start(input,project),202);
@@ -116,6 +116,8 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       const codexRun=pathname.match(/^\/api\/(?:codex\/runs|sessions)\/([\w-]+)(\/stop)?$/);
       if(codexRun&&req.method==='GET'&&!codexRun[2])return json(terminals.has(codexRun[1])?terminals.get(codexRun[1]):codex.get(codexRun[1]));
       if(codexRun&&req.method==='POST'&&codexRun[2]){await body(req);return json(codex.stop(codexRun[1]));}
+      const issueCount=pathname.match(/^\/api\/projects\/([\w-]+)\/issue-count$/);
+      if(issueCount&&req.method==='GET')return json(await github.count(store.project(issueCount[1])));
       const issues=pathname.match(/^\/api\/projects\/([\w-]+)\/issues(?:\/(\d+))?(\/proposals)?$/);
       if(issues){const project=store.project(issues[1]);
         if(req.method==='GET'&&issues[3])return json(proposals.list(project,issues[2]));
