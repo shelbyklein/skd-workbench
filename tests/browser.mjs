@@ -59,7 +59,7 @@ try {
  assert.equal(await page.locator('.compare-card').getByText('Not measured',{exact:true}).count(),4);
  await page.screenshot({path:'output/compare-desktop.png',fullPage:true});
  await page.reload();await page.getByRole('heading',{name:'Compare flows',exact:true}).waitFor();
- const different=await (await fetch(url+'/api/runs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({flowID:snapshot.flows[0].id,flowVersion:1,task:'A different task',acceptance:'Different checks'})})).json();
+ const different=await (await fetch(url+'/api/runs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({flowID:snapshot.flows[0].id,flowVersion:snapshot.flows[0].version,task:'A different task',acceptance:'Different checks'})})).json();
  await page.goto(url+'/#compare/'+snapshot.runs[0].id+','+different.id);
  await page.reload();
  assert.match(await page.locator('.comparison-notice').first().textContent(),/Different tasks/);

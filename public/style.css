@@ -25,3 +25,5 @@
 @media(max-width:900px){.workflow-layout{grid-template-columns:1fr}.workflow-summary{flex-direction:column}.workflow-layout .step-list{padding-right:20px}.workflow-layout .codex-card{padding:18px}}
 
 .benchmark-notice{border-left:3px solid var(--accent,#c9653c);background:var(--surface,#f7f4ed);padding:14px 18px;margin:16px 0;overflow-wrap:anywhere}.benchmark-notice p{margin:6px 0}.benchmark-notice a{color:inherit;text-decoration:underline}
+
+.run-task-summary{padding:0 42px 18px;margin:0 auto;max-width:1500px;font-size:12px;overflow-wrap:anywhere}#dialog .dialog-actions{position:sticky;bottom:-24px;background:var(--white);padding:14px 0;margin-bottom:0;border-top:1px solid var(--line);z-index:1}@media(max-width:650px){.run-task-summary{padding:0 20px 18px}}

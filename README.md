@@ -62,7 +62,7 @@ Execution uses `codex exec --json`, explicit sandbox/approval settings, `--ephem
 
 ## Execute a saved workflow
 
-Move the flow into a connected project, then open it and choose **Run with Codex**. The launch form asks for task/acceptance checks, read-only or shared-worktree mode, actual Codex model/effort for each agent, and a maximum total agent-attempt count. Use the optional all-agents model selector to deliberately assign one model to every agent. Saved labels such as Fable or Opus are not silently mapped to another provider; the original flow and explicit execution choices are both retained.
+Move the flow into a connected project and use **Run settings** to save its task, acceptance checks, workspace mode, agent model/effort and attempt limit. **Run with Codex** then starts immediately; **Try flow** starts the no-model walkthrough with the same saved task. Missing task or unsupported model settings open a setup form. Tiny Tasks is preconfigured, with task/acceptance shared across its benchmark workflows. Use the optional all-agents model selector to deliberately assign one model to every agent. Labels such as Fable or Opus are not silently mapped to another provider. Saving an explicit Codex model updates the corresponding agent step; previous run snapshots stay unchanged.
 
 Agents run sequentially. Each receives the task, acceptance checks, current step instructions, prior outputs and review notes. Inspect **Exact step input** to see the handoff. Coding agents all use one isolated worktree, including after requested revisions. All agents in coding mode have workspace-write permission; choose read-only for planning-only experiments. No automatic merge occurs.
 

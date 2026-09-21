@@ -52,7 +52,8 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       if(req.method==='GET'&&pathname==='/api/workflows')return json(workflows.list(url.searchParams.get('projectID')));
       if(req.method==='POST'&&pathname==='/api/workflows'){
         const input=await body(req),flow=store.snapshot().flows.find(f=>f.id===input.flowID);assert(flow,'Flow not found.',404);
-        return json(await workflows.start(input,flow,store.project(flow.projectID)),202);
+        const project=store.project(flow.projectID);if(input.projectVersion!==undefined)assert(project.version===input.projectVersion,'Project changed. Reload before running.',409);
+        return json(await workflows.start(input,flow,project),202);
       }
       const workflow=pathname.match(/^\/api\/workflows\/([\w-]+)(\/action)?$/);
       if(workflow&&req.method==='GET'&&!workflow[2])return json(workflows.get(workflow[1]));
@@ -86,6 +87,8 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
         catch(e){if(!(e instanceof Problem))throw e;return json({projectID:project.id,projectVersion:project.version,available:false,folderPath:project.folderPath,git:null,message:e.message});}
       }
       if(req.method==='POST' && pathname==='/api/flows') return json(store.createFlow(await body(req)),201);
+      const settings=pathname.match(/^\/api\/flows\/([\w-]+)\/settings$/);
+      if(settings&&req.method==='PUT')return json(store.saveRunSettings(settings[1],await body(req)));
       const flow=pathname.match(/^\/api\/flows\/([\w-]+)$/);
       if(flow && req.method==='PUT') return json(store.updateFlow(flow[1],await body(req)));
       if(flow && req.method==='DELETE') return json(store.deleteFlow(flow[1],(await body(req)).version));
@@ -93,6 +96,7 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
         const input=await body(req),flow=store.snapshot().flows.find(f=>f.id===input.flowID);
         assert(flow,'Flow not found.',404);
         const project=store.project(flow.projectID);
+        if(input.projectVersion!==undefined)assert(project.version===input.projectVersion,'Project changed. Reload before running.',409);
         const context=project.folderPath?await inspectFolder(project.folderPath):null;
         return json(store.createRun(input,context,project.version),201);
       }

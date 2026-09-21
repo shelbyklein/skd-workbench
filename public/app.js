@@ -76,14 +76,15 @@ function render() {
 function renderFlow() {
   if(!draft) { shell('<section class="empty"><h1>A good experiment<br>starts with a flow.</h1><p>Create a few steps and see how they fit together.</p><button class="primary" id="first-flow">Create a flow</button></section>');$('#first-flow').onclick=newFlow;return; }
   const agents=draft.steps.filter(s=>s.type==='agent').length;
-  shell(`<section class="page-heading"><div><div class="eyebrow">MAKE IT YOUR OWN</div><h1 id="flow-title">${esc(draft.name)}</h1><p>${draft.steps.length} steps <span class="middot">·</span> ${agents} agent${agents===1?'':'s'} <span class="middot">·</span> v${draft.version}</p></div><div class="heading-actions"><button data-action="duplicate">Duplicate</button><button id="move-flow">Move</button><button id="save" ${dirty?'':'disabled'}>Save flow</button><button class="primary" id="execute-flow" ${draft.steps.some(s=>s.type==='agent')?'':'disabled'}>Run with Codex</button><button id="run-flow" ${draft.steps.length?'':'disabled'}>▷ Try flow</button></div></section><div class="editor-layout ${selected?'has-inspector':''}"><section class="canvas" aria-label="Flow steps"><div class="canvas-top"><span>YOUR FLOW</span><button class="text-button" id="rename">Rename</button></div><div class="step-list">${draft.steps.map((s,i)=>`<div class="step-wrap"><span class="step-number">${String(i+1).padStart(2,'0')}</span><button class="step-card ${s.type} ${selected===s.id?'selected':''}" data-step="${s.id}" aria-pressed="${selected===s.id}"><span class="step-icon">${symbol[s.type]}</span><span class="step-copy"><strong>${esc(s.name)}</strong><span>${s.type==='agent'?esc(s.model)+' <span class="middot">·</span> '+esc(s.effort)+' effort':s.type==='human'?'You decide when to continue':'A place to verify the result'}</span></span><span class="step-more">↗</span></button>${s.type==='human'&&s.maxRetries?`<span class="loop-note">↶ Up to ${s.maxRetries} change requests</span>`:''}</div>`).join('')||'<div class="empty-flow"><span>＋</span><h2>What happens first?</h2><p>Add an agent, your review, or a check.</p></div>'}<button id="add-step" class="add-step">+ Add a step</button></div><footer class="canvas-footer"><span id="saved-note">${dirty?'Unsaved changes':'Saved on this Mac'}</span><span>Connected in order ↓</span></footer></section>${selected?'<aside class="inspector" id="inspector" aria-label="Step settings"></aside>':`<aside class="quiet-note"><span class="note-symbol">↗</span><h2>A little structure.<br>Room to explore.</h2><p>Select a step to choose its model and give it instructions.</p><div class="note-rule"></div><p>Try flow previews the handoffs. Run with Codex executes this flow with real models and review gates.</p><button class="text-button danger" id="delete-flow">Delete flow</button></aside>`}</div>`);
+  shell(`<section class="page-heading"><div><div class="eyebrow">MAKE IT YOUR OWN</div><h1 id="flow-title">${esc(draft.name)}</h1><p>${draft.steps.length} steps <span class="middot">·</span> ${agents} agent${agents===1?'':'s'} <span class="middot">·</span> v${draft.version}</p></div><div class="heading-actions"><button data-action="duplicate">Duplicate</button><button id="move-flow">Move</button><button id="save" ${dirty?'':'disabled'}>Save flow</button><button id="run-settings">Run settings</button><button class="primary" id="execute-flow" ${draft.steps.some(s=>s.type==='agent')?'':'disabled'}>Run with Codex</button><button id="run-flow" ${draft.steps.length?'':'disabled'}>▷ Try flow</button></div></section><p class="run-task-summary"><strong>${currentProject()?.benchmark?'Benchmark task':'Saved task'}:</strong> ${esc(runSettings().task?runSettings().task.slice(0,180)+(runSettings().task.length>180?'…':''):'Set a task once in Run settings.')}</p><div class="editor-layout ${selected?'has-inspector':''}"><section class="canvas" aria-label="Flow steps"><div class="canvas-top"><span>YOUR FLOW</span><button class="text-button" id="rename">Rename</button></div><div class="step-list">${draft.steps.map((s,i)=>`<div class="step-wrap"><span class="step-number">${String(i+1).padStart(2,'0')}</span><button class="step-card ${s.type} ${selected===s.id?'selected':''}" data-step="${s.id}" aria-pressed="${selected===s.id}"><span class="step-icon">${symbol[s.type]}</span><span class="step-copy"><strong>${esc(s.name)}</strong><span>${s.type==='agent'?esc(s.model)+' <span class="middot">·</span> '+esc(s.effort)+' effort':s.type==='human'?'You decide when to continue':'A place to verify the result'}</span></span><span class="step-more">↗</span></button>${s.type==='human'&&s.maxRetries?`<span class="loop-note">↶ Up to ${s.maxRetries} change requests</span>`:''}</div>`).join('')||'<div class="empty-flow"><span>＋</span><h2>What happens first?</h2><p>Add an agent, your review, or a check.</p></div>'}<button id="add-step" class="add-step">+ Add a step</button></div><footer class="canvas-footer"><span id="saved-note">${dirty?'Unsaved changes':'Saved on this Mac'}</span><span>Connected in order ↓</span></footer></section>${selected?'<aside class="inspector" id="inspector" aria-label="Step settings"></aside>':`<aside class="quiet-note"><span class="note-symbol">↗</span><h2>A little structure.<br>Room to explore.</h2><p>Select a step to choose its model and give it instructions.</p><div class="note-rule"></div><p>Try flow previews the handoffs. Run with Codex executes this flow with real models and review gates.</p><button class="text-button danger" id="delete-flow">Delete flow</button></aside>`}</div>`);
   $('[data-action="duplicate"]').onclick=duplicateFlow;
   $('#move-flow').onclick=moveFlow;
   $('#save').onclick=()=>saveFlow().catch(e=>toast(e.message));
   $('#rename').onclick=()=>modal('Name your flow',`<label>Flow name<input name="name" value="${esc(draft.name)}" maxlength="100" required autofocus></label>`,[{label:'Cancel',close:true},{label:'Rename',submit:true,primary:true}],async f=>{draft.name=f.get('name').trim();if(!draft.name)throw Error('Give the flow a name.');markDirty();renderFlow();});
   $('#add-step').onclick=addStep;
-  $('#execute-flow').onclick=workflowStartDialog;
-  $('#run-flow').onclick=()=>startDialog();
+  $('#execute-flow').onclick=()=>launchConfigured('codex');
+  $('#run-settings').onclick=()=>workflowStartDialog(false);
+  $('#run-flow').onclick=()=>launchConfigured('simulation');
   document.querySelectorAll('[data-step]').forEach(b=>b.onclick=()=>{selected=b.dataset.step;renderFlow();$('#step-name').focus({preventScroll:true});});
   if(selected)renderInspector();
   if($('#delete-flow'))$('#delete-flow').onclick=()=>modal('Delete this flow?','<p>Saved runs will keep their original flow. This removes the editable flow.</p>',[{label:'Keep flow',close:true},{label:'Delete flow',run:async()=>{try{await api('flows/'+draft.id,'DELETE',{version:draft.version});await reload();draft=scopedFlows()[0]?clone(scopedFlows()[0]):null;dirty=false;render();}catch(e){toast(e.message);}}}]);
@@ -132,7 +133,8 @@ function duplicateFlow() {
 function startDialog(task='',acceptance='') {
   modal('Try this flow',`<div class="simulation-note">Simulation only · no model calls or charges</div><label>Task<textarea name="task" aria-label="Task" rows="4" maxlength="12000" required autofocus placeholder="What do you want this flow to work on?">${esc(task)}</textarea></label><label>Acceptance checks<textarea name="acceptance" aria-label="Acceptance checks" rows="3" maxlength="12000" placeholder="How would you know the work is done?">${esc(acceptance)}</textarea></label><p class="field-help">Walk through the handoffs and review gates. Step outputs are placeholders; tokens and cost remain unknown.${dirty?' Your changes will be saved before starting.':''}</p>`,[{label:'Cancel',close:true},{label:'Start simulation',submit:true,primary:true}],async form=>{
     if(dirty)await saveFlow();
-    const r=await api('runs','POST',{flowID:draft.id,flowVersion:draft.version,task:form.get('task'),acceptance:form.get('acceptance')});
+    await saveRunSettings({...runSettings(),task:form.get('task'),acceptance:form.get('acceptance')});
+    const r=await api('runs','POST',{flowID:draft.id,flowVersion:draft.version,projectVersion:currentProject().version,task:form.get('task'),acceptance:form.get('acceptance')});
     await reload();openRun(r.id);
   });
 }
@@ -300,15 +302,45 @@ function renderCodex(){
  codexView=mountCodex({host:$('#codex-view'),project:currentProject(),runID:codexRunID,api,onOpen:open,onNew:newRun,notify:toast,prefill:codexPrefill});
 }
 
-async function workflowStartDialog(){
+function runSettings(){
+ const saved=draft.runSettings||{},p=currentProject();
+ return {task:'',acceptance:'',mode:'read-only',maxAttempts:20,...saved,...(p?.benchmark&&p.benchmarkTask?p.benchmarkTask:{}),...(p?.benchmark?{mode:'worktree'}:{})};
+}
+async function saveRunSettings(settings,config){
+ const result=await api('flows/'+draft.id+'/settings','PUT',{version:draft.version,projectVersion:currentProject().version,settings,config});
+ await reload();draft=clone(result.flow);dirty=false;
+}
+async function launchConfigured(kind){
+ if(busy)return;busy=true;
+ const button=$(kind==='codex'?'#execute-flow':'#run-flow');if(button){button.disabled=true;button.textContent='Starting…';}
  try{
-  if(!currentProject()?.folderPath){toast('Move this flow into a project with a connected folder first.');return;}
   if(dirty)await saveFlow();
-  const flow=clone(draft),provider=await api('codex/provider');let readConfig;
-  modal('Run flow with Codex',workflowForm(flow,provider,currentProject()),[{label:'Cancel',close:true},{label:'Start real workflow',primary:true,submit:true}],async form=>{
-   busy=true;try{const run=await api('workflows','POST',{flowID:flow.id,flowVersion:flow.version,task:form.get('task'),acceptance:form.get('acceptance'),mode:form.get('mode'),maxAttempts:Number(form.get('maxAttempts')),config:readConfig()});workflowRunID=run.id;view='workflow';render();}finally{busy=false;}
+  const settings=runSettings();
+  if(!settings.task.trim()){
+   if(kind==='codex')await workflowStartDialog(true);else startDialog(settings.task,settings.acceptance);
+   return;
+  }
+  if(kind==='codex'){
+   if(!currentProject()?.folderPath){toast('Move this flow into a project with a connected folder first.');return;}
+   const config=Object.fromEntries(draft.steps.filter(s=>s.type==='agent').map(s=>[s.id,{model:s.model,effort:s.effort}]));
+   const run=await api('workflows','POST',{flowID:draft.id,flowVersion:draft.version,projectVersion:currentProject().version,...settings,config});workflowRunID=run.id;view='workflow';render();
+  }else{
+   const run=await api('runs','POST',{flowID:draft.id,flowVersion:draft.version,projectVersion:currentProject().version,task:settings.task,acceptance:settings.acceptance});await reload();runID=run.id;selected=null;view='run';render();
+  }
+ }catch(e){toast(e.message);if(kind==='codex'&&/supported Codex model/.test(e.message))await workflowStartDialog(true);}
+ finally{busy=false;if(view==='flow'){const codex=$('#execute-flow'),sim=$('#run-flow');if(codex){codex.disabled=!draft.steps.some(s=>s.type==='agent');codex.textContent='Run with Codex';}if(sim){sim.disabled=!draft.steps.length;sim.textContent='▷ Try flow';}}}
+}
+async function workflowStartDialog(startAfterSave=false){
+ try{
+  if(dirty)await saveFlow();
+  const flow=clone(draft),provider=await api('codex/provider').catch(()=>({models:[],unavailable:true})),settings=runSettings();let readConfig;
+  modal(startAfterSave?'Run flow with Codex':'Run settings',(provider.unavailable?'<p class="form-error">Codex is unavailable. You can save task settings; existing model choices will be kept.</p>':'')+workflowForm(flow,provider,currentProject()),[{label:'Cancel',close:true},{label:startAfterSave?'Start real workflow':'Save run settings',primary:true,submit:true}],async form=>{
+   await saveRunSettings({task:form.get('task'),acceptance:form.get('acceptance'),mode:form.get('mode'),maxAttempts:Number(form.get('maxAttempts'))},provider.unavailable?undefined:readConfig());
+   if(startAfterSave){await launchConfigured('codex');}else{render();toast('Run settings saved. Run buttons now start directly.');}
   });
+  const form=$('#dialog-form');form.elements.task.value=settings.task;form.elements.acceptance.value=settings.acceptance;form.elements.mode.value=settings.mode;form.elements.maxAttempts.value=settings.maxAttempts;
   readConfig=bindWorkflowForm($('#dialog'),flow,provider);
+  if(provider.unavailable)$('#dialog').querySelectorAll('[data-workflow-model],[data-workflow-effort],#workflow-all-model').forEach(el=>{el.disabled=true;el.required=false;});
  }catch(e){toast(e.message);}
 }
 function renderWorkflow(){

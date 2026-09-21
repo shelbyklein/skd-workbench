@@ -1,3 +1,14 @@
+# Direct-launch fix — 2026-09-20
+
+- Configured Run with Codex / Try flow start directly. Separate Run settings persists task/acceptance/workspace/limits and agent model/effort; missing settings retain a setup fallback. Tiny Tasks task and acceptance are shared across workflows and populated from its pinned README. No agent steps were altered during activation.
+- `npm test`: 44/44 passed. All eight browser suites passed. Added direct real/simulation launch, shared task, saved settings after reload, double-click guard and atomic/stale settings coverage. Browser execution fixtures use a fake provider.
+- Activated the local service and PWA cache `skd-shell-0.5.0-4`. Visually inspected desktop/mobile fixture screens and installed `output/direct-launch-live-final.png`. Installed settings are prefilled. Earlier histories and unrelated projects/flows preserved.
+- **Verification exception:** a live browser interception attempt was bypassed by the PWA service worker, starting actual Codex run `e60e0eb2-82bd-4f90-8d7c-17ff7b86783b` at 01:00:18 UTC. It was stopped at 01:00:42 UTC as soon as detected. The earlier progress statement that no real run started was corrected to the user. Usage was not reported; zero cost is not claimed. This is an interrupted verification attempt, not a valid comparison result.
+- Confirmed that run is cancelled, files/evidence archived, temporary worktree and branch removed, and original Tiny Tasks checkout clean at `711d5bb`. The stopped run remains in history. Receipt: `output/direct-launch-accidental-run.json`. Final installed inspection blocked service workers and did not click either launch button.
+- Local TT plan `local:B59B121D-BEBD-4481-AAB2-7F3B2830C807`, todo `SKD-LAUNCH-01`. Functional checks passed; the planned no-real-run verification boundary was breached and is explicitly recorded above.
+
+---
+
 # Resettable benchmark delivery — 2026-09-20
 
 - Implemented and locally activated opt-in pinned baselines, archive-before-reset, per-attempt files/evidence, command output capture, review retention, download links and PWA cache update `skd-shell-0.5.0-3`.
