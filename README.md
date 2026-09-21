@@ -33,7 +33,7 @@ When a new version is available, **Update app** reloads it after you save edits 
 
 Routes are `/#home`, `/#project/<project-id>` and `/#workflows/<project-id>`. The old `/#projects` alias and existing flow, run and history URLs still work.
 
-Sessions are provider-neutral: choose Codex or Claude when starting one. The current executor supports one message and result; multi-turn continuation is still to come. Session URLs use `/#sessions/<project-id>`, with old `/#codex/…` links preserved.
+Sessions are provider-neutral: choose Codex or Claude when starting one. Start session opens the interactive CLI in a right-side terminal column for back-and-forth conversation. Session URLs use `/#sessions/<project-id>`, with old `/#codex/…` links preserved.
 
 ## Projects, folders and Git
 
@@ -135,12 +135,26 @@ Manual real-provider checks (consume account usage): `node scripts/smoke-codex.m
 
 Manual real multi-step check (consumes account usage): `node scripts/smoke-workflow.mjs`. Uses a fixture Git project, verifies no second call before review, output handoff and shared-worktree code creation, records real usage and preserves the source checkout.
 
-## Claude sessions
+## Legacy Claude executions
 
-Choose **Sessions → Agent → Claude**. Install Claude Code and run `claude auth login` in Terminal first. Reload Sessions after signing in. Workbench checks the installed CLI and login, then offers Sonnet, Opus, Fable and Haiku aliases with low/medium/high effort. Alias access is confirmed only by execution; the resolved model is retained when reported. `SKD_CLAUDE_BIN` can override the executable path.
+The legacy non-interactive Claude executor remains available through the API and earlier results remain readable. It requires Claude Code and `claude auth login`. Workbench checks the installed CLI and login, then offers Sonnet, Opus, Fable and Haiku aliases with low/medium/high effort. Alias access is confirmed only by execution; the resolved model is retained when reported. `SKD_CLAUDE_BIN` can override the executable path.
 
 Claude shares the Sessions history, execution lock, cancellation, timeout, isolated worktrees and benchmark reset with Codex. Existing histories and Codex URLs remain valid. The session API is `/api/sessions`, with discovery under `/api/agents/codex` and `/api/agents/claude`; old Codex API aliases remain compatible.
 
-This first Claude adapter supports file inspection and isolated file edits. It requires a CLI supporting restricted and safe modes, disables customization/MCP/delegation, and does not expose shell tools. Automated commands/tests are unavailable in Claude sessions. Permission denials are shown with the result. Claude workflows and conversational follow-up messages are not implemented yet.
+The legacy non-interactive Claude adapter supports file inspection and isolated file edits. It requires a CLI supporting restricted and safe modes, disables customization/MCP/delegation, and does not expose shell tools. Automated commands/tests are unavailable in that legacy execution mode. Permission denials are shown with the result. Claude workflows are not implemented; interactive conversation is provided by the new terminal Sessions view.
 
 Input usage includes uncached input plus cache reads and cache creation; cache reads are shown separately without adding them twice. Missing usage stays unknown. Claude's reported cost is labeled as an estimate, not the actual charge. See the [official programmatic CLI documentation](https://code.claude.com/docs/en/headless).
+
+## Interactive session terminal
+
+Select the agent and model pills, set the discrete effort slider, and choose the workspace. **Start session** opens the real CLI in a column sliding in from the right. There is no required message and no prompt is sent automatically. Respond directly to the CLI, including its sign-in, trust and permission prompts. Claude can open while signed out. Codex model discovery currently requires a signed-in Codex CLI.
+
+**Hide** closes the panel while leaving the process running. **Show terminal** or reopening the same session reconnects to that process; page reload does not start another CLI. **End session** terminates it. On phones the panel uses the full viewport. A server restart interrupts sessions without relaunching them; you can inspect the retained output and worktree afterward. Only one session or workflow owns the executor at a time.
+
+A worktree is a separate working copy: one per entire session, including all messages. The normal worktree and branch remain after exit for you to review and merge manually. Read-only mode inspects the original folder; Codex uses its read-only sandbox, while Claude exposes only reading/search tools. Worktree mode keeps the native CLI permission prompts, and does not bypass permissions. Claude starts in safe mode without customizations; Codex uses its native trust flow.
+
+For benchmark projects, the warning appears at the top. **Reset after each run** means after the whole terminal session ends: archive files, then clear the worktree. Hiding the panel and individual messages do not reset it. Interrupted sessions retain their worktree. Failed archive/identity checks retain files visibly. Normal sessions never merge or delete their worktree automatically.
+
+The terminal retains the most recent 1 MiB of terminal characters locally for reconnection, not a complete structured agent transcript. Native CLI usage/cost is not imported into Workbench totals yet; previous structured execution records remain available. API endpoints are `/api/terminal-agents/:agent` and `/api/terminal-sessions/:id` with output/input/resize/stop operations. The API only launches server-selected agent binaries and validates input/size. Transport stays localhost-only with existing origin protection; input is never queued offline or retried automatically.
+
+Run `npm install` after updating: xterm.js renders the terminal and node-pty provides its PTY. The postinstall script sets the executable bit on node-pty's packaged Unix helper. Dependencies are served locally and cached in the PWA; no CDN is used. Terminal rendering requires inline styles; script policy remains self-only. See [node-pty](https://github.com/microsoft/node-pty), [xterm.js](https://xtermjs.org/docs/api/terminal/classes/terminal/), and [Codex CLI reference](https://developers.openai.com/codex/cli/reference).

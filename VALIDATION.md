@@ -1,3 +1,17 @@
+# Interactive terminal Sessions — 2026-09-20
+
+- Session creation now uses accessible agent/model radio pills and a model-dependent discrete effort slider. Reset warning is at the top; plain-language worktree help explains one copy for the whole conversation and manual review/merge. Start session launches the selected interactive CLI without requiring or automatically sending a prompt.
+- Added node-pty-backed sessions and a locally bundled xterm.js right column. Hide keeps the process alive; Show/reload reconnects without respawning; End terminates it. Normal worktrees persist. Benchmarks archive and clear only after the CLI exits; restart marks interrupted and retains files. Shared executor ownership prevents workflows/sessions overlapping. Output is a bounded local terminal tail; structured token/cost import remains unavailable for interactive sessions.
+- `npm test`: 55/55 passed. Five new PTY/HTTP tests cover input/output/resize, repeated reads, shared locks, retained normal worktree/source isolation, benchmark files archived before deletion, stop/restart, validation and cross-origin rejection. A shutdown callback race found in the full suite was fixed; all 55 then passed.
+- All eleven Chrome browser suites passed across the validation run and necessary reruns. Legacy Codex/Claude structured results remain inspectable. New terminal coverage exercises matching model pills, keyboard effort slider, top warning, prompt-free launch, actual PTY keyboard input across messages, hide/reopen/reload, provider errors, stop and mobile. PWA test checks all 16 cached assets. Added a terminal CSP-console assertion after fixing blocked generated styles.
+- Inspected desktop/mobile controls and terminal screenshots. Both installed Codex and Claude CLIs reached their native startup/trust screen in an isolated temporary project using the actual app UI. No user prompt was submitted, no trust prompt accepted, and both processes were stopped. This verifies CLI startup/terminal rendering, not inference. Screenshots: `output/codex-terminal-installed.png`, `output/claude-terminal-installed.png`; receipt `output/installed-terminal-receipt.json`.
+- Restarted the live localhost service only after verifying no unfinished executions. Actual desktop/mobile controls and provider switching verified; `output/terminal-live-receipt.json` records zero live mutations, zero terminal sessions created, and exact preservation of prior state/history. Screenshots: `output/session-controls-live.png`, `output/session-controls-mobile-live.png`. PWA cache is skd-shell-0.5.0-9.
+- Fixed the existing archive identity check to recognize the owned Claude branch prefix as well as Codex. Normal terminal worktrees use the established owned branch convention. No automatic merge or history migration.
+- Dependencies served locally; postinstall repairs node-pty helper executable mode on Unix. xterm generated styles require inline styles; scripts remain self-only. No external deployment or push.
+- TT local:EB00F1FC-6E68-4892-A7F5-3358C4F3DB3B / SKD-TERM-01 and SKD-TERM-02.
+
+---
+
 # Claude Sessions — 2026-09-20
 
 - Added Claude to the shared Sessions agent selector and executor. Native CLI stream output, session/resolved-model identity, usage including cache creation/read, estimated cost, errors and permission denials are retained. Existing Codex records default to Codex; shared lock, worktrees, cancellation, archive/reset and history storage remain in use. Neutral session APIs coexist with legacy aliases.
