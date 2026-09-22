@@ -1,4 +1,4 @@
-const CACHE='skd-shell-0.5.0-93';
+const CACHE='skd-shell-0.5.0-94';
 const ASSETS=['/connection-editor.js','/agent-profile-picker.js','/issue-actions-ui.js','/delegations-ui.js','/quick-actions-ui.js','/session-import-ui.js','/lifecycle-operations-ui.js','/lifecycle-ui.js','/workspace-tasks-ui.js','/git-status-ui.js','/agent-card.js','/planning-ui.js','/knowledge-ui.js','/skills-ui.js','/connections-ui.js','/playbooks-ui.js','/settings-ui.js','/markdown.js','/theme.js','/','/app.js','/issues-ui.js','/terminal-ui.js','/vendor/xterm.js','/vendor/xterm.css','/vendor/fit.js','/vendor/cytoscape.js','/vendor/marked.js','/vendor/dompurify.js','/codex-ui.js','/workflows-ui.js','/pwa.js','/style.css','/icon.svg','/manifest.webmanifest','/icons/icon-192.png','/icons/icon-512.png','/icons/maskable-512.png','/icons/apple-touch-icon.png'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS.map(url=>new Request(url,{cache:'reload'}))))));
 self.addEventListener('activate',event=>event.waitUntil((async()=>{
