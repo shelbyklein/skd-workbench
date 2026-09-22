@@ -1187,3 +1187,46 @@ Local activation: `2a440ab` fast-forwarded into clean main and the idle service 
   all 22 existing JSON hashes remained identical. No controller was enabled.
   Backup: `output/mcp-activation-1790108234`; screenshot: `output/controllers-live.png`.
   Remote main was not pushed. Cached clients should use **Update app**.
+
+## Issue #13: Daily briefing — 2026-09-22
+
+Branch `codex/daily-briefing`; plan `instructions/2026-09-22-daily-briefing.md`;
+TT plan `local:F5660300-649C-4650-8AC3-2C96C0328BB9`, DB-01 through DB-07.
+
+- Evidence collector (`lib/briefings.js`) covers Workbench sessions, terminal and
+  imported sessions, workflows, delegations, Git commits on the project folder's HEAD,
+  and current open issues. Calendar days follow an IANA timezone (23/25-hour DST days
+  tested). Workflow/delegation children and `issue-proposal`/`daily-briefing` runs are
+  excluded. Each source reports complete, partial or unavailable.
+- Reports are versioned in `.data/briefings.json`. A damaged file returns 500 on
+  briefing routes and is not replaced. Concurrent generates share one job. Failed
+  revisions keep the last successful one visible.
+- Synthesis uses a new `daily-briefing` run purpose with the same tool-free limits as
+  issue proposals (no shell, web, MCP, skills or GitHub tokens) in a private
+  `briefing-drafts` folder. Output must be strict JSON citing packet source IDs, with
+  at most three suggestions. Runs queue behind user execution; restart marks queued
+  or generating reports interrupted and never relaunches them.
+- Daily schedule is off by default. When enabled it records the day's batch before
+  starting, generates only yesterday's briefings, never replays missed days, and runs
+  only while the server is up.
+- `npm test`: **376 Node tests passed**. New suites: `briefings`, `briefings-api`,
+  `briefings-synthesis`, `briefings-schedule` (fixture provider, injected clocks).
+- Browser: **36 of 38 scripts passed** in a sequential full run after one fix. The
+  first run showed that Home's new `data-project` attribute collided with project-card
+  selectors in `overview-browser` and `issues-browser`; renamed to
+  `data-briefing-project`, and both passed on rerun, as did `project-tags-browser`.
+  `terminal-stream-browser` (2 of 2 runs) and `workspace-terminal-browser`
+  (1 of 2 runs) also fail on unchanged `main`; they are pre-existing and were not
+  changed. `quick-actions-browser` passes but logs a cleanup ENOENT that also occurs
+  on `main`. PWA cached asset count updated 40 → 41; cache `skd-shell-0.5.0-98`.
+- Inspected screenshots: `output/briefing-project-ready.png`, `-failed.png`,
+  `briefing-home.png`, `briefing-project-mobile.png`, `briefing-home-mobile.png`,
+  `briefing-schedule.png`.
+- Live check on a temporary data directory (port 4399) with this repository as the
+  project: **Collect facts** gathered 39 real commits from 2026-09-21 and 11 open
+  GitHub issues, with every source complete and no page errors
+  (`output/briefing-live-facts.png`). That check led to capping fact lists at eight
+  with **Show more** and naming each source. No real-provider synthesis was run:
+  agent output quality is unverified and each Generate uses provider usage.
+- Not activated: the live server on port 4390 was not restarted, and nothing was merged
+  or pushed.
