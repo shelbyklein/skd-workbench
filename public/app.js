@@ -4,6 +4,7 @@ import {mountDelegation} from './delegations-ui.js';
 import {openSessionImport} from './session-import-ui.js';
 import {mountQuickActions} from './quick-actions-ui.js';
 import {mountGitStatus} from './git-status-ui.js';
+import {mountProjectBriefing,mountHomeBriefings} from './briefing-ui.js';
 import {agentCard,requireAgentCards,primeAgentCache} from './agent-card.js';
 import {mountPlanning} from './planning-ui.js';
 import {loadSettings,openSettings,projectTags,tagMarkup,openProjectTags,settingsButton,showInstructions,visibleModels} from './settings-ui.js';
@@ -26,7 +27,7 @@ let knowledgeView=null;
 let skillsView=null,connectionsView=null,playbooksView=null;
 let workflowView=null,workflowRunID=null;
 let delegationView=null,delegationRunID=null;
-let quickActionsView=null,gitStatusView=null,lifecycleView=null;
+let quickActionsView=null,gitStatusView=null,lifecycleView=null,briefingView=null;
 let codexView=null,codexRunID=null,codexPrefill='';
 let projectID='unassigned';
 const connections=new Map();
@@ -180,6 +181,7 @@ function bindCommon() {
 function render() {
   lifecycleView?.dispose();lifecycleView=null;
   gitStatusView?.dispose();gitStatusView=null;
+  briefingView?.dispose();briefingView=null;
   quickActionsView=null;
   delegationView?.dispose();delegationView=null;connectionsView?.dispose();connectionsView=null;skillsView?.dispose();skillsView=null;playbooksView?.dispose();playbooksView=null;knowledgeView?.dispose();knowledgeView=null;planningView?.dispose();planningView=null;issuesView?.dispose();issuesView=null;codexView?.dispose();codexView=null;workflowView?.dispose();workflowView=null;
   const nextHash='#'+routePath();if(location.hash!==nextHash)history.pushState(null,'',nextHash);lastRenderedHash=nextHash;
@@ -193,6 +195,8 @@ function renderProjects(){
  const visibleProjects=data.projects.filter(project=>project.id!=='unassigned'&&(!projectTagFilters.size||tags.some(tag=>projectTagFilters.has(tag.id)&&tag.projectIDs.includes(project.id))));
  const gridIcon='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3.5" y="3.5" width="6.5" height="6.5" rx="1"/><rect x="14" y="3.5" width="6.5" height="6.5" rx="1"/><rect x="3.5" y="14" width="6.5" height="6.5" rx="1"/><rect x="14" y="14" width="6.5" height="6.5" rx="1"/></svg>',listIcon='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="4.5" cy="6" r=".8" fill="currentColor"/><circle cx="4.5" cy="12" r=".8" fill="currentColor"/><circle cx="4.5" cy="18" r=".8" fill="currentColor"/><path d="M8 6h12M8 12h12M8 18h12"/></svg>';
  shell(`<section class="page-heading"><div><h1>Home</h1></div><div class="heading-actions"><button class="primary" id="add-project">+ Add project</button>${settingsButton}</div></section><section class="workflow-overview global-pages"><div class="overview-section-heading"><h2>Global pages</h2></div><div class="overview-grid global-page-grid"><button class="overview-flow" data-global-workflows><span class="eyebrow">ALL PROJECTS</span><strong>Workflows</strong><span>Browse saved workflows across projects.</span><span class="overview-flow-footer">Open Workflows <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-global-knowledge><span class="eyebrow">ALL PROJECTS</span><strong>Knowledge Graph</strong><span>Browse connected Graft indexes.</span><span class="overview-flow-footer">Open Knowledge Graph <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-global-skills><span class="eyebrow">ALL PROJECTS</span><strong>Skills</strong><span>Manage instruction libraries and assignments.</span><span class="overview-flow-footer">Open Skills <span aria-hidden="true">↗</span></span></button><button class="overview-flow" data-global-connections><span class="eyebrow">ALL PROJECTS</span><strong>Connections (MCP)</strong><span>Inspect and assign provider connections.</span><span class="overview-flow-footer">Open Connections <span aria-hidden="true">↗</span></span></button></div></section><section class="workflow-overview projects-section"><div class="overview-section-heading projects-toolbar"><div class="projects-title"><h2>Projects</h2><span>${data.projects.filter(p=>p.folderPath).length} connected</span></div><div class="project-tag-filters" aria-label="Filter projects by tag">${tags.map(tag=>`<button type="button" class="project-tag-filter-pill" data-project-tag-filter="${esc(tag.id)}" aria-label="Filter by ${esc(tag.name)}" aria-pressed="${projectTagFilters.has(tag.id)}">${tagMarkup(tag)}</button>`).join('')}</div><div class="project-layout-toggle" role="group" aria-label="Project layout"><button type="button" data-project-layout="grid" aria-label="Grid view" aria-pressed="${projectLayout==='grid'}" title="Grid view">${gridIcon}</button><button type="button" data-project-layout="list" aria-label="List view" aria-pressed="${projectLayout==='list'}" title="List view">${listIcon}</button></div></div><div class="overview-grid project-${projectLayout}-view" data-project-layout="${projectLayout}">${visibleProjects.map(p=>{return `<div class="project-card-wrap"><button class="overview-flow project-card" data-project="${p.id}"><span class="eyebrow">LOCAL PROJECT</span><strong>${esc(p.name)}</strong><span>${esc(p.folderPath||'Workflows not yet connected to a project folder.')}</span><span class="folder-repository" data-folder-repository="${p.id}"></span><span class="project-tags">${tags.filter(t=>t.projectIDs.includes(p.id)).map(tagMarkup).join('')}</span><span class="overview-flow-footer"><span data-project-issues="${p.id}">Loading issues…</span> <span aria-hidden="true">↗</span></span></button><button type="button" class="project-card-menu" data-project-tags="${p.id}" aria-label="Edit tags for ${esc(p.name)}" aria-haspopup="dialog">⋯</button></div>`;}).join('')}</div></section>`);
+ $('.global-pages').insertAdjacentHTML('beforebegin','<section class="workflow-overview briefing-home-section" id="home-briefings" aria-label="Daily briefing"></section>');
+ mountHomeBriefings($('#home-briefings'),{projects:data.projects.filter(p=>p.id!=='unassigned'),api,onProject:id=>confirmLeave(()=>switchProject(id))});
  $('.global-page-grid').insertAdjacentHTML('beforeend','<button class="overview-flow" data-global-playbooks><span class="eyebrow">ALL PROJECTS</span><strong>Agents</strong><span>Save specialized prompts, skills and connections.</span><span class="overview-flow-footer">Open Agents <span aria-hidden="true">↗</span></span></button>');
  $('[data-global-playbooks]').onclick=()=>confirmLeave(()=>{view='playbooks-global';selected=null;render();});
  fillFolderRepositories();
@@ -273,6 +277,7 @@ function mountProjectWidgets(project){
  const gitWidget=document.createElement('article');gitWidget.className='project-widget git-status-widget';dashboard.prepend(gitWidget);
  gitStatusView=mountGitStatus(gitWidget,project,api,{onLifecycle:id=>{if(projectID===project.id)lifecycleView?.openRecord(id);},onSession:id=>{if(projectID!==project.id)return;openProjectSession(id);}});
  const lifecycleHost=document.createElement('article');lifecycleHost.className='project-widget';dashboard.append(lifecycleHost);lifecycleView=mountLifecycle(lifecycleHost,{project,api,onSession:openProjectSession,onContinue:id=>{if(projectID===project.id)gitStatusView?.openTask(id);}});
+ const briefingHost=document.createElement('article');briefingHost.className='project-widget';dashboard.prepend(briefingHost);briefingView=mountProjectBriefing(briefingHost,{project,api,onSession:id=>{if(projectID===project.id)openProjectSession(id);},onIssue:number=>{if(projectID===project.id)openProjectIssue(number);}});
  const quickHost=document.createElement('section');dashboard.prepend(quickHost);quickActionsView=mountQuickActions(quickHost,{project,api,confirmLeave,onOpen:openProjectSession});
  loadPriorityIssues(project);loadLastSession(project);
 }

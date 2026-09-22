@@ -33,7 +33,7 @@ test('HTTP briefing goes from absent to an evidence-only revision without infere
  assert.equal(made.latest.evidence.coverage.issues.status,'unavailable');
  assert.equal((await(await f.request('/api/sessions?projectID='+f.project.id)).json()).length,0);
  const home=await(await f.request('/api/briefings')).json();
- assert.equal(home.find(r=>r.projectID===f.project.id).report.revision,1);
+ const row=home.find(r=>r.projectID===f.project.id);assert.equal(row.briefing.latest.revision,1);assert.equal(row.briefing.date,'2026-09-21');
 });
 
 test('HTTP regenerate adds a revision; invalid input keeps the prior revision',async t=>{
