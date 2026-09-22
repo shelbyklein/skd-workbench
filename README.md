@@ -406,3 +406,7 @@ Global and project **Connections → Add MCP server** saves a Workbench-owned lo
 **Check tool catalog** explicitly starts/connects to the server and performs initialization and tool listing only. Saving and refreshing never launch a server. HTTP checks support JSON/SSE responses, reject redirects, and provide cancellation. Authentication accepts a bearer-token environment-variable name; stdio accepts environment-variable names. These must be available to the Workbench service, which may not inherit your terminal environment. OAuth, arbitrary headers and a credential vault are not implemented. Checks prove catalog access, not account identity or successful tool execution.
 
 Workflows, read-only sessions and issue proposals remain MCP-free. Existing Agent/run previews display that exclusion. Managed definitions are stored in connections schema 2 with a schema-1 backup on upgrade; inventory/history remain redacted.
+
+### Workspace terminal
+
+The terminal icon at the far right of each page header opens macOS Terminal in the folder running SKD Workbench. It opens a plain shell, independent of Agent sessions and the currently selected project. The server selects the folder; the request cannot supply commands or another path. Opening errors appear in the app, and pending clicks are disabled. This action is macOS-only.

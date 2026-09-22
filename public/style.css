@@ -396,3 +396,5 @@ body.terminal-open .issue-detail-layout{grid-template-columns:minmax(0,1fr)}
 
 .mcp-editor{width:min(640px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;border:1px solid var(--line);border-radius:16px;padding:24px;background:var(--white);color:var(--ink)}.mcp-editor::backdrop{background:#0008}.mcp-editor form{display:grid;gap:18px}.mcp-editor label{display:grid;gap:8px}.mcp-editor fieldset label{display:flex;align-items:center}.mcp-editor section:not([hidden]){display:grid;gap:16px}.mcp-editor input,.mcp-editor textarea,.mcp-editor select{max-width:100%;box-sizing:border-box}.mcp-editor footer{display:flex;justify-content:flex-end;gap:12px}.mcp-editor h2{margin:0}.mcp-editor p{overflow-wrap:anywhere}
 .mcp-editor label{margin:0}.mcp-editor fieldset{display:flex;flex-wrap:wrap;gap:18px;padding:12px;border:1px solid var(--line);border-radius:8px}.mcp-editor fieldset label{gap:8px}.mcp-editor input[type=checkbox]{width:auto;margin:0;flex:none}
+
+.header-terminal{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;padding:8px;flex:none;margin-left:auto}.header-terminal svg{display:block}
