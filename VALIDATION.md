@@ -996,3 +996,26 @@ delivery to the launch adapter. No real inference or GitHub write was performed.
   headers, including keyboard workflow expansion and desktop/mobile checks.
   Inspected the dark desktop rendering. Fixture providers only; no user workflow
   or real inference was run. Shell cache is `0.5.0-82`.
+
+## Agents replacement phase — 2026-09-22
+
+Issue #5 now includes the Agents specialization plan in
+`instructions/2026-09-22-agents-specialization-library.md`.
+The canonical Playbooks store migrates to schema 2 with unique schema-1 backups;
+legacy APIs and routes remain aliases, and historical execution files are not
+rewritten. New session snapshots use `agentContext.agentProfile`.
+
+Implemented global/project Agents, specialization prompt editing, independent
+project copies, defaults, Provider labeling, native prompt delivery, reviewed
+launch configuration for issue work/quick actions/continuation, and safe Save as
+Agent. Workflow/delegation specialization remains explicitly unsupported.
+
+Pre-integration evidence: full Node suite 315/315; eight profile tests include
+actual HTTP-to-fixture-CLI launches for both provider adapters, stale instruction
+rejection, migration failure/restart, mixed-client compatibility and MCP
+exclusions. Subsequently expanded consumer coverage passes 29/29 tests for issue
+work, quick actions and workspace continuation. Resource and session-save browser
+checks pass; inspected dark desktop and light 390px mobile Agents screenshots.
+All executions use disposable stores and fixture providers. No real model
+inference or user-saved workflows ran. Integration and running-app verification
+are recorded below when complete.

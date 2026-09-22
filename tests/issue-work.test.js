@@ -67,19 +67,19 @@ test('saved CLI prompt reaches the launch and rejected edits preserve it',async 
 });
 test('directed solo launch freezes context and a request key launches once',async t=>{
  const f=setup(t),source=await f.work.source(f.project,7);await f.work.saveSettings(f.project,7,{action:'save',sourceHash:source.sourceHash,settings});
- const input={requestKey:'launch-12345678',sourceHash:source.sourceHash,instruction:'Keep the public API stable.'},first=await f.work.startSolo(f.project,7,input),second=await f.work.startSolo(f.project,7,input);
+ const input={agentProfile:{mode:'selected',agentProfileID:'reviewer',expectedSignature:'reviewed'},requestKey:'launch-12345678',sourceHash:source.sourceHash,instruction:'Keep the public API stable.'},first=await f.work.startSolo(f.project,7,input),second=await f.work.startSolo(f.project,7,input);
  assert.equal(first.id,second.id);assert.equal(f.state.starts.length,1);assert.match(f.state.starts[0].input.initialPrompt,/owner\/repo#7/);assert.match(f.state.starts[0].input.initialPrompt,/Keep the public API stable/);assert.equal(f.state.starts[0].input.model,'gpt-5.6-sol');
  await assert.rejects(f.work.startSolo(f.project,7,{...input,instruction:'Different'}),/already used/);
- f.state.issue.title='Changed after launch';assert.equal(f.work.getRun(first.id,f.project).source.title,'Build it');
+ assert.deepEqual(f.state.starts[0].input.agentProfile,input.agentProfile);await assert.rejects(f.work.startSolo(f.project,7,{...input,agentProfile:{mode:'legacy'}}),/already used/);f.state.issue.title='Changed after launch';assert.equal(f.work.getRun(first.id,f.project).source.title,'Build it');
 });
 
 test('planning launches once with planning-only instructions even when orchestration is enabled',async t=>{
  const f=setup(t),source=await f.work.source(f.project,7);
  await f.work.saveSettings(f.project,7,{action:'save',sourceHash:source.sourceHash,prompt:'Focus on accessibility.',settings:{...settings,orchestration:true},orchestrationConfig:{orchestrator:settings,worker:settings}});
- const input={requestKey:'create-plan-once',sourceHash:source.sourceHash};
+ const input={agentProfile:{mode:'selected',agentProfileID:'planner',expectedSignature:'reviewed'},requestKey:'create-plan-once',sourceHash:source.sourceHash};
  const first=await f.work.startPlanning(f.project,7,input),second=await f.work.startPlanning(f.project,7,input);
  assert.equal(first.id,second.id);assert.equal(f.state.starts.length,1);
- assert.equal(first.kind,'planning');assert.equal(f.state.starts[0].input.mode,'worktree');
+ assert.deepEqual(f.state.starts[0].input.agentProfile,input.agentProfile);await assert.rejects(f.work.startPlanning(f.project,7,{...input,agentProfile:{mode:'legacy'}}),/already used/);assert.equal(first.kind,'planning');assert.equal(f.state.starts[0].input.mode,'worktree');
  assert.match(f.state.starts[0].input.initialPrompt,/Do not implement the work/);
  assert.match(f.state.starts[0].input.initialPrompt,/Focus on accessibility/);
  assert(f.state.starts[0].input.initialPrompt.includes(first.planFile));
@@ -90,7 +90,7 @@ test('direct review needs no plan, is read-only, freezes instructions and dedupl
  const {work,state,project}=setup(t);work.reviewInstructions=async()=> 'Project system instructions';
  const input={requestKey:'review-request-1',sourceHash:issueSourceHash(base),settings,instruction:'Find missing checks'};
  const [a,b]=await Promise.all([work.startReview(project,7,input),work.startReview(project,7,input)]);
- assert.equal(a.id,b.id);assert.equal(state.starts.length,1);assert.equal(state.starts[0].input.mode,'read-only');assert.deepEqual(state.starts[0].input.playbook,{mode:'inherit'});assert.match(state.starts[0].input.initialPrompt,/Find missing checks/);assert.match(a.systemInstructions,/Project system instructions/);assert.match(a.systemInstructions,/Do not implement/);assert.equal(work.data.plans.length,0);
+ assert.equal(a.id,b.id);assert.equal(state.starts.length,1);assert.equal(state.starts[0].input.mode,'read-only');assert.deepEqual(state.starts[0].input.agentProfile,{mode:'inherit'});assert.match(state.starts[0].input.initialPrompt,/Find missing checks/);assert.match(a.systemInstructions,/Project system instructions/);assert.match(a.systemInstructions,/Do not implement/);assert.equal(work.data.plans.length,0);
  state.issue.body='Changed after launch';assert.equal((await work.startReview(project,7,input)).id,a.id);
  await assert.rejects(work.startReview(project,7,{...input,settings:{...settings,effort:'low'}}),/already used/);
  await assert.rejects(work.startReview(project,7,{...input,requestKey:'review-request-2'}),/issue changed/);

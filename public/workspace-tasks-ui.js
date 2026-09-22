@@ -1,3 +1,4 @@
+import {reviewAgentProfile} from './agent-profile-picker.js';
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 export function openWorkspaceTask({project,worktree,snapshot,api,onChanged=()=>{},onSession=()=>{}}){
@@ -24,6 +25,7 @@ export function openWorkspaceTask({project,worktree,snapshot,api,onChanged=()=>{
    request??={previewID:preview.id,requestKey:recovery?preview.recoveryRequestKey:crypto.randomUUID(),confirmOwnership:field('confirmOwnership').checked,...(continuation?{agent:field('agent').value,model:field('model').value,effort:field('effort').value,task:field('task').value}:recovery?{purpose:recovery.purpose,workRef:recovery.workRef,acceptance:recovery.acceptance}:{purpose:preview.purpose&&registered?preview.purpose:field('purpose').value,workRef:field('workRef').value,acceptance:field('acceptance').value})};
    const enabled=[...form.elements].filter(element=>!element.disabled);enabled.forEach(element=>element.disabled=true);
    try{
+    if(continuation&&!request.agentProfile){request.agentProfile=await reviewAgentProfile({api,project,agent:request.agent});if(!request.agentProfile)return;}
     const result=await api(route+(continuation?'/continue':'/adopt'),'POST',request);
     if(!current())return;
     dirty=false;pending=false;close(true);onChanged();if(continuation)onSession(result.sessionID);

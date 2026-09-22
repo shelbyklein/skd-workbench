@@ -33,9 +33,9 @@ import {Skills} from './lib/skills.js';
 import {Connections} from './lib/connections.js';
 import {withRegistrations,changeRegistration} from './lib/workspace-registration.js';
 import {GitStatus} from './lib/git-status.js';
-import {Playbooks} from './lib/playbooks.js';
+import {AgentProfiles} from './lib/playbooks.js';
 const root = path.dirname(fileURLToPath(import.meta.url));
-const files = {'/issue-actions-ui.js':'issue-actions-ui.js','/lifecycle-operations-ui.js':'lifecycle-operations-ui.js','/lifecycle-ui.js':'lifecycle-ui.js','/workspace-tasks-ui.js':'workspace-tasks-ui.js','/delegations-ui.js':'delegations-ui.js','/quick-actions-ui.js':'quick-actions-ui.js','/session-import-ui.js':'session-import-ui.js','/git-status-ui.js':'git-status-ui.js','/agent-card.js':'agent-card.js','/planning-ui.js':'planning-ui.js','/knowledge-ui.js':'knowledge-ui.js','/skills-ui.js':'skills-ui.js','/connections-ui.js':'connections-ui.js','/playbooks-ui.js':'playbooks-ui.js','/settings-ui.js':'settings-ui.js','/markdown.js':'markdown.js','/theme.js':'theme.js','/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
+const files = {'/agent-profile-picker.js':'agent-profile-picker.js','/issue-actions-ui.js':'issue-actions-ui.js','/lifecycle-operations-ui.js':'lifecycle-operations-ui.js','/lifecycle-ui.js':'lifecycle-ui.js','/workspace-tasks-ui.js':'workspace-tasks-ui.js','/delegations-ui.js':'delegations-ui.js','/quick-actions-ui.js':'quick-actions-ui.js','/session-import-ui.js':'session-import-ui.js','/git-status-ui.js':'git-status-ui.js','/agent-card.js':'agent-card.js','/planning-ui.js':'planning-ui.js','/knowledge-ui.js':'knowledge-ui.js','/skills-ui.js':'skills-ui.js','/connections-ui.js':'connections-ui.js','/playbooks-ui.js':'playbooks-ui.js','/settings-ui.js':'settings-ui.js','/markdown.js':'markdown.js','/theme.js':'theme.js','/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
   '/icons/icon-192.png':'icons/icon-192.png','/icons/icon-512.png':'icons/icon-512.png','/icons/maskable-512.png':'icons/maskable-512.png','/icons/apple-touch-icon.png':'icons/apple-touch-icon.png'};
 const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
 async function body(req,limit=1024*1024) {
@@ -52,7 +52,7 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
   const globalSettings=new Settings(directory);
   const skills=new Skills(directory,skillsOptions);
   const mcpConnections=new Connections(directory,{...connectionsOptions,...(codexOptions.binary?{codexBinary:codexOptions.binary}:{})});
-  const playbooks=new Playbooks(directory,{skills,connections:mcpConnections});
+  const playbooks=new AgentProfiles(directory,{skills,connections:mcpConnections});
   const codex = new CodexRuns(directory,{...codexOptions,claudeOptions,skills,connections:mcpConnections,playbooks});
   const lifecycleStore=new LifecycleStore(directory),evidenceStore=new EvidenceStore(directory),attentionStore=new AttentionStore(directory);
   codex.workspaceNotes.onRecord=record=>lifecycleStore.ensure(record);
@@ -88,7 +88,7 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       assert(/^(127\.0\.0\.1|localhost):\d+$/.test(host),'Local access only.',403);
       const origin=req.headers.origin;
       assert(!origin || origin===`http://${host}`,'Cross-origin requests are not allowed.',403);
-      const url=new URL(req.url,`http://${host}`), pathname=url.pathname;
+      const url=new URL(req.url,`http://${host}`), pathname=url.pathname.replace(/^\/api\/agent-profiles(?=\/|$)/,'/api/playbooks').replace(/\/agent-profile-preview$/,'/playbook-preview').replace(/\/agent-profiles(?=\/|$)/,'/playbooks');
       if(pathname==='/api/settings'&&req.method==='GET')return json(globalSettings.data);
       if(pathname==='/api/settings'&&req.method==='PUT')return json(globalSettings.save(await body(req),store.snapshot().projects));
       if(pathname==='/api/instructions'&&req.method==='GET')return json(await instructionFiles(root));
@@ -105,14 +105,14 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       if(pathname==='/api/connections'&&req.method==='GET')return json(await mcpConnections.inventory(store.snapshot().projects,url.searchParams.get('scope')==='project'?{kind:'project',projectID:url.searchParams.get('projectID')}:{kind:'global'}));
       if(pathname==='/api/connections/policies'&&req.method==='PUT')return json(await mcpConnections.savePolicy(await body(req),store.snapshot().projects));
       if(pathname==='/api/playbooks'&&req.method==='GET')return json(playbooks.inventory(store.snapshot().projects,url.searchParams.get('scope')==='project'?{kind:'project',projectID:url.searchParams.get('projectID')}:{kind:'global'}));
-      if(pathname==='/api/playbooks'&&req.method==='POST')return json(await playbooks.create(await body(req),store.snapshot().projects),201);
-      if(pathname==='/api/playbooks/defaults'&&req.method==='PUT'){const input=await body(req);return json(input.playbookID?await playbooks.saveDefault(input,store.snapshot().projects):playbooks.clearDefault(input,store.snapshot().projects));}
+      if(pathname==='/api/playbooks'&&req.method==='POST'){const input=await body(req);if(url.pathname==='/api/agent-profiles')assert(input.systemPrompt?.trim()||input.skillIDs?.length||input.connectionIDs?.length,'Add an Agent system prompt, skill or connection.');return json(await playbooks.create(input,store.snapshot().projects),201);}
+      if(pathname==='/api/playbooks/defaults'&&req.method==='PUT'){const input=await body(req);if(input.agentProfileID){assert(!input.playbookID||input.playbookID===input.agentProfileID,'Conflicting Agent defaults.');input.playbookID=input.agentProfileID;}return json(input.playbookID?await playbooks.saveDefault(input,store.snapshot().projects):playbooks.clearDefault(input,store.snapshot().projects));}
       const playbook=pathname.match(/^\/api\/playbooks\/([\w-]+)(?:\/(archive|duplicate))?$/);
       if(playbook&&req.method==='PUT'&&!playbook[2])return json(await playbooks.update(playbook[1],await body(req),store.snapshot().projects));
       if(playbook&&req.method==='POST'&&playbook[2]==='archive')return json(playbooks.archive(playbook[1],await body(req)));
       if(playbook&&req.method==='POST'&&playbook[2]==='duplicate')return json(await playbooks.duplicate(playbook[1],await body(req),store.snapshot().projects),201);
       const playbookPreview=pathname.match(/^\/api\/projects\/([\w-]+)\/playbook-preview$/);
-      if(playbookPreview&&req.method==='POST'){const input=await body(req);return json(await playbooks.preview(store.project(playbookPreview[1]),input.agent,input.playbook||{mode:'inherit'},{purpose:'session',mode:input.mode||'worktree'}));}
+      if(playbookPreview&&req.method==='POST'){const input=await body(req);assert(!input.agentProfile||!input.playbook||JSON.stringify(input.agentProfile)===JSON.stringify(input.playbook),'Conflicting Agent selections.');return json(await playbooks.preview(store.project(playbookPreview[1]),input.agent,input.agentProfile||input.playbook||{mode:'inherit'},{purpose:'session',mode:input.mode||'worktree'}));}
       const connectionCheck=pathname.match(/^\/api\/projects\/([\w-]+)\/connections\/([a-f0-9]{64})\/checks$/);
       if(connectionCheck&&req.method==='POST'){await body(req);return json(await mcpConnections.startCheck(store.project(connectionCheck[1]),connectionCheck[2]),202);}
       const checkStatus=pathname.match(/^\/api\/projects\/([\w-]+)\/connection-checks\/([\w-]+)$/);
@@ -157,7 +157,7 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       if(quickRequest&&req.method==='GET')return json(quickActions.request(store.project(quickRequest[1]),quickRequest[2]));
       const quickAction=pathname.match(/^\/api\/projects\/([\w-]+)\/quick-actions$/);
       if(quickAction){const project=store.project(quickAction[1]);if(req.method==='GET')return json(quickActions.settings(project));if(req.method==='PUT')return json(await quickActions.save(project,await body(req)));if(req.method==='POST')return json(await quickActions.start(project,await body(req)),202);}
-      if(req.method==='POST'&&pathname==='/api/terminal-sessions'){const raw=await body(req),input=Object.fromEntries(['projectID','agent','model','effort','mode','playbook','skills','connections','importedSessionID'].filter(key=>Object.hasOwn(raw,key)).map(key=>[key,raw[key]]));assert(['read-only','worktree'].includes(input.mode),'Choose a workspace.');const project=store.project(input.projectID);if(input.importedSessionID)Object.assign(input,imports.context(input.importedSessionID,project.id,raw.task));const session=await terminals.start(input,project);quickActions.remember(project,input);return json(session,202);}
+      if(req.method==='POST'&&pathname==='/api/terminal-sessions'){const raw=await body(req),input=Object.fromEntries(['projectID','agent','model','effort','mode','playbook','agentProfile','skills','connections','importedSessionID'].filter(key=>Object.hasOwn(raw,key)).map(key=>[key,raw[key]]));assert(['read-only','worktree'].includes(input.mode),'Choose a workspace.');const project=store.project(input.projectID);if(input.importedSessionID)Object.assign(input,imports.context(input.importedSessionID,project.id,raw.task));const session=await terminals.start(input,project);quickActions.remember(project,input);return json(session,202);}
       const terminal=pathname.match(/^\/api\/terminal-sessions\/([\w-]+)(?:\/(output|input|resize|stop))?$/);
       if(terminal){const [,id,action]=terminal;
         if(req.method==='GET'&&action==='output')return json(terminals.output(id,Number(url.searchParams.get('cursor')||0)));
@@ -181,7 +181,7 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       const issueCount=pathname.match(/^\/api\/projects\/([\w-]+)\/issue-count$/);
       if(issueCount&&req.method==='GET')return json(await github.count(store.project(issueCount[1])));
       const sessionPlaybook=pathname.match(/^\/api\/sessions\/([\w-]+)\/playbooks(?:\/(draft))?$/);
-      if(sessionPlaybook){const session=terminals.has(sessionPlaybook[1])?terminals.get(sessionPlaybook[1]):codex.get(sessionPlaybook[1]);if(req.method==='GET'&&sessionPlaybook[2])return json(await playbooks.sessionDraft(session,store.snapshot().projects));if(req.method==='POST'&&!sessionPlaybook[2])return json(await playbooks.createFromSession(await body(req),session,store.snapshot().projects),201);}
+      if(sessionPlaybook){const session=terminals.has(sessionPlaybook[1])?terminals.get(sessionPlaybook[1]):codex.get(sessionPlaybook[1]);if(req.method==='GET'&&sessionPlaybook[2])return json(await playbooks.sessionDraft(session,store.snapshot().projects));if(req.method==='POST'&&!sessionPlaybook[2])return json(await playbooks.createFromSession({...await body(req),requireSpecialization:url.pathname.includes('/agent-profiles')},session,store.snapshot().projects),201);}
       const issues=pathname.match(/^\/api\/projects\/([\w-]+)\/issues(?:\/(\d+))?(\/proposals)?$/);
       if(issues){const project=store.project(issues[1]);
         if(req.method==='GET'&&issues[3])return json(proposals.list(project,issues[2]));

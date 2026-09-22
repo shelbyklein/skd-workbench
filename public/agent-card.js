@@ -16,7 +16,7 @@ export function agentCard({agentNodes=[],modelNodes,effortNodes,seed=null,cacheK
  let remembered=null;try{remembered=JSON.parse(localStorage.getItem('skd-agent-choice-'+cacheKey));}catch{}
  const desired=structuredClone(seed||remembered||{});
  const accepted={agent:!!(desired.agent||fixedAgent),model:!!desired.model,effort:!!desired.effort};
- const card=document.createElement('div');card.className='agent-selection-card';card.setAttribute('role','group');card.setAttribute('aria-label','Agent selection');anchor.before(card);
+ const card=document.createElement('div');card.className='agent-selection-card';card.setAttribute('role','group');card.setAttribute('aria-label','Provider, model and effort');anchor.before(card);
  const buttons={},panels={},applied={},previous={};
  let restoring=false;
  const read=k=>{
@@ -48,10 +48,10 @@ export function agentCard({agentNodes=[],modelNodes,effortNodes,seed=null,cacheK
     }
    }
    const value=read(k);if(previous[k]===undefined&&value.value)previous[k]=value.value;const present=accepted[k]&&(!desired[k]||applied[k])&&value.value&&value.value!=='—';
-   const label=present?value.label:k[0].toUpperCase()+k.slice(1);
+   const label=present?value.label:(k==='agent'?'Provider':k[0].toUpperCase()+k.slice(1));
    const html=(k==='agent'&&present?(logos[value.value]||''):'')+'<span>'+esc(label)+'</span><span class="agent-pill-chevron" aria-hidden="true">⌄</span>';
    if(buttons[k].innerHTML!==html)buttons[k].innerHTML=html;
-   buttons[k].setAttribute('aria-label',(k[0].toUpperCase()+k.slice(1))+': '+label);
+   buttons[k].setAttribute('aria-label',((k==='agent'?'Provider':k[0].toUpperCase()+k.slice(1)))+': '+label);
    buttons[k].dataset.placeholder=String(!present);
   }
  }
@@ -74,7 +74,7 @@ export function agentCard({agentNodes=[],modelNodes,effortNodes,seed=null,cacheK
  }
  for(const k of keys){
   const button=document.createElement('button');button.type='button';button.className='agent-selection-pill';button.dataset.agentParameter=k;button.setAttribute('aria-haspopup','dialog');button.setAttribute('aria-expanded','false');buttons[k]=button;card.append(button);
-  const panel=document.createElement('div');panel.className='agent-options-overlay';panel.dataset.overlayFor=k;panel.popover='auto';panel.inert=true;panel.setAttribute('role','dialog');panel.setAttribute('aria-label','Choose '+k);panels[k]=panel;card.append(panel);
+  const panel=document.createElement('div');panel.className='agent-options-overlay';panel.dataset.overlayFor=k;panel.popover='auto';panel.inert=true;panel.setAttribute('role','dialog');panel.setAttribute('aria-label','Choose '+(k==='agent'?'provider':k));panels[k]=panel;card.append(panel);
   nodes[k].forEach(node=>panel.append(node));
   if(k==='agent')panel.querySelectorAll('input[type=radio]').forEach(input=>{const span=input.nextElementSibling;if(span&&logos[input.value])span.insertAdjacentHTML('afterbegin',logos[input.value]);});
   if(k==='agent'&&fixedAgent)panel.innerHTML='<p>'+logos[fixedAgent]+' '+(fixedAgent==='claude'?'Claude':'Codex')+'</p><p class="field-help">This workflow uses '+fixedAgent+'.</p>';

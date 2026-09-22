@@ -69,7 +69,13 @@ test('selected playbook survives cached launches and rejects version drift until
  const f=fixture(t),{Playbooks}=await import('../lib/playbooks.js');const library=new Playbooks(f.data);f.terminals.playbooks=library;
  const book=await library.create({revision:0,name:'Quick preset',scope:{kind:'global'},providers:['codex'],skillIDs:[],connectionIDs:[],creationRequestKey:'quick-book'},[f.project]);
  const selected={...config,playbook:{mode:'selected',playbookID:book.id}};const saved=await f.service.save(f.project,{revision:0,settings:selected});assert(saved.settings.playbook.expectedSignature);
- const first=await f.service.start(f.project,{action:'suggest',revision:1,requestKey:'book-first'});assert.equal(first.session.agentContext.playbook.id,book.id);await f.done();
+ const first=await f.service.start(f.project,{action:'suggest',revision:1,requestKey:'book-first'});assert.equal(first.session.agentContext.agentProfile.id,book.id);await f.done();
  await library.update(book.id,{revision:1,version:1,name:'Updated preset',scope:{kind:'global'},providers:['codex'],skillIDs:[],connectionIDs:[]},[f.project]);await assert.rejects(f.service.start(f.project,{action:'suggest',revision:1,requestKey:'book-stale'}),/changed/);assert.equal(f.spawnCount(),1);
- await f.service.save(f.project,{revision:1,settings:selected});const next=await f.service.start(f.project,{action:'suggest',revision:2,requestKey:'book-reviewed'});assert.equal(next.session.agentContext.playbook.version,2);await f.done();
+ await f.service.save(f.project,{revision:1,settings:selected});const next=await f.service.start(f.project,{action:'suggest',revision:2,requestKey:'book-reviewed'});assert.equal(next.session.agentContext.agentProfile.version,2);await f.done();
+});
+test('reviewed specialization is forwarded and bound to the quick action request identity',async t=>{
+ const f=fixture(t);const saved=await f.service.save(f.project,{revision:0,settings:config});let received;
+ f.terminals.playbooks.resolveLaunch=async(_project,_provider,selection)=>{received=selection;return null;};
+ const agentProfile={mode:'selected',agentProfileID:'reviewer',expectedSignature:'reviewed'},input={action:'suggest',revision:saved.revision,requestKey:'profile-launch-once',agentProfile};
+ await f.service.start(f.project,input);assert.deepEqual(received,agentProfile);assert.equal(f.spawnCount(),1);await assert.rejects(f.service.start(f.project,{...input,agentProfile:{mode:'legacy'}}),/already belongs/);assert.equal(f.spawnCount(),1);await f.done();
 });
