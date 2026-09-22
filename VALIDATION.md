@@ -1131,3 +1131,8 @@ Local activation: `2a440ab` fast-forwarded into clean main and the idle service 
 - Added a draggable left edge with pointer capture, bounded width, synchronized page-column sizing, and locally saved width. A focusable separator supports arrow keys and Home/End. Mobile remains full-width; terminal fitting continues through the existing ResizeObserver.
 - Workspace terminal and Agent terminal Chrome suites passed. Verified actual drag width, keyboard adjustment, reload persistence, real-shell interaction, and mobile behavior; inspected the resized desktop screenshot. Shell cache is skd-shell-0.5.0-92.
 - Frontend-only activation requires no server restart; the existing live shell is preserved.
+
+## Blue SKD logo — 2026-09-22
+
+- Copied the user-selected blue/cream SKD artwork verbatim to public/icons/workbench-blue-source.png and made it the reproducible source for npm run icons. Sidebar/favicon/offline SVG and 192px, 512px, maskable and Apple-touch PNG exports now use this artwork, preserving its full square composition.
+- Inspected generated artwork; PWA Chrome suite passed manifest/installability, offline/update and draft protections. Cache bumped to skd-shell-0.5.0-93. Frontend assets update without restarting the running shell; installed clients use the existing explicit Update app action.

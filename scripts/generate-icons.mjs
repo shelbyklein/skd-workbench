@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 // Retain the approved full-resolution artwork for reproducible exports.
 const out = new URL('../public/icons/', import.meta.url);
 mkdirSync(out, { recursive: true });
-const source = `data:image/png;base64,${readFileSync(new URL('workbench-red-source.png', out)).toString('base64')}`;
+const source = `data:image/png;base64,${readFileSync(new URL('workbench-blue-source.png', out)).toString('base64')}`;
 const browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || 'chrome', headless: true });
 try {
   const page = await browser.newPage();
@@ -17,15 +17,9 @@ try {
       canvas.width = canvas.height = size;
       const context = canvas.getContext('2d');
       context.imageSmoothingQuality = 'high';
-      // Fit the full artwork inside the maskable safe circle. Apple icons
-      // also use an opaque backing so the glass stays visible.
-      if (maskable) {
-        context.fillStyle = '#f7f5ef';
-        context.fillRect(0, 0, size, size);
-      }
-      const scale = maskable ? 0.66 : 1;
-      const inset = size * (1 - scale) / 2;
-      context.drawImage(image, inset, inset, size * scale, size * scale);
+      // The approved artwork is already an opaque square with built-in spacing.
+      // Preserve the complete image without adding a second background/frame.
+      context.drawImage(image, 0, 0, size, size);
       return canvas.toDataURL('image/png').split(',')[1];
     }, { source, size, maskable });
     writeFileSync(new URL(name, out), Buffer.from(data, 'base64'));
