@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "test": "node --test --test-concurrency=2 tests/*.test.js",
-    "test:browser": "node tests/sidebar-browser.mjs && node tests/workspace-terminal-browser.mjs && node tests/editor.mjs && node tests/browser.mjs && node tests/accessibility.mjs && node tests/projects-browser.mjs && node tests/project-counts-browser.mjs && node tests/project-tags-browser.mjs && node tests/project-widgets-browser.mjs && node tests/session-import-browser.mjs && node tests/git-status-browser.mjs && node tests/quick-actions-browser.mjs && node tests/pwa-browser.mjs && node tests/codex-browser.mjs && node tests/workflows-browser.mjs && node tests/workflow-agents-browser.mjs && node tests/workflow-providers-browser.mjs && node tests/benchmarks-browser.mjs && node tests/overview-browser.mjs && node tests/claude-browser.mjs && node tests/terminal-browser.mjs && node tests/issues-browser.mjs && node tests/issue-actions-browser.mjs && node tests/settings-browser.mjs && node tests/planning-browser.mjs && node tests/agent-card-browser.mjs && node tests/graft-browser.mjs && node tests/resources-browser.mjs && node tests/managed-connections-browser.mjs && node tests/playbooks-browser.mjs && node tests/delegations-browser.mjs && node tests/workspace-registration-browser.mjs && node tests/workspace-tasks-browser.mjs && node tests/lifecycle-browser.mjs && node tests/lifecycle-operations-browser.mjs",
+    "test:browser": "node tests/sidebar-browser.mjs && node tests/workspace-terminal-browser.mjs && node tests/terminal-stream-browser.mjs && node tests/editor.mjs && node tests/browser.mjs && node tests/accessibility.mjs && node tests/projects-browser.mjs && node tests/project-counts-browser.mjs && node tests/project-tags-browser.mjs && node tests/project-widgets-browser.mjs && node tests/session-import-browser.mjs && node tests/git-status-browser.mjs && node tests/quick-actions-browser.mjs && node tests/pwa-browser.mjs && node tests/codex-browser.mjs && node tests/workflows-browser.mjs && node tests/workflow-agents-browser.mjs && node tests/workflow-providers-browser.mjs && node tests/benchmarks-browser.mjs && node tests/overview-browser.mjs && node tests/claude-browser.mjs && node tests/terminal-browser.mjs && node tests/issues-browser.mjs && node tests/issue-actions-browser.mjs && node tests/settings-browser.mjs && node tests/planning-browser.mjs && node tests/agent-card-browser.mjs && node tests/graft-browser.mjs && node tests/resources-browser.mjs && node tests/managed-connections-browser.mjs && node tests/playbooks-browser.mjs && node tests/delegations-browser.mjs && node tests/workspace-registration-browser.mjs && node tests/workspace-tasks-browser.mjs && node tests/lifecycle-browser.mjs && node tests/lifecycle-operations-browser.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "graft": "node scripts/graft.mjs",
     "graft:setup": "node scripts/graft.mjs setup",
@@ -30,7 +30,8 @@
     "gray-matter": "4.0.3",
     "marked": "18.0.13",
     "node-pty": "^1.1.0",
-    "smol-toml": "1.8.0"
+    "smol-toml": "1.8.0",
+    "ws": "^8.21.3"
   },
   "allowScripts": {
     "node-pty@1.1.0": true

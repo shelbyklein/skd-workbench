@@ -1,3 +1,4 @@
+import {attachTerminalStreams} from './lib/terminal-stream.js';
 import {LifecycleActivity} from './lib/lifecycle-activity.js';
 import {ReconciliationService} from './lib/lifecycle-reconciliation.js';
 import {RetirementService} from './lib/lifecycle-retirement.js';
@@ -337,7 +338,8 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
     } catch(e) { json({error:e instanceof Problem?e.message:'Could not save or load data. Your previous saved state is intact.'},e.status||500); if(!(e instanceof Problem)) console.error(e); }
   });
   server.on('close',()=>{mcpConnections.shutdown();terminals.shutdown();delegations.shutdown();workflows.shutdown();});
-  server.shutdownCodex=()=>{workspaceTerminal.shutdown();mcpConnections.shutdown();terminals.shutdown();delegations.shutdown();workflows.shutdown();};
+  const terminalStreams=attachTerminalStreams(server,{workspace:workspaceTerminal,agents:terminals});
+  server.shutdownCodex=()=>{terminalStreams.shutdown();workspaceTerminal.shutdown();mcpConnections.shutdown();terminals.shutdown();delegations.shutdown();workflows.shutdown();};
   return server;
 }
 if(process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) {

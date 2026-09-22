@@ -410,3 +410,5 @@ Workflows, read-only sessions and issue proposals remain MCP-free. Existing Agen
 ### Workspace terminal
 
 The header terminal icon opens a persistent shell column in the SKD Workbench folder. It stays open across views. Hide preserves the shell; reopening reconnects. End session stops it. Server restart ends the shell without automatically restarting it. On narrow screens the panel fills the screen. This plain shell is independent of Agents and selected projects.
+
+Both workspace and Agent terminals stream input/output over a same-origin WebSocket. Reconnecting attaches to the existing session and never resends input. A slow or suspended client may reconnect; retained output is bounded and any missing earlier output is marked. Very large pastes are rejected before sending, so split them into smaller parts.
