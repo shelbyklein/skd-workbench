@@ -396,3 +396,13 @@ All steps' configurations freeze when the run starts. Later Agent/skill edits an
 Set the provider in a workflow step or Run settings to build sequences such as Codex → Claude → Codex. Switching providers requires choosing a model from that provider's catalog; incompatible saved Agent references remain visible until corrected. Agent defaults and skill policies are resolved separately for each provider. A Claude-only workflow does not require Codex availability. Old steps with no provider field retain Codex behavior.
 
 All required providers/models/efforts are checked before any step starts. Providers and Agent contexts freeze for the whole run, including later steps and retries after restart. Both providers use the same registered worktree and receive previous outputs and review notes; attempt details identify the provider. Stop, review gates, attempt limits and archive rules remain shared. Structured Claude steps retain their restricted tool set (read/search, plus edit/write in worktrees; no shell commands). Use a Codex step or manual Check gate for command/test execution. Neither structured provider enables MCP connections.
+
+### Add MCP servers in Workbench
+
+Global and project **Connections → Add MCP server** saves a Workbench-owned local stdio or remote Streamable HTTP definition for Codex, Claude, or both. Select its provider-specific entries in an **Agent** to use it in future interactive worktree sessions. Global availability does not enable it automatically. Native provider files remain unchanged.
+
+**Import snapshot** copies supported discovered configuration after a preview, preserving its source working directory. Repeating an import recovers the same record; changed source configuration requires another reviewed import. Edit, archive and restore preserve connection references and historical launches. Changes invalidate prior checks/previews and apply to future sessions.
+
+**Check tool catalog** explicitly starts/connects to the server and performs initialization and tool listing only. Saving and refreshing never launch a server. HTTP checks support JSON/SSE responses, reject redirects, and provide cancellation. Authentication accepts a bearer-token environment-variable name; stdio accepts environment-variable names. These must be available to the Workbench service, which may not inherit your terminal environment. OAuth, arbitrary headers and a credential vault are not implemented. Checks prove catalog access, not account identity or successful tool execution.
+
+Workflows, read-only sessions and issue proposals remain MCP-free. Existing Agent/run previews display that exclusion. Managed definitions are stored in connections schema 2 with a schema-1 backup on upgrade; inventory/history remain redacted.

@@ -35,7 +35,7 @@ import {withRegistrations,changeRegistration} from './lib/workspace-registration
 import {GitStatus} from './lib/git-status.js';
 import {AgentProfiles} from './lib/playbooks.js';
 const root = path.dirname(fileURLToPath(import.meta.url));
-const files = {'/agent-profile-picker.js':'agent-profile-picker.js','/issue-actions-ui.js':'issue-actions-ui.js','/lifecycle-operations-ui.js':'lifecycle-operations-ui.js','/lifecycle-ui.js':'lifecycle-ui.js','/workspace-tasks-ui.js':'workspace-tasks-ui.js','/delegations-ui.js':'delegations-ui.js','/quick-actions-ui.js':'quick-actions-ui.js','/session-import-ui.js':'session-import-ui.js','/git-status-ui.js':'git-status-ui.js','/agent-card.js':'agent-card.js','/planning-ui.js':'planning-ui.js','/knowledge-ui.js':'knowledge-ui.js','/skills-ui.js':'skills-ui.js','/connections-ui.js':'connections-ui.js','/playbooks-ui.js':'playbooks-ui.js','/settings-ui.js':'settings-ui.js','/markdown.js':'markdown.js','/theme.js':'theme.js','/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
+const files = {'/connection-editor.js':'connection-editor.js','/agent-profile-picker.js':'agent-profile-picker.js','/issue-actions-ui.js':'issue-actions-ui.js','/lifecycle-operations-ui.js':'lifecycle-operations-ui.js','/lifecycle-ui.js':'lifecycle-ui.js','/workspace-tasks-ui.js':'workspace-tasks-ui.js','/delegations-ui.js':'delegations-ui.js','/quick-actions-ui.js':'quick-actions-ui.js','/session-import-ui.js':'session-import-ui.js','/git-status-ui.js':'git-status-ui.js','/agent-card.js':'agent-card.js','/planning-ui.js':'planning-ui.js','/knowledge-ui.js':'knowledge-ui.js','/skills-ui.js':'skills-ui.js','/connections-ui.js':'connections-ui.js','/playbooks-ui.js':'playbooks-ui.js','/settings-ui.js':'settings-ui.js','/markdown.js':'markdown.js','/theme.js':'theme.js','/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
   '/icons/icon-192.png':'icons/icon-192.png','/icons/icon-512.png':'icons/icon-512.png','/icons/maskable-512.png':'icons/maskable-512.png','/icons/apple-touch-icon.png':'icons/apple-touch-icon.png'};
 const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
 async function body(req,limit=1024*1024) {
@@ -103,6 +103,18 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       if(skill&&req.method==='PUT'&&!skill[2])return json(skills.update(skill[1],await body(req),store.snapshot().projects));
       if(skill&&req.method==='POST'&&skill[2])return json(skills.archive(skill[1],await body(req)));
       if(pathname==='/api/connections'&&req.method==='GET')return json(await mcpConnections.inventory(store.snapshot().projects,url.searchParams.get('scope')==='project'?{kind:'project',projectID:url.searchParams.get('projectID')}:{kind:'global'}));
+      if(pathname==='/api/connections/managed'&&req.method==='POST')return json(mcpConnections.createDefinition(await body(req),store.snapshot().projects),201);
+      if(pathname==='/api/connections/import-preview'&&req.method==='POST')return json(await mcpConnections.importPreview(await body(req),store.snapshot().projects));
+      if(pathname==='/api/connections/import'&&req.method==='POST')return json(await mcpConnections.importDefinition(await body(req),store.snapshot().projects),201);
+      const managedConnection=pathname.match(/^\/api\/connections\/managed\/([a-f0-9]{64})(?:\/(archive))?$/);
+      if(managedConnection&&req.method==='GET'){const scope=url.searchParams.get('scope')==='project'?{kind:'project',projectID:url.searchParams.get('projectID')}:{kind:'global'};const entry=mcpConnections.definition(managedConnection[1],scope,store.snapshot().projects);return json({...entry,usedByAgents:playbooks.data.entries.filter(e=>e.connectionIDs.some(id=>mcpConnections.definitionConnectionIDs({...entry,providers:['codex','claude']}).includes(id))).map(e=>({id:e.id,name:e.name}))});}
+      if(managedConnection&&req.method==='PUT')return json(mcpConnections.updateDefinition(managedConnection[1],await body(req),store.snapshot().projects));
+      if(managedConnection&&req.method==='POST'&&managedConnection[2])return json(mcpConnections.archiveDefinition(managedConnection[1],await body(req),store.snapshot().projects));
+      const globalCheck=pathname.match(/^\/api\/connections\/([a-f0-9]{64})\/checks$/);
+      if(globalCheck&&req.method==='POST'){await body(req);return json(await mcpConnections.startGlobalCheck(globalCheck[1],store.snapshot().projects),202);}
+      const globalCheckStatus=pathname.match(/^\/api\/connection-checks\/([\w-]+)(?:\/(cancel))?$/);
+      if(globalCheckStatus&&req.method==='GET')return json(mcpConnections.check(globalCheckStatus[1],'global'));
+      if(globalCheckStatus&&req.method==='POST'&&globalCheckStatus[2]){await body(req);return json(mcpConnections.cancelCheck(globalCheckStatus[1],'global'));}
       if(pathname==='/api/connections/policies'&&req.method==='PUT')return json(await mcpConnections.savePolicy(await body(req),store.snapshot().projects));
       if(pathname==='/api/playbooks'&&req.method==='GET')return json(playbooks.inventory(store.snapshot().projects,url.searchParams.get('scope')==='project'?{kind:'project',projectID:url.searchParams.get('projectID')}:{kind:'global'}));
       if(pathname==='/api/playbooks'&&req.method==='POST'){const input=await body(req);if(url.pathname==='/api/agent-profiles')assert(input.systemPrompt?.trim()||input.skillIDs?.length||input.connectionIDs?.length,'Add an Agent system prompt, skill or connection.');return json(await playbooks.create(input,store.snapshot().projects),201);}
@@ -115,7 +127,8 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       if(playbookPreview&&req.method==='POST'){const input=await body(req);assert(!input.agentProfile||!input.playbook||JSON.stringify(input.agentProfile)===JSON.stringify(input.playbook),'Conflicting Agent selections.');return json(await playbooks.preview(store.project(playbookPreview[1]),input.agent,input.agentProfile||input.playbook||{mode:'inherit'},{purpose:'session',mode:input.mode||'worktree'}));}
       const connectionCheck=pathname.match(/^\/api\/projects\/([\w-]+)\/connections\/([a-f0-9]{64})\/checks$/);
       if(connectionCheck&&req.method==='POST'){await body(req);return json(await mcpConnections.startCheck(store.project(connectionCheck[1]),connectionCheck[2]),202);}
-      const checkStatus=pathname.match(/^\/api\/projects\/([\w-]+)\/connection-checks\/([\w-]+)$/);
+      const checkStatus=pathname.match(/^\/api\/projects\/([\w-]+)\/connection-checks\/([\w-]+)(?:\/(cancel))?$/);
+      if(checkStatus&&req.method==='POST'&&checkStatus[3]){await body(req);return json(mcpConnections.cancelCheck(checkStatus[2],checkStatus[1]));}
       if(checkStatus&&req.method==='GET')return json(mcpConnections.check(checkStatus[2],checkStatus[1]));
       const artifact=pathname.match(/^\/api\/artifacts\/([a-f0-9-]{36})$/);
       if(artifact&&req.method==='GET'){

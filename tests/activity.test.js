@@ -36,3 +36,7 @@ test('Claude stream events correlate tool results and permission denials by exac
  consumeClaude(x,{type:'assistant',message:{content:[{type:'tool_use',id:'call-1',name:'Read',input:{file_path:'/tmp/example'}}]}});consumeClaude(x,{type:'user',message:{content:[{type:'tool_result',tool_use_id:'call-1',content:'ok'}]}});consumeClaude(x,{type:'assistant',message:{content:[{type:'tool_use',id:'call-2',name:'Write',input:{file_path:'/tmp/example'}}]}});consumeClaude(x,{type:'result',subtype:'error',is_error:true,result:'denied',permission_denials:[{tool_name:'Write',tool_use_id:'call-2'}]});
  assert.deepEqual(x.toolActivity.events.map(item=>item.outcome),['success','denied']);assert.equal(x.toolActivity.events[1].error,'Permission denied.');
 });
+
+ test('managed runtime server names retain saved connection attribution',()=>{
+ const activity=createToolActivity('claude'),connections=[{id:'managed-id',name:'User label',runtimeName:'skd_abcdef'}];startToolCall(activity,{callID:'one',toolName:'mcp__skd_abcdef__read',connections});startToolCall(activity,{callID:'two',toolName:'read',server:'skd_abcdef',connections});assert(activity.events.every(e=>e.connectionID==='managed-id'&&e.connectionName==='User label'));
+});
