@@ -1147,3 +1147,5 @@ Local activation: `2a440ab` fast-forwarded into clean main and the idle service 
 - Cache is skd-shell-0.5.0-95. Activation requires restarting the server; the existing live shell has been left running. Do not load the new shell assets against the old server before activation.
 
 - All 36 Chrome suites passed (exit 0). Final focused transport and Agent browser reruns passed after suppressing unchanged session metadata on output frames, avoiding redundant Agent detail rendering. Local implementation is ready; activation is pending because the existing live workspace shell must not be interrupted without the user's decision.
+
+- Activation receipt: user approved ending the old shell and restarting. Integrated 00891f0 into local main, installed ws, and restarted the service. Live Chrome confirmed WebSocket streaming and STREAM_LIVE output from the real workspace shell; inspected output/terminal-stream-live.png and stopped the test shell. All 22 saved JSON files matched pre-activation hashes. No provider inference or remote push.
