@@ -3,6 +3,7 @@ const day=date=>new Date(date+'T12:00:00Z').toLocaleDateString(undefined,{weekda
 const time=value=>value?new Date(value).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}):'';
 const labels={absent:'Not generated','evidence-only':'Facts only',queued:'Waiting for agent',generating:'Generating',ready:'Ready',failed:'Failed',interrupted:'Interrupted',cancelled:'Cancelled',unavailable:'Agent unavailable'};
 const kindLabels={session:'Session',terminal:'Session',imported:'Imported chat',workflow:'Workflow',delegation:'Delegation',commit:'Commit',issue:'Issue'};
+const coverageLabels={session:'Sessions',terminal:'Terminal sessions',imported:'Imported chats',workflow:'Workflows',delegation:'Delegations',commits:'Commits',issues:'Open issues'},FACT_LIMIT=8;
 const busy=status=>['queued','generating'].includes(status);
 const pref=(key,value)=>{try{if(value===undefined)return localStorage.getItem('skd-briefing-'+key);localStorage.setItem('skd-briefing-'+key,value);}catch{}return null;};
 export function localYesterday(now=new Date()){const d=new Date(now);d.setDate(d.getDate()-1);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
@@ -14,7 +15,9 @@ function sourceLinks(ids,index){
 }
 function factList(items,empty){
  if(!items.length)return `<p class="widget-empty">${esc(empty)}</p>`;
- return `<ul class="briefing-list">${items.map(item=>`<li><span class="briefing-kind">${esc(kindLabels[item.kind]||item.kind)}</span><span>${esc(item.title)}${item.partial?' <small>(spans the day boundary)</small>':''}</span><small>${esc(item.status)}</small></li>`).join('')}</ul>`;
+ const row=item=>`<li><span class="briefing-kind">${esc(kindLabels[item.kind]||item.kind)}</span><span>${esc(item.title)}${item.partial?' <small>(spans the day boundary)</small>':''}</span>${item.kind==='commit'?'':`<small>${esc(item.status)}</small>`}</li>`;
+ const rest=items.slice(FACT_LIMIT);
+ return `<ul class="briefing-list">${items.slice(0,FACT_LIMIT).map(row).join('')}</ul>${rest.length?`<details class="briefing-more"><summary>Show ${rest.length} more</summary><ul class="briefing-list">${rest.map(row).join('')}</ul></details>`:''}`;
 }
 function synthesisList(items,index,empty){
  if(!items.length)return `<p class="widget-empty">${esc(empty)}</p>`;
@@ -22,7 +25,7 @@ function synthesisList(items,index,empty){
 }
 function coverage(report){
  const rows=Object.entries(report.evidence.coverage||{}),gaps=rows.filter(([,c])=>c.status!=='complete');
- return `<details class="briefing-coverage"><summary>Sources${gaps.length?` · ${gaps.length} incomplete`:''}</summary><ul>${rows.map(([name,c])=>`<li><span>${esc(kindLabels[name]||name)}</span><span class="coverage-${esc(c.status)}">${esc(c.status)}${c.reason?` — ${esc(c.reason)}`:''}</span></li>`).join('')}</ul></details>`;
+ return `<details class="briefing-coverage"><summary>Sources${gaps.length?` · ${gaps.length} incomplete`:''}</summary><ul>${rows.map(([name,c])=>`<li><span>${esc(coverageLabels[name]||name)}</span><span class="coverage-${esc(c.status)}">${esc(c.status)}${c.reason?` — ${esc(c.reason)}`:''}</span></li>`).join('')}</ul></details>`;
 }
 function reportBody(report){
  const index=sourceIndex(report),s=report.synthesis;
