@@ -986,3 +986,13 @@ delivery to the launch adapter. No real inference or GitHub write was performed.
   keyboard, draft guards and fixture terminal interaction. Inspected the rendered
   dark desktop screenshot. No real provider calls or user workflows were run.
 - Shell cache bumped to `0.5.0-81`.
+
+## Issue action accordions — 2026-09-22
+
+- Cards use native keyboard-accessible details/summary controls, ordered Review,
+  Work plan, Workflow. Review starts open; the remaining cards start collapsed.
+  Collapsing keeps controls and drafts mounted.
+- Issues, issue-actions and planning browser suites passed with the accordion
+  headers, including keyboard workflow expansion and desktop/mobile checks.
+  Inspected the dark desktop rendering. Fixture providers only; no user workflow
+  or real inference was run. Shell cache is `0.5.0-82`.

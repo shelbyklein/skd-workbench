@@ -383,3 +383,5 @@ body.terminal-open #planning-view{padding:20px;min-width:0}
 
 .issue-review-actions,.issue-workflow-actions{display:grid;gap:14px;min-width:0}.issue-card-stack,#issue-actions{display:grid;gap:24px;min-width:0}.issue-card-stack .codex-card{margin:0}.issue-review-actions h3,.issue-workflow-actions h3{margin:0}.issue-review-actions textarea,.issue-workflow-actions select{width:100%;min-width:0}
 body.terminal-open .issue-detail-layout{grid-template-columns:minmax(0,1fr)}
+
+.issue-accordion>summary{display:flex;align-items:center;gap:12px;cursor:pointer;font-size:16px;font-weight:700;list-style:none}.issue-accordion>summary::-webkit-details-marker{display:none}.issue-accordion>summary::after{content:"›";margin-left:auto;font-size:22px;line-height:1;transform:rotate(0deg)}.issue-accordion[open]>summary::after{transform:rotate(90deg)}.issue-accordion>summary:focus-visible{outline:2px solid var(--accent);outline-offset:6px;border-radius:2px}.issue-accordion>summary .work-origin{margin-left:auto;font-weight:400}.issue-accordion-body{margin-top:22px}

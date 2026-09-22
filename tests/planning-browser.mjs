@@ -23,7 +23,7 @@ const project=await(await fetch(url+'/api/projects',{method:'POST',headers:{'Con
 const browser=await chromium.launch({channel:'chrome'});
 try{
  const page=await browser.newPage({viewport:{width:1512,height:1100}});page.setDefaultTimeout(12000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
- await page.goto(url+'/#issues/'+project.id+'/1');await page.getByRole('button',{name:'Edit plan',exact:true}).click();await chooseAgentCard(page,page.locator('.agent-selection-card').first(),'Codex','Fixture model');await page.locator('#work-prompt').fill('Focus on accessibility.');
+ await page.goto(url+'/#issues/'+project.id+'/1');await page.locator('.issue-work-card > summary').click();await page.getByRole('button',{name:'Edit plan',exact:true}).click();await chooseAgentCard(page,page.locator('.agent-selection-card').first(),'Codex','Fixture model');await page.locator('#work-prompt').fill('Focus on accessibility.');
  await page.getByRole('button',{name:'Create plan',exact:true}).click();await page.waitForURL('**/#planning/**');
  await page.waitForFunction(()=>document.querySelector('#planning-content')?.textContent.includes('Inspect the project.'));
  await page.locator('.xterm-helper-textarea').focus();await page.keyboard.type('Update the plan');await page.keyboard.press('Enter');
@@ -35,6 +35,6 @@ try{
  await page.setViewportSize({width:390,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  await page.getByRole('button',{name:'End session',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.terminal-status')?.textContent==='cancelled');
  await page.getByRole('button',{name:'Hide',exact:true}).click();
- await page.goto(url+'/#issues/'+project.id+'/1');await page.reload();await page.getByRole('button',{name:'Open plan',exact:true}).click();await page.waitForURL(route);await page.getByRole('button',{name:'Hide',exact:true}).click();await page.goto(url+'/#home');await page.reload();await page.waitForFunction(()=>document.querySelector('[data-folder-repository]')?.textContent.includes('github.com/fixture/planning'));
+ await page.goto(url+'/#issues/'+project.id+'/1');await page.reload();await page.locator('.issue-work-card > summary').click();await page.getByRole('button',{name:'Open plan',exact:true}).click();await page.waitForURL(route);await page.getByRole('button',{name:'Hide',exact:true}).click();await page.goto(url+'/#home');await page.reload();await page.waitForFunction(()=>document.querySelector('[data-folder-repository]')?.textContent.includes('github.com/fixture/planning'));
  assert.deepEqual(errors,[]);console.log('Planning browser passed: Create plan launches fixture CLI in real PTY, receives instructions, incremental file preview, reload without relaunch, stop.');
 }finally{await browser.close();server.shutdownCodex();server.closeAllConnections();await new Promise(r=>server.close(r));rmSync(root,{recursive:true,force:true});}
