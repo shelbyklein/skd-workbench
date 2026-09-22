@@ -38,6 +38,7 @@ import {Connections} from './lib/connections.js';
 import {withRegistrations,changeRegistration} from './lib/workspace-registration.js';
 import {GitStatus} from './lib/git-status.js';
 import {AgentProfiles} from './lib/playbooks.js';
+import {Briefings,readCommits} from './lib/briefings.js';
 const root = path.dirname(fileURLToPath(import.meta.url));
 const files = {'/controllers-ui.js':'controllers-ui.js','/connection-editor.js':'connection-editor.js','/agent-profile-picker.js':'agent-profile-picker.js','/issue-actions-ui.js':'issue-actions-ui.js','/lifecycle-operations-ui.js':'lifecycle-operations-ui.js','/lifecycle-ui.js':'lifecycle-ui.js','/workspace-tasks-ui.js':'workspace-tasks-ui.js','/delegations-ui.js':'delegations-ui.js','/quick-actions-ui.js':'quick-actions-ui.js','/session-import-ui.js':'session-import-ui.js','/git-status-ui.js':'git-status-ui.js','/agent-card.js':'agent-card.js','/planning-ui.js':'planning-ui.js','/knowledge-ui.js':'knowledge-ui.js','/skills-ui.js':'skills-ui.js','/connections-ui.js':'connections-ui.js','/playbooks-ui.js':'playbooks-ui.js','/settings-ui.js':'settings-ui.js','/markdown.js':'markdown.js','/theme.js':'theme.js','/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
   '/icons/icon-192.png':'icons/icon-192.png','/icons/icon-512.png':'icons/icon-512.png','/icons/maskable-512.png':'icons/maskable-512.png','/icons/apple-touch-icon.png':'icons/apple-touch-icon.png'};
@@ -49,7 +50,7 @@ async function body(req,limit=1024*1024) {
   try { const parsed=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks))); assert(parsed && typeof parsed==='object' && !Array.isArray(parsed),'Expected a JSON object.'); return parsed; }
   catch(e) { if(e instanceof Problem) throw e; throw new Problem('Invalid JSON.'); }
 }
-export function createServer({directory = process.env.FLOW_BENCH_DATA || path.join(root,'.data'), publicDirectory=path.join(root,'public'), codexOptions={},claudeOptions={},terminalOptions={},githubOptions={},skillsOptions={},connectionsOptions={},gitStatusOptions={},quickActionOptions={},folderPicker=createFolderPicker(),workspaceTerminal=createWorkspaceTerminal(root)} = {}) {
+export function createServer({directory = process.env.FLOW_BENCH_DATA || path.join(root,'.data'), publicDirectory=path.join(root,'public'), codexOptions={},claudeOptions={},terminalOptions={},githubOptions={},skillsOptions={},connectionsOptions={},gitStatusOptions={},quickActionOptions={},briefingOptions={},folderPicker=createFolderPicker(),workspaceTerminal=createWorkspaceTerminal(root)} = {}) {
   const store = new Store(directory);
   const imports=new ImportedSessions(directory);
   const gitStatus=new GitStatus(gitStatusOptions);
@@ -82,6 +83,8 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
   const quickActions=new QuickActions(directory,{terminals,github,project:id=>store.project(id),...quickActionOptions});
   const proposals=new IssueProposals(directory,codex,github);
   const issueWork=new IssueWork(directory,{github,terminals,instructionsRoot:root,validateProject:project=>assert(store.project(project.id).version===project.version,'Project changed. Reload before reviewing.',409),providers:agent=>agent==='claude'?codex.discoverClaude():codex.discover()});
+  const briefings=new Briefings(directory,{...briefingOptions,sources:project=>({sessions:()=>codex.runs,terminals:()=>terminals.runs,imports:()=>imports.records,workflows:()=>workflows.runs,delegations:()=>delegations.runs,
+    issues:async()=>{const page=await github.list(project);const list=page.issues;list.truncated=page.hasMore;return list;},commits:interval=>readCommits(project.folderPath,interval)})});
   const controllers=new Controllers(directory,{projects:()=>store.snapshot().projects});
   const controllerCommands=new ControllerCommands({controllers,store,workflows,playbooks,workspaceTasks,codex,lifecycle});
   const server = http.createServer(async (req,res)=>{
@@ -215,6 +218,12 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       if(issueCount&&req.method==='GET')return json(await github.count(store.project(issueCount[1])));
       const sessionPlaybook=pathname.match(/^\/api\/sessions\/([\w-]+)\/playbooks(?:\/(draft))?$/);
       if(sessionPlaybook){const session=terminals.has(sessionPlaybook[1])?terminals.get(sessionPlaybook[1]):codex.get(sessionPlaybook[1]);if(req.method==='GET'&&sessionPlaybook[2])return json(await playbooks.sessionDraft(session,store.snapshot().projects));if(req.method==='POST'&&!sessionPlaybook[2])return json(await playbooks.createFromSession({...await body(req),requireSpecialization:url.pathname.includes('/agent-profiles')},session,store.snapshot().projects),201);}
+      if(pathname==='/api/briefings'&&req.method==='GET'){briefings.ready();return json(store.snapshot().projects.filter(p=>p.id!=='unassigned').map(p=>({projectID:p.id,report:briefings.latestFor(p.id)})));}
+      const briefing=pathname.match(/^\/api\/projects\/([\w-]+)\/briefing$/);
+      if(briefing){const project=store.project(briefing[1]);
+        if(req.method==='GET')return json(briefings.view(project,{date:url.searchParams.get('date')??undefined,timezone:url.searchParams.get('timezone')??undefined}));
+        if(req.method==='POST'){const input=await body(req,16*1024);assert(Object.keys(input).every(k=>['date','timezone','synthesize','agent','model','effort'].includes(k)),'Unknown briefing option.');return json(await briefings.generate(project,input),201);}
+      }
       const issues=pathname.match(/^\/api\/projects\/([\w-]+)\/issues(?:\/(\d+))?(\/proposals)?$/);
       if(issues){const project=store.project(issues[1]);
         if(req.method==='GET'&&issues[3])return json(proposals.list(project,issues[2]));
