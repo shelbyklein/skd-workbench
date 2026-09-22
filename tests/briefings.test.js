@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {collectEvidence,dayInterval,localDate,previousDate,SOURCE_LIMIT} from '../lib/briefings.js';
+import {mkdtempSync,mkdirSync,writeFileSync,rmSync,realpathSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+import {execFileSync} from 'node:child_process';
+import {collectEvidence,dayInterval,localDate,previousDate,readCommits,SOURCE_LIMIT} from '../lib/briefings.js';
 
 const project={id:'p1'},hours=i=>(Date.parse(i.end)-Date.parse(i.start))/3600000;
 const now=Date.parse('2026-09-22T15:00:00Z');
@@ -64,4 +68,37 @@ test('large sources are bounded and marked partial; text is clipped',async()=>{
  assert.equal(packet.activity[0].title.length,200);
  assert.equal(packet.issues.length,SOURCE_LIMIT);
  assert.equal(packet.coverage.issues.status,'partial');
+});
+
+function repo(t){
+ const root=realpathSync(mkdtempSync(path.join(tmpdir(),'skd-brief-')));t.after(()=>rmSync(root,{recursive:true,force:true}));
+ const git=(cwd,env,...args)=>execFileSync('git',['-C',cwd,...args],{encoding:'utf8',env:{...process.env,...env}});
+ git(root,{},'init','-q','-b','main');git(root,{},'config','user.name','Fixture');git(root,{},'config','user.email','fixture@example.com');
+ let n=0;const commit=(at,subject,folder='.')=>{mkdirSync(path.join(root,folder),{recursive:true});writeFileSync(path.join(root,folder,`f${n++}.txt`),subject);git(root,{},'add','-A');git(root,{GIT_AUTHOR_DATE:at,GIT_COMMITTER_DATE:at},'commit','-q','-m',subject);};
+ return {root,commit};
+}
+
+test('commit source returns only in-interval commits for the project folder',async t=>{
+ const {root,commit}=repo(t),interval=dayInterval('2026-09-21','UTC');
+ commit('2026-09-20T23:59:00Z','Before');commit('2026-09-21T09:00:00Z','Inside one');commit('2026-09-21T18:00:00Z','Inside two');commit('2026-09-21T12:00:00Z','Other folder','other');commit('2026-09-22T00:00:00Z','At end');
+ assert.deepEqual((await readCommits(root,interval)).map(c=>c.subject),['Other folder','Inside two','Inside one']);
+ commit('2026-09-21T10:00:00Z','App change','app');
+ assert.deepEqual((await readCommits(path.join(root,'app'),interval)).map(c=>c.subject),['App change']);
+ const packet=await collectEvidence({project,date:'2026-09-21',timezone:'UTC',now,sources:{...empty,commits:i=>readCommits(root,i)}});
+ assert.equal(packet.coverage.commits.status,'complete');
+ assert.ok(packet.activity.every(a=>a.kind==='commit'&&/^commit:[0-9a-f]{40}$/.test(a.id)));
+});
+
+test('commit source caps history as partial and reports plain folders as unavailable',async t=>{
+ const {root,commit}=repo(t),interval=dayInterval('2026-09-21','UTC');
+ for(let i=0;i<5;i++)commit(`2026-09-21T0${i}:00:00Z`,`Commit ${i}`);
+ const capped=await readCommits(root,interval,{limit:3});
+ assert.equal(capped.length,3);assert.equal(capped.truncated,true);assert.equal(capped[0].subject,'Commit 4');
+ const packet=await collectEvidence({project,date:'2026-09-21',timezone:'UTC',now,sources:{...empty,commits:i=>readCommits(root,i,{limit:3})}});
+ assert.equal(packet.coverage.commits.status,'partial');
+ const plain=realpathSync(mkdtempSync(path.join(tmpdir(),'skd-plain-')));t.after(()=>rmSync(plain,{recursive:true,force:true}));
+ const missing=await collectEvidence({project,date:'2026-09-21',timezone:'UTC',now,sources:{...empty,commits:i=>readCommits(plain,i)}});
+ assert.deepEqual(missing.coverage.commits,{status:'unavailable',count:0,reason:'This folder is not a Git repository.'});
+ const {root:fresh}=repo(t);
+ assert.deepEqual(await readCommits(fresh,interval),[]);
 });
