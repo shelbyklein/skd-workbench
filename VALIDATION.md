@@ -1117,3 +1117,11 @@ Local activation: `2a440ab` fast-forwarded into clean main and the idle service 
 - `npm test`: **340/340 passed**, including fixed directory/argv, concurrent opens, failure recovery and unsupported platforms. Targeted real-HTTP Chrome test passed global/project header placement, keyboard activation, pending state, rejected command/path input and cross-origin requests. Native opener was replaced by a fixture in browser tests; no actual macOS Terminal window was launched by validation.
 - Inspected `output/workspace-terminal-desktop.png` and `output/workspace-terminal-mobile.png`: rightmost icon, no 390px horizontal overflow or browser errors. PWA shell cache is `skd-shell-0.5.0-90`.
 - Full `npm run test:browser`: all **35 Chrome suites passed**, exit 0, including the shared header, PWA, native-opener fixture and lifecycle regressions.
+
+## Persistent workspace terminal column — 2026-09-22
+
+- Replaced the native Terminal opener with an embedded plain-shell PTY using the existing xterm panel. The workspace terminal lives outside the routed view, remains open during navigation, and reserves a right-hand column on desktop. Mobile uses the existing full-width terminal treatment.
+- Hide/reopen and reload/reopen reconnect to the same server-owned shell; End session stops it. Server shutdown terminates it without automatic relaunch. The working folder and shell are selected by the server, output is bounded, session IDs protect against stale input, and all endpoints retain loopback/origin guards. No Agent, provider inference, or new worktree is created.
+- Focused browser validation used a real plain shell in a disposable folder: command output, navigation persistence, hide/reopen, reload/reconnect, desktop/mobile rendering, and rejected arbitrary-folder/cross-origin requests passed. Inspected output/workspace-terminal-desktop.png and output/workspace-terminal-mobile.png. Unit coverage checks one-process ownership, bounded output, invalid input/resize, explicit stop and stale IDs.
+- Shell cache bumped to skd-shell-0.5.0-91.
+- Regression validation: all 338 Node tests and all 35 Chrome browser suites passed. Final focused shell/browser rerun also passed explicit End session and fresh-shell reopening. No provider inference was used.

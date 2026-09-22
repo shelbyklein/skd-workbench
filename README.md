@@ -409,4 +409,4 @@ Workflows, read-only sessions and issue proposals remain MCP-free. Existing Agen
 
 ### Workspace terminal
 
-The terminal icon at the far right of each page header opens macOS Terminal in the folder running SKD Workbench. It opens a plain shell, independent of Agent sessions and the currently selected project. The server selects the folder; the request cannot supply commands or another path. Opening errors appear in the app, and pending clicks are disabled. This action is macOS-only.
+The header terminal icon opens a persistent shell column in the SKD Workbench folder. It stays open across views. Hide preserves the shell; reopening reconnects. End session stops it. Server restart ends the shell without automatically restarting it. On narrow screens the panel fills the screen. This plain shell is independent of Agents and selected projects.

@@ -95,7 +95,9 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       if(pathname==='/api/instructions'&&req.method==='GET')return json(await instructionFiles(root));
       const projectInstructions=pathname.match(/^\/api\/projects\/([\w-]+)\/instructions$/);
       if(projectInstructions&&req.method==='GET')return json(await instructionFiles(store.project(projectInstructions[1]).folderPath));
-      if(req.method==='POST'&&pathname==='/api/workspace-terminal'){const input=await body(req);assert(Object.keys(input).length===0,'Terminal opens the Workbench workspace only.');return json(await workspaceTerminal());}
+      if(req.method==='POST'&&pathname==='/api/workspace-terminal'){const input=await body(req);assert(Object.keys(input).length===0,'Terminal opens the Workbench workspace only.');return json(workspaceTerminal.open());}
+      const workspaceShell=pathname.match(/^\/api\/workspace-terminal\/([\w-]+)\/(output|input|resize|stop)$/);
+      if(workspaceShell){const [,id,action]=workspaceShell;if(req.method==='GET'&&action==='output')return json(workspaceTerminal.output(id,Number(url.searchParams.get('cursor')||0)));if(req.method==='POST'){const input=await body(req);if(action==='input')return json(workspaceTerminal.input(id,input.data));if(action==='resize')return json(workspaceTerminal.resize(id,input.cols,input.rows));if(action==='stop')return json(workspaceTerminal.stop(id));}}
       if(req.method==='POST'&&pathname==='/api/choose-folder'){await body(req);return json(await folderPicker());}
       if(req.method==='GET'&&pathname==='/api/health')return json({app:'skd-workbench',ok:true,version:'0.5.0'});
       if(pathname==='/api/skills'&&req.method==='GET')return json(await skills.inventory(store.snapshot().projects,url.searchParams.get('scope')==='project'?{kind:'project',projectID:url.searchParams.get('projectID')}:{kind:'global'}));
@@ -335,7 +337,7 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
     } catch(e) { json({error:e instanceof Problem?e.message:'Could not save or load data. Your previous saved state is intact.'},e.status||500); if(!(e instanceof Problem)) console.error(e); }
   });
   server.on('close',()=>{mcpConnections.shutdown();terminals.shutdown();delegations.shutdown();workflows.shutdown();});
-  server.shutdownCodex=()=>{mcpConnections.shutdown();terminals.shutdown();delegations.shutdown();workflows.shutdown();};
+  server.shutdownCodex=()=>{workspaceTerminal.shutdown();mcpConnections.shutdown();terminals.shutdown();delegations.shutdown();workflows.shutdown();};
   return server;
 }
 if(process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) {

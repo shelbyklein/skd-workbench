@@ -1,12 +1,2 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import {realpathSync} from 'node:fs';
-import {createWorkspaceTerminal} from '../lib/workspace-terminal.js';
-
-test('workspace terminal opens a server-owned directory without a shell or agent',async()=>{
- const open=createWorkspaceTerminal('.', {platform:'darwin',execute:(file,args,options,done)=>{assert.equal(file,'/usr/bin/open');assert.deepEqual(args,['-a','Terminal',realpathSync('.')]);assert.equal(options.timeout,10000);assert.equal(options.shell,undefined);done(null);}});assert.deepEqual(await open(),{opened:true});
-});
-test('workspace terminal prevents concurrent opens and recovers after errors',async()=>{
- let callback;const open=createWorkspaceTerminal('.',{platform:'darwin',execute:(f,a,o,done)=>{callback=done;}});const pending=open();await assert.rejects(open(),/already opening/);callback(Error('private path'));await assert.rejects(pending,/Could not open Terminal/);const retry=open();callback(null);assert.deepEqual(await retry,{opened:true});
-});
-test('workspace terminal reports unsupported platforms without executing',async()=>{await assert.rejects(createWorkspaceTerminal('.',{platform:'linux',execute:()=>assert.fail()})(),/macOS/);});
+import test from 'node:test';import assert from 'node:assert/strict';import {createWorkspaceTerminal} from '../lib/workspace-terminal.js';
+test('workspace shell retains one process, bounds output, validates input and ends explicitly',()=>{let count=0,onData,onExit,written;const terminal=createWorkspaceTerminal('.',{spawn:(file,args,options)=>{count++;assert.equal(options.cwd,process.cwd());assert.deepEqual(args,['-i']);return {onData:fn=>onData=fn,onExit:fn=>onExit=fn,write:data=>written=data,resize(){},kill(){onExit();}};}});const s=terminal.open();assert.equal(terminal.open().id,s.id);assert.equal(count,1);terminal.input(s.id,'pwd\r');assert.equal(written,'pwd\r');assert.throws(()=>terminal.input(s.id,'x'.repeat(16385)));assert.throws(()=>terminal.resize(s.id,0,0));onData('x'.repeat(210000));assert.equal(terminal.output(s.id).data.length,200000);assert.equal(terminal.output(s.id).reset,true);terminal.stop(s.id);assert.throws(()=>terminal.input(s.id,'x'));assert.notEqual(terminal.open().id,s.id);assert.throws(()=>terminal.output(s.id));terminal.shutdown();});

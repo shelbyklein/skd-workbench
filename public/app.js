@@ -1,3 +1,4 @@
+import {mountTerminal} from './terminal-ui.js';
 import {mountLifecycle} from './lifecycle-ui.js';
 import {mountDelegation} from './delegations-ui.js';
 import {openSessionImport} from './session-import-ui.js';
@@ -18,7 +19,7 @@ const $ = s => document.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const clone = v=>structuredClone(v);
 const uid = ()=>crypto.randomUUID();
-let openingWorkspaceTerminal=false;
+let openingWorkspaceTerminal=false,workspaceTerminalPanel=null,workspaceTerminalSession=null;
 let issuesView=null,issueNumber=null,issueProposalID=null,issueEditMode=false;
 let planningView=null,planningRunID=null;
 let knowledgeView=null;
@@ -139,10 +140,10 @@ function shell(content) {
     heading.append(actions);
     topbar.append(heading);
   }
-  const terminalButton=document.createElement('button');terminalButton.type='button';terminalButton.className='header-terminal';terminalButton.dataset.workspaceTerminal='';terminalButton.setAttribute('aria-label','Open workspace terminal');terminalButton.title='Open Terminal in the SKD Workbench workspace';terminalButton.disabled=openingWorkspaceTerminal;
+  const terminalButton=document.createElement('button');terminalButton.type='button';terminalButton.className='header-terminal';terminalButton.dataset.workspaceTerminal='';terminalButton.setAttribute('aria-label','Open workspace terminal');terminalButton.title='Open terminal sidebar in the SKD Workbench workspace';terminalButton.disabled=openingWorkspaceTerminal;
   terminalButton.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3m6 0h4"/></svg>';
   (topbar.querySelector('.view-actions')||topbar).append(terminalButton);
-  terminalButton.onclick=async()=>{if(openingWorkspaceTerminal)return;openingWorkspaceTerminal=true;terminalButton.disabled=true;try{await api('workspace-terminal','POST',{});}catch(error){toast(error.message);}finally{openingWorkspaceTerminal=false;document.querySelectorAll('[data-workspace-terminal]').forEach(button=>button.disabled=false);}};
+  terminalButton.onclick=async()=>{if(openingWorkspaceTerminal)return;openingWorkspaceTerminal=true;terminalButton.disabled=true;try{const session=await api('workspace-terminal','POST',{});if(workspaceTerminalPanel&&workspaceTerminalSession===session.id)workspaceTerminalPanel.show();else{workspaceTerminalPanel?.dispose();workspaceTerminalSession=session.id;workspaceTerminalPanel=mountTerminal({session,api,workspace:true});}}catch(error){toast(error.message);}finally{openingWorkspaceTerminal=false;document.querySelectorAll('[data-workspace-terminal]').forEach(button=>button.disabled=false);}};
   const themeControl=document.createElement('label');themeControl.className='theme-control';
   themeControl.innerHTML='Appearance<select data-theme-picker aria-label="Appearance"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>';
   $('.sidebar').append(themeControl);window.workbenchTheme?.sync();
