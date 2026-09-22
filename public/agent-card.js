@@ -109,27 +109,36 @@ export function agentCard({agentNodes=[],modelNodes,effortNodes,seed=null,cacheK
  const api={acceptCurrent:()=>{keys.forEach(k=>{accepted[k]=!!read(k).value;delete desired[k];});refresh();remember();},ready:()=>keys.every(k=>accepted[k]&&(!desired[k]||applied[k])&&read(k).value&&read(k).value!=='—'),openMissing:()=>open(keys.find(k=>!accepted[k]||(desired[k]&&!applied[k])||!read(k).value)||'agent')};
  instances.set(card,api);return api;
 }
-export function workflowAgentCard(row,model,effort){
+export function workflowAgentCard(row,model,effort,provider=null){
  const modelLabel=model.closest('label'),effortLabel=effort.closest('label'),group=document.createElement('div'),slider=document.createElement('input'),ticks=document.createElement('div'),output=document.createElement('output');
  group.className='pill-options';model.hidden=true;modelLabel.append(group);
  const name='workflow-card-'+crypto.randomUUID();
- for(const option of model.options){
-  if(!option.value)continue;
-  const label=document.createElement('label');label.className='choice-pill';
-  label.innerHTML='<input type="radio" name="'+name+'" value="'+esc(option.value)+'" '+(option.selected?'checked':'')+'><span>'+esc(option.textContent)+'</span>';
-  label.querySelector('input').onchange=()=>{model.value=option.value;model.dispatchEvent(new Event('change',{bubbles:true}));sync();};group.append(label);
+ function choices(){
+  group.replaceChildren();
+  for(const option of model.options){
+   if(!option.value)continue;
+   const label=document.createElement('label');label.className='choice-pill';
+   label.innerHTML='<input type="radio" name="'+name+'" value="'+esc(option.value)+'" '+(option.selected?'checked':'')+'><span>'+esc(option.textContent)+'</span>';
+   label.querySelector('input').onchange=()=>{model.value=option.value;model.dispatchEvent(new Event('change',{bubbles:true}));sync();};group.append(label);
+  }
  }
  effort.hidden=true;slider.type='range';slider.min=0;slider.step=1;slider.setAttribute('aria-label','Effort');effortLabel.append(output,slider);ticks.className='effort-ticks';effortLabel.append(ticks);
  function sync(){
   const options=[...effort.options].filter(o=>o.value);
   slider.max=Math.max(0,options.length-1);slider.disabled=options.length<2;slider.value=Math.max(0,options.findIndex(o=>o.selected));slider.setAttribute('aria-valuetext',effort.value);output.textContent=effort.value;
-  ticks.innerHTML=options.map(o=>'<span>'+esc(o.value)+'</span>').join('');
-  group.querySelectorAll('input').forEach(r=>r.checked=r.value===model.value);
+  ticks.innerHTML=options.map(o=>'<span>'+esc(o.value)+'</span>').join('');group.querySelectorAll('input').forEach(r=>r.checked=r.value===model.value);
  }
  slider.oninput=()=>{effort.selectedIndex=Number(slider.value);effort.dispatchEvent(new Event('change',{bubbles:true}));sync();};
- model.addEventListener('change',sync);sync();
- const card=agentCard({modelNodes:[modelLabel],effortNodes:[effortLabel],fixedAgent:'codex',seed:{agent:'codex',model:model.value,effort:effort.value},cacheKey:'workflow'});
+ model.addEventListener('change',sync);choices();sync();
+ const agentNodes=[];
+ if(provider){
+  const label=provider.closest('label'),radios=document.createElement('div');radios.className='pill-options';provider.hidden=true;label.append(radios);
+  for(const option of provider.options){const item=document.createElement('label');item.className='choice-pill';item.innerHTML='<input type="radio" name="'+name+'-provider" value="'+esc(option.value)+'" '+(option.selected?'checked':'')+'><span>'+esc(option.textContent)+'</span>';item.querySelector('input').onchange=()=>{provider.value=option.value;provider.dispatchEvent(new Event('change',{bubbles:true}));};radios.append(item);}
+  agentNodes.push(label);
+ }
+ const card=agentCard({agentNodes,modelNodes:[modelLabel],effortNodes:[effortLabel],fixedAgent:provider?null:'codex',seed:{agent:provider?.value||'codex',model:model.value,effort:effort.value},cacheKey:'workflow'});
  model.addEventListener('change',()=>card?.acceptCurrent());
+ return {refresh(){choices();sync();card?.acceptCurrent();}};
 }
 
 export function primeAgentCache(runs){

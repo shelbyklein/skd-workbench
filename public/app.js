@@ -669,31 +669,32 @@ async function launchConfigured(kind){
   }
   if(kind==='codex'){
    if(!currentProject()?.folderPath){toast('Move this flow into a project with a connected folder first.');return;}
-   let config=Object.fromEntries(draft.steps.filter(s=>s.type==='agent').map(s=>[s.id,{model:s.model,effort:s.effort,agentProfile:s.agentProfile||{mode:'legacy'},skills:s.skills||{mode:'inherit',skillIDs:[]}}]));
+   let config=Object.fromEntries(draft.steps.filter(s=>s.type==='agent').map(s=>[s.id,{agent:s.agent||'codex',model:s.model,effort:s.effort,agentProfile:s.agentProfile||{mode:'legacy'},skills:s.skills||{mode:'inherit',skillIDs:[]}}]));
    const input={flowID:draft.id,flowVersion:draft.version,projectVersion:currentProject().version,...settings,config};
    config=await reviewWorkflowAgents(api,{...input,stepNames:Object.fromEntries(draft.steps.map(s=>[s.id,s.name]))});if(!config)return;
    const run=await api('workflows','POST',{...input,config});workflowRunID=run.id;view='workflow';render();
   }else{
    const run=await api('runs','POST',{flowID:draft.id,flowVersion:draft.version,projectVersion:currentProject().version,task:settings.task,acceptance:settings.acceptance});await reload();runID=run.id;selected=null;view='run';render();
   }
- }catch(e){toast(e.message);if(kind==='codex'&&/supported Codex model/.test(e.message))await workflowStartDialog(true);}
+ }catch(e){toast(e.message);if(kind==='codex'&&/supported (Codex|Claude) model/.test(e.message))await workflowStartDialog(true);}
  finally{busy=false;if(view==='flow'){const codex=$('#execute-flow'),sim=$('#run-flow');if(codex){codex.disabled=!draft.steps.some(s=>s.type==='agent');codex.textContent='Run';}if(sim){sim.disabled=!draft.steps.length;sim.textContent='▷ Try flow';}}}
 }
 async function workflowStartDialog(startAfterSave=false){
  try{
   if(dirty)await saveFlow();
   const flow=clone(draft),[provider,skillInventory,agentLibrary]=await Promise.all([api('codex/provider').catch(()=>({models:[],unavailable:true})),api('skills?scope=project&projectID='+encodeURIComponent(projectID)),api('agent-profiles?scope=project&projectID='+encodeURIComponent(projectID))]),settings=runSettings();let readConfig;
-  modal(startAfterSave?'Run flow with Codex':'Run settings',(provider.unavailable?'<p class="form-error">Codex is unavailable. You can save task settings; existing model choices will be kept.</p>':'')+workflowForm(flow,provider,currentProject(),skillInventory,agentLibrary),[{label:'Cancel',close:true},{label:startAfterSave?'Start real workflow':'Save run settings',primary:true,submit:true}],async form=>{
-   await saveRunSettings({task:form.get('task'),acceptance:form.get('acceptance'),mode:form.get('mode'),maxAttempts:Number(form.get('maxAttempts'))},provider.unavailable?undefined:readConfig());
+  provider.catalogs={};for(const agent of new Set(flow.steps.filter(s=>s.type==='agent').map(s=>s.agent||'codex')))if(agent!=='codex')provider.catalogs[agent]=await api('agents/'+agent).catch(e=>({models:[],unavailable:true,error:e.message}));
+  modal(startAfterSave?'Run workflow':'Run settings',(provider.unavailable?'<p class="form-error">Codex is unavailable. Claude steps remain available; existing Codex model choices will be kept.</p>':'')+workflowForm(flow,provider,currentProject(),skillInventory,agentLibrary),[{label:'Cancel',close:true},{label:startAfterSave?'Start real workflow':'Save run settings',primary:true,submit:true}],async form=>{
+   await saveRunSettings({task:form.get('task'),acceptance:form.get('acceptance'),mode:form.get('mode'),maxAttempts:Number(form.get('maxAttempts'))},readConfig());
    if(startAfterSave){await launchConfigured('codex');}else{render();toast('Run settings saved. Agent configuration is reviewed before execution.');}
   });
   const form=$('#dialog-form');form.elements.task.value=settings.task;form.elements.acceptance.value=settings.acceptance;form.elements.mode.value=settings.mode;form.elements.maxAttempts.value=settings.maxAttempts;
-  readConfig=bindWorkflowForm($('#dialog'),flow,provider);
-  if(provider.unavailable)$('#dialog').querySelectorAll('[data-workflow-model],[data-workflow-effort],#workflow-all-model').forEach(el=>{el.disabled=true;el.required=false;});
+  readConfig=bindWorkflowForm($('#dialog'),flow,provider,{api,agentLibrary});
+  if(provider.unavailable)$('#workflow-all-model').disabled=true;
  }catch(e){toast(e.message);}
 }
 function renderWorkflow(){
- shell(`<section class="page-heading"><div><div class="eyebrow">CONNECTED STEPS · REAL EXECUTION</div><h1>Workflow runs</h1><p>Codex works between your review checkpoints.</p></div>${workflowRunID?'<button id="workflow-history">All workflow runs</button>':''}</section><section id="workflow-view" class="codex-view"></section>`);
+ shell(`<section class="page-heading"><div><div class="eyebrow">CONNECTED STEPS · REAL EXECUTION</div><h1>Workflow runs</h1><p>Codex and Claude work between your review checkpoints.</p></div>${workflowRunID?'<button id="workflow-history">All workflow runs</button>':''}</section><section id="workflow-view" class="codex-view"></section>`);
  if($('#workflow-history'))$('#workflow-history').onclick=()=>confirmLeave(()=>{workflowRunID=null;render();});
  workflowView=mountWorkflow({host:$('#workflow-view'),runID:workflowRunID,projectID,api,notify:toast,onOpen:id=>confirmLeave(()=>{workflowRunID=id;view='workflow';render();})});
 }
@@ -709,15 +710,16 @@ function bindStepAgent(step){
  api(projectID==='unassigned'?'agent-profiles?scope=global':'agent-profiles?scope=project&projectID='+encodeURIComponent(projectID)).then(library=>{
   if(projectID==='unassigned')library.entries=library.entries.filter(e=>e.scope==='global');
   if(!host.isConnected||selected!==step.id)return;
-  const select=host.querySelector('#step-agent-profile');select.innerHTML=workflowAgentOptions(step.agentProfile,library);select.disabled=false;
+  const select=host.querySelector('#step-agent-profile');host.agentLibrary=library;select.innerHTML=workflowAgentOptions(step.agentProfile,library,step.agent||'codex');select.disabled=false;
   select.onchange=()=>{step.agentProfile=workflowAgentValue(select.value);markDirty();};
   host.querySelector('[data-agent-help]').textContent='Agent versions and instructions are reviewed when you run. Workflows do not use MCP connections.';
  }).catch(e=>{if(host.isConnected&&selected===step.id)host.querySelector('[data-agent-help]').textContent=e.message;});
 }
-let stepCatalog=null;
+const stepCatalogs=new Map();
 function bindStepModels(step){
  const host=$('#inspector'),alive=()=>host.isConnected&&selected===step.id;
- let models=[{id:step.model,name:step.model,efforts:['low','medium','high','max'],defaultEffort:'medium'}];
+ let models=[{id:step.model,name:step.model,efforts:['low','medium','high','max','default'],defaultEffort:'medium'}],request=0;
+ const providerField=document.createElement('fieldset');providerField.className='pill-field';providerField.innerHTML='<legend>Provider</legend><div class="pill-options">'+['codex','claude'].map(agent=>`<label class="choice-pill"><input type="radio" name="step-provider" value="${agent}" ${(step.agent||'codex')===agent?'checked':''}><span>${agent==='claude'?'Claude':'Codex'}</span></label>`).join('')+'</div>';host.querySelector('#step-models').closest('fieldset').before(providerField);
  const renderEffort=()=>{
   const m=models.find(m=>m.id===step.model),available=m?.efforts?.length?m.efforts:['low','medium','high','max'];
   const choices=available.includes(step.effort)?available:[...available,step.effort];
@@ -727,15 +729,24 @@ function bindStepModels(step){
   slider.oninput=()=>{step.effort=choices[Number(slider.value)];host.querySelector('#step-effort-value').textContent=step.effort;slider.setAttribute('aria-valuetext',step.effort);markDirty();updateCard(step);};
  };
  const renderModels=()=>{
-  const available=visibleModels(models,'codex',step.model);const choices=available.some(m=>m.id===step.model)?available:[{id:step.model,name:step.model+' (saved label)'},...available];
+  const available=visibleModels(models,step.agent||'codex',step.model);const choices=!step.model||available.some(m=>m.id===step.model)?available:[{id:step.model,name:step.model+' (saved label)'},...available];
   host.querySelector('#step-models').innerHTML=choices.map(m=>`<label class="choice-pill"><input type="radio" name="step-model" value="${esc(m.id)}" ${m.id===step.model?'checked':''}><span>${esc(m.name||m.id)}</span></label>`).join('');
   host.querySelectorAll('[name="step-model"]').forEach(input=>input.onchange=()=>{step.model=input.value;const m=models.find(m=>m.id===step.model);if(m?.efforts?.length&&!m.efforts.includes(step.effort))step.effort=m.defaultEffort||m.efforts[0];host.querySelector('#model').value=step.model;markDirty();updateCard(step);renderEffort();});renderEffort();
  };
  host.querySelector('#model').oninput=e=>{step.model=e.target.value;markDirty();updateCard(step);renderModels();};renderModels();
- agentCard({modelNodes:[host.querySelector('#step-models').closest('fieldset')],effortNodes:[host.querySelector('label[for="step-effort"]'),host.querySelector('#step-effort'),host.querySelector('#step-effort-ticks')],fixedAgent:'codex',seed:{agent:'codex',model:step.model,effort:step.effort},cacheKey:'workflow'});
- host.querySelector('#step-provider-note').textContent='Loading installed Codex models…';
- stepCatalog??=api('agents/codex').catch(e=>{stepCatalog=null;throw e;});
- stepCatalog.then(provider=>{if(!alive())return;models=provider.models;renderModels();host.querySelector('#step-provider-note').textContent='Codex workflow models. Availability is confirmed when a run starts. Saved labels stay unchanged until you select a model.';}).catch(e=>{if(alive())host.querySelector('#step-provider-note').textContent=e.message+' Saved model labels remain editable.';});
+ const card=agentCard({agentNodes:[providerField],modelNodes:[host.querySelector('#step-models').closest('fieldset')],effortNodes:[host.querySelector('label[for="step-effort"]'),host.querySelector('#step-effort'),host.querySelector('#step-effort-ticks')],seed:{agent:step.agent||'codex',model:step.model,effort:step.effort},cacheKey:'workflow'});
+ async function loadModels(){
+  const agent=step.agent||'codex',token=++request;host.querySelector('#step-provider-note').textContent='Loading installed '+(agent==='claude'?'Claude':'Codex')+' models…';
+  if(!stepCatalogs.has(agent))stepCatalogs.set(agent,api('agents/'+agent).catch(e=>{stepCatalogs.delete(agent);throw e;}));
+  try{const provider=await stepCatalogs.get(agent);if(!alive()||request!==token)return;models=provider.models;renderModels();card?.acceptCurrent();host.querySelector('#step-provider-note').textContent=agent==='claude'?'Claude workflow step: read/search, plus edit/write in worktrees. Shell commands are unavailable.':'Codex workflow models. Availability is confirmed when a run starts. Saved labels stay unchanged until you select a model.';}
+  catch(e){if(alive()&&request===token)host.querySelector('#step-provider-note').textContent=e.message+' Saved model labels remain editable.';}
+ }
+ providerField.querySelectorAll('input').forEach(input=>input.onchange=()=>{
+  step.agent=input.value;step.model='';models=[];host.querySelector('#model').value='';markDirty();updateCard(step);renderModels();card?.acceptCurrent();
+  if(host.agentLibrary)host.querySelector('#step-agent-profile').innerHTML=workflowAgentOptions(step.agentProfile,host.agentLibrary,step.agent);
+  loadModels();
+ });
+ loadModels();
 }
 
 function renderSystem(){
