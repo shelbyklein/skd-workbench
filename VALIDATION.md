@@ -996,3 +996,27 @@ delivery to the launch adapter. No real inference or GitHub write was performed.
   headers, including keyboard workflow expansion and desktop/mobile checks.
   Inspected the dark desktop rendering. Fixture providers only; no user workflow
   or real inference was run. Shell cache is `0.5.0-82`.
+
+## Newton Graft discovery — 2026-09-22
+
+- Added read-only `.graft-dev/config.json` discovery alongside standard `graft/`
+  indexes. An explicit checkout reference must share the project's Git common
+  directory and resolve to a checkout root. The target's current configuration
+  selects the generation; stale source-checkout pointers cannot select an older
+  generation. Configuration reads are bounded and generation/configuration
+  symlink escapes are rejected. Project folder assignments remain unchanged.
+- The graph identifies the indexed checkout when using a worktree. Shell cache
+  advanced to `0.5.0-84` for the existing explicit Update app flow.
+- `npm test`: 310/310 passed. Graft Chrome coverage passed, including the new
+  development-index fixture, existing Code/Context/Outline interactions,
+  keyboard and mobile behavior. PWA Chrome checks passed. No provider inference.
+- Restarted the idle local Workbench service after checking execution state and
+  backing up existing JSON stores. Live Newton graph loaded 12,237 code nodes and
+  27,814 valid relationships from the active development checkout. Its index has
+  1,143 dangling relationships, omitted by the existing validator; reading the
+  graph does not rebuild it or establish index freshness.
+- Inspected `output/graft-newton-desktop.png` and `output/graft-newton-mobile.png`.
+  Live browser verification recorded zero page errors, zero API writes and no
+  mobile horizontal document overflow. All pre-existing top-level JSON stores
+  retained their hashes. Verification disabled service workers, producing the
+  expected offline-startup notice; installed clients use Update app normally.
