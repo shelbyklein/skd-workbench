@@ -400,10 +400,15 @@ body.terminal-open .issue-detail-layout{grid-template-columns:minmax(0,1fr)}
 .header-terminal{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;padding:8px;flex:none;margin-left:auto}.header-terminal svg{display:block}
 
 /* The workspace shell remains a separate column while the app changes views. */
-.workspace-terminal-panel{width:clamp(400px,40vw,640px)}
-.workspace-terminal-open #app{margin-right:clamp(400px,40vw,640px)}
+.workspace-terminal-panel{width:var(--workspace-terminal-width,clamp(400px,40vw,640px))}
+.workspace-terminal-open #app{margin-right:var(--workspace-terminal-width,clamp(400px,40vw,640px))}
 .workspace-terminal-open .project-dashboard{grid-template-columns:minmax(0,1fr)}
 .workspace-terminal-open .project-quick-actions{grid-template-columns:minmax(0,1fr)}
 .workspace-terminal-panel .terminal-header>div:first-child{min-width:0}
 .workspace-terminal-panel .terminal-header>div:last-child{flex-shrink:0}
 @media(max-width:650px){.workspace-terminal-panel{width:100vw}.workspace-terminal-open #app{margin-right:0}}
+
+.terminal-resize-edge{position:absolute;inset:0 auto 0 -5px;width:10px;z-index:2;cursor:col-resize;touch-action:none}
+.terminal-resize-edge:hover,.terminal-resize-edge:focus-visible{background:#e9b77f66;outline:none}
+.terminal-resizing,.terminal-resizing *{cursor:col-resize!important;user-select:none!important}
+@media(max-width:650px){.terminal-resize-edge{display:none}}

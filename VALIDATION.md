@@ -1125,3 +1125,9 @@ Local activation: `2a440ab` fast-forwarded into clean main and the idle service 
 - Focused browser validation used a real plain shell in a disposable folder: command output, navigation persistence, hide/reopen, reload/reconnect, desktop/mobile rendering, and rejected arbitrary-folder/cross-origin requests passed. Inspected output/workspace-terminal-desktop.png and output/workspace-terminal-mobile.png. Unit coverage checks one-process ownership, bounded output, invalid input/resize, explicit stop and stale IDs.
 - Shell cache bumped to skd-shell-0.5.0-91.
 - Regression validation: all 338 Node tests and all 35 Chrome browser suites passed. Final focused shell/browser rerun also passed explicit End session and fresh-shell reopening. No provider inference was used.
+
+## Workspace terminal resizing — 2026-09-22
+
+- Added a draggable left edge with pointer capture, bounded width, synchronized page-column sizing, and locally saved width. A focusable separator supports arrow keys and Home/End. Mobile remains full-width; terminal fitting continues through the existing ResizeObserver.
+- Workspace terminal and Agent terminal Chrome suites passed. Verified actual drag width, keyboard adjustment, reload persistence, real-shell interaction, and mobile behavior; inspected the resized desktop screenshot. Shell cache is skd-shell-0.5.0-92.
+- Frontend-only activation requires no server restart; the existing live shell is preserved.
