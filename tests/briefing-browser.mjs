@@ -51,6 +51,15 @@ try{
  await page.goto(url+'/#home');const home=page.locator('#home-briefings');await home.getByText('Fix the settings migration').waitFor();
  assert.match(await home.locator('.briefing-project-list').textContent(),/Briefing fixture.*Failed/);
  await page.screenshot({path:'output/briefing-home.png'});
+ // Schedule: off by default, saved explicitly, and shows the server-uptime limit.
+ const schedule=home.locator('.briefing-schedule');assert.equal(await schedule.locator('summary').textContent(),'Schedule: off');
+ await schedule.locator('summary').click();await schedule.locator('#schedule-model option[value="fixture"]').waitFor({state:'attached'});
+ assert.match(await schedule.textContent(),/Runs only while SKD Workbench is running/);
+ await schedule.locator('#schedule-enabled').check();await schedule.locator('#schedule-time').fill('23:59');await schedule.locator('#schedule-timezone').fill('UTC');
+ await schedule.locator('#schedule-save').click();await schedule.getByText('Schedule: daily at 23:59 (UTC)').waitFor();
+ await schedule.locator('#schedule-timezone').fill('Mars/Base');await schedule.locator('#schedule-save').click();
+ await schedule.locator('#schedule-error:not(:empty)').waitFor();assert.match(await schedule.locator('#schedule-error').textContent(),/timezone/);
+ await page.screenshot({path:'output/briefing-schedule.png',fullPage:true});
  await home.locator('.briefing-suggestions .briefing-home-link').first().click();await page.locator('.briefing-widget').waitFor();
  // Mobile layout.
  await page.setViewportSize({width:390,height:900});await page.goto(url+'/#project/'+project.id);await page.locator('.briefing-widget .briefing-state-failed').waitFor();

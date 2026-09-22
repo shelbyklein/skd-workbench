@@ -82,8 +82,8 @@ export function mountProjectBriefing(host,{project,api,onSession,onIssue}){
 // Home panel: aggregates each project's latest report without starting inference.
 export async function mountHomeBriefings(host,{projects,api,onProject}){
  host.innerHTML='<div class="overview-section-heading"><h2>Daily briefing</h2></div><p class="widget-empty">Loading briefings…</p>';
- let rows;
- try{rows=await api('briefings');}catch(error){if(host.isConnected)host.innerHTML=`<div class="overview-section-heading"><h2>Daily briefing</h2></div><p class="widget-empty" role="alert">${esc(error.message)}</p>`;return;}
+ let rows,schedule;
+ try{[rows,schedule]=await Promise.all([api('briefings'),api('briefings/schedule')]);}catch(error){if(host.isConnected)host.innerHTML=`<div class="overview-section-heading"><h2>Daily briefing</h2></div><p class="widget-empty" role="alert">${esc(error.message)}</p>`;return;}
  if(!host.isConnected)return;
  const names=new Map(projects.map(p=>[p.id,p.name])),yesterday=localYesterday(),present=rows.filter(r=>names.has(r.projectID));
  const summary=r=>{const b=r.briefing;if(!b)return null;const report=b.latest.synthesis||!b.lastSuccessful?.synthesis?b.latest:b.lastSuccessful;return {...b,report};};
@@ -101,4 +101,19 @@ export async function mountHomeBriefings(host,{projects,api,onProject}){
   <article class="project-widget"><header><div><span class="eyebrow">ALL PROJECTS</span><h3>Suggested today</h3></div></header>${suggestions.length?`<ol class="briefing-suggestions">${suggestions.slice(0,6).map(s=>`<li><button type="button" class="briefing-home-link" data-project="${esc(s.projectID)}"><span class="eyebrow">${esc(names.get(s.projectID))}</span><strong>${esc(s.title)}</strong><span>${esc(s.reason)}</span></button></li>`).join('')}</ol>`:'<p class="widget-empty">No suggestions yet. Open a project to generate its briefing.</p>'}</article>
   <article class="project-widget"><header><div><span class="eyebrow">COVERAGE</span><h3>Projects</h3></div></header><ul class="briefing-project-list">${present.map(r=>{const b=r.briefing,e=b?.latest.evidence;return `<li><button type="button" class="briefing-home-link" data-project="${esc(r.projectID)}"><strong>${esc(names.get(r.projectID))}</strong><span class="briefing-state briefing-state-${esc(status(b))}">${esc(statusLabel(b))}</span>${e?`<small>${e.activity.length} observed · ${e.openLoops.length} open${Object.values(e.coverage).some(c=>c.status!=='complete')?' · some sources incomplete':''}</small>`:''}</button></li>`;}).join('')||'<li class="widget-empty">No projects.</li>'}</ul></article></div>`;
  host.querySelectorAll('[data-project]').forEach(button=>button.onclick=()=>onProject(button.dataset.project));
+ const scheduleHost=document.createElement('details');scheduleHost.className='briefing-schedule';host.append(scheduleHost);mountSchedule(scheduleHost,{api,schedule});
+}
+const scheduleSummary=s=>s.enabled?`Schedule: daily at ${s.time} (${s.timezone||s.serverTimezone})`:'Schedule: off';
+function mountSchedule(host,{api,schedule}){
+ let catalog=null;
+ const render=()=>{host.innerHTML=`<summary>${esc(scheduleSummary(schedule))}</summary><form class="briefing-controls" id="schedule-form"><label class="briefing-check"><input type="checkbox" id="schedule-enabled" ${schedule.enabled?'checked':''}> Generate daily</label><label>Time<input type="time" id="schedule-time" value="${esc(schedule.time)}" required></label><label>Timezone<input id="schedule-timezone" value="${esc(schedule.timezone||'')}" placeholder="${esc(schedule.serverTimezone)}" autocomplete="off" spellcheck="false"></label><label>Agent<select id="schedule-agent">${['codex','claude'].map(a=>`<option value="${a}" ${a===schedule.agent?'selected':''}>${a==='codex'?'Codex':'Claude'}</option>`).join('')}</select></label><label>Model<select id="schedule-model"></select></label><label>Effort<select id="schedule-effort"></select></label><div class="briefing-actions"><button type="submit" class="primary" id="schedule-save">Save schedule</button></div><p class="field-error" id="schedule-error" role="alert"></p></form><p class="field-help">Runs only while SKD Workbench is running. Missed days are not generated later. Each project with activity uses one agent task, one at a time, after your own agent work.</p>`;
+  const agent=host.querySelector('#schedule-agent'),model=host.querySelector('#schedule-model'),effort=host.querySelector('#schedule-effort');
+  const efforts=()=>{const m=catalog?.models.find(x=>x.id===model.value);if(!m)return;const chosen=m.efforts.includes(schedule.effort)?schedule.effort:m.efforts[0];effort.innerHTML=m.efforts.map(e=>`<option value="${esc(e)}" ${e===chosen?'selected':''}>${esc(e)}</option>`).join('');};
+  const models=async()=>{model.innerHTML='<option value="">Loading…</option>';effort.innerHTML='';try{catalog=await api('terminal-agents/'+agent.value);if(!host.isConnected)return;const chosen=catalog.models.find(m=>m.id===schedule.model)||catalog.models.find(m=>m.isDefault)||catalog.models[0];model.innerHTML=catalog.models.map(m=>`<option value="${esc(m.id)}" ${m.id===chosen?.id?'selected':''}>${esc(m.name||m.id)}</option>`).join('');efforts();}catch(e){if(host.isConnected){model.innerHTML='<option value="">Unavailable</option>';host.querySelector('#schedule-error').textContent=e.message;}}};
+  agent.onchange=models;model.onchange=efforts;models();
+  host.querySelector('#schedule-form').onsubmit=async e=>{e.preventDefault();const error=host.querySelector('#schedule-error'),button=host.querySelector('#schedule-save');error.textContent='';button.disabled=true;
+   try{schedule=await api('briefings/schedule','PUT',{version:schedule.version,enabled:host.querySelector('#schedule-enabled').checked,time:host.querySelector('#schedule-time').value,timezone:host.querySelector('#schedule-timezone').value.trim()||null,agent:agent.value,model:model.value||null,effort:effort.value||null});if(!host.isConnected)return;render();host.open=true;host.querySelector('summary').focus();}
+   catch(err){if(host.isConnected){error.textContent=err.message;button.disabled=false;}}};
+ };
+ render();
 }

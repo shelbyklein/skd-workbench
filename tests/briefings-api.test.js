@@ -73,3 +73,13 @@ test('HTTP damaged briefing store fails visibly and is not replaced',async t=>{
  assert.equal(readFileSync(path.join(f.data,'briefings.json'),'utf8'),'{not json');
  assert.equal((await f.request('/api/health')).status,200);
 });
+
+test('HTTP schedule is off by default and rejects invalid or stale saves',async t=>{
+ const f=await fixture(t),route='/api/briefings/schedule';
+ const schedule=await(await f.request(route)).json();assert.equal(schedule.enabled,false);assert.equal(schedule.serverTimezone,'UTC');
+ const base={version:schedule.version,enabled:true,time:'23:59',timezone:null,agent:'codex',model:'fixture',effort:'low'};
+ assert.equal((await f.request(route,'PUT',{...base,model:null})).status,400);
+ assert.equal((await f.request(route,'PUT',{...base,command:'x'})).status,400);
+ const saved=await(await f.request(route,'PUT',base)).json();assert.equal(saved.enabled,true);assert.equal(saved.version,schedule.version+1);
+ assert.equal((await f.request(route,'PUT',base)).status,409);
+});

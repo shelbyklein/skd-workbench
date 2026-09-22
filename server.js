@@ -83,8 +83,9 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
   const quickActions=new QuickActions(directory,{terminals,github,project:id=>store.project(id),...quickActionOptions});
   const proposals=new IssueProposals(directory,codex,github);
   const issueWork=new IssueWork(directory,{github,terminals,instructionsRoot:root,validateProject:project=>assert(store.project(project.id).version===project.version,'Project changed. Reload before reviewing.',409),providers:agent=>agent==='claude'?codex.discoverClaude():codex.discover()});
-  const briefings=new Briefings(directory,{executor:codex,...briefingOptions,sources:project=>({sessions:()=>codex.runs,terminals:()=>terminals.runs,imports:()=>imports.records,workflows:()=>workflows.runs,delegations:()=>delegations.runs,
+  const briefings=new Briefings(directory,{executor:codex,projects:()=>store.snapshot().projects,...briefingOptions,sources:project=>({sessions:()=>codex.runs,terminals:()=>terminals.runs,imports:()=>imports.records,workflows:()=>workflows.runs,delegations:()=>delegations.runs,
     issues:async()=>{const page=await github.list(project);const list=page.issues;list.truncated=page.hasMore;return list;},commits:interval=>readCommits(project.folderPath,interval)})});
+  briefings.start();
   const controllers=new Controllers(directory,{projects:()=>store.snapshot().projects});
   const controllerCommands=new ControllerCommands({controllers,store,workflows,playbooks,workspaceTasks,codex,lifecycle});
   const server = http.createServer(async (req,res)=>{
@@ -218,6 +219,8 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       if(issueCount&&req.method==='GET')return json(await github.count(store.project(issueCount[1])));
       const sessionPlaybook=pathname.match(/^\/api\/sessions\/([\w-]+)\/playbooks(?:\/(draft))?$/);
       if(sessionPlaybook){const session=terminals.has(sessionPlaybook[1])?terminals.get(sessionPlaybook[1]):codex.get(sessionPlaybook[1]);if(req.method==='GET'&&sessionPlaybook[2])return json(await playbooks.sessionDraft(session,store.snapshot().projects));if(req.method==='POST'&&!sessionPlaybook[2])return json(await playbooks.createFromSession({...await body(req),requireSpecialization:url.pathname.includes('/agent-profiles')},session,store.snapshot().projects),201);}
+      if(pathname==='/api/briefings/schedule'&&req.method==='GET')return json(briefings.getSchedule());
+      if(pathname==='/api/briefings/schedule'&&req.method==='PUT'){const input=await body(req,16*1024);assert(Object.keys(input).every(k=>['version','enabled','time','timezone','agent','model','effort'].includes(k)),'Unknown schedule option.');return json(briefings.saveSchedule(input));}
       if(pathname==='/api/briefings'&&req.method==='GET'){briefings.ready();return json(store.snapshot().projects.filter(p=>p.id!=='unassigned').map(p=>({projectID:p.id,briefing:briefings.latestFor(p)})));}
       const briefing=pathname.match(/^\/api\/projects\/([\w-]+)\/briefing$/);
       if(briefing){const project=store.project(briefing[1]);
