@@ -12,4 +12,8 @@ TT plan: `local:0D533F04-AC51-465A-B450-6B327B4F90E1` (separate continuation; or
 
 - [x] **AGW-01 — Persist and resolve per-step Agent assignments with frozen run context.** Domain/API tests prove selected/default/none, scope and drift guards, frozen retries and MCP exclusions without widening execution permissions.
 - [x] **AGW-02 — Add workflow Agent selection and reviewed launch context.** Browser fixtures prove saved selections, preview, cancellation, explicit exclusion confirmation and frozen details on desktop/mobile.
-- [ ] **AGW-03 — Validate, integrate and document workflow Agent delivery.** Full Node/browser suites pass; rendered UI inspected; issue and local validation evidence updated without real inference.
+- [x] **AGW-03 — Validate, integrate and document workflow Agent delivery.** Full Node/browser suites pass; rendered UI inspected; issue and local validation evidence updated without real inference.
+
+## Delivery
+
+Implemented at `5ae89e4`, integrated into local main and activated in the idle local app on 2026-09-22. All 326 Node tests and 32 browser suites passed. Actual fixture CLI delivery and live read-only UI verified; 22 live JSON stores kept identical hashes. No real inference, user workflow execution, remote code push or issue closure. See VALIDATION.md for evidence. Use Update app for cached clients.
