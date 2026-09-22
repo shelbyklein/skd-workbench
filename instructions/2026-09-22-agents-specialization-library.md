@@ -118,3 +118,5 @@ Excluded: a second playbook layer, persistent autonomous personalities/memory, b
 ### Delivery receipt
 
 Implemented and activated locally on 2026-09-22. Main includes the concurrent Graft work. All 319 Node tests and 31 Chrome suites passed; subsequent resource/PWA checks passed. Live migration and global/project Agents UI verified with no model inference, saved-workflow execution or UI API writes. See VALIDATION.md for backup and screenshots. Feature commits have not been pushed. Issue remains open for user acceptance.
+
+Workflow assignment continuation authorized 2026-09-22; see `instructions/2026-09-22-workflow-agent-assignment.md`. The workflow exclusion above records the original library slice, not the subsequent implementation. Delegation-role assignment remains deferred.

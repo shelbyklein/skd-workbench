@@ -138,9 +138,10 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
         else if(!request){if(req.method==='GET')return json(delegations.list(projectID));if(req.method==='POST'){const input=await body(req);assert(input.projectVersion===project.version,'Project changed. Reload before running.',409);return json(await delegations.start(input,project,()=>assert(store.project(project.id).version===project.version,'Project changed while preparing delegation. Reload before running.',409)),202);}}
       }
       if(req.method==='GET'&&pathname==='/api/workflows')return json(workflows.list(url.searchParams.get('projectID')));
-      if(req.method==='POST'&&pathname==='/api/workflows'){
+      if(req.method==='POST'&&['/api/workflows','/api/workflows/agent-preview'].includes(pathname)){
         const input=await body(req),flow=store.snapshot().flows.find(f=>f.id===input.flowID);assert(flow,'Flow not found.',404);
         const project=store.project(flow.projectID);if(input.projectVersion!==undefined)assert(project.version===input.projectVersion,'Project changed. Reload before running.',409);
+        if(pathname.endsWith('/agent-preview'))return json(await workflows.preview(input,flow,project));
         return json(await workflows.start(input,flow,project),202);
       }
       const workflow=pathname.match(/^\/api\/workflows\/([\w-]+)(\/action)?$/);

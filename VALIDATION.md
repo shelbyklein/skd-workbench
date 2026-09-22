@@ -1075,3 +1075,13 @@ are recorded below when complete.
 - Source committed and integrated locally; this feature has not been pushed.
   Issue remains open for user acceptance. Workflow/delegation profile selection
   and complete native activity capture remain follow-on work.
+
+
+## Workflow Agent assignment — 2026-09-22
+
+- Issue #5 continuation, tracked as AGW-01–03 in TT plan `local:0D533F04-AC51-465A-B450-6B327B4F90E1`. Per-step Agent references are saved by the step inspector and Run settings. Legacy steps remain unspecialized; selected/global/project/default assignments are resolved by the existing Agent library. No duplicate store or schema rewrite is required.
+- New read-only-in-effect `POST /api/workflows/agent-preview` resolves context without creating a run or invoking a provider. Start rechecks signatures and requires explicit acknowledgement for excluded MCP connections. Every step freezes its specialization, instruction sections and skills at run start; retries, later steps and restarted review gates reuse frozen text while rechecking archive/scope/provider/skill eligibility before spawn. Structured workflows remain Codex-only and MCP-free. Delegation roles are not changed.
+- `npm test`: **326/326 passed**, including 15 workflow tests. New coverage exercises store/settings/copy persistence, old-flow compatibility, selected/default/none, explicit empty skill overrides, stale prompt/instruction/default previews, frozen later steps/retries, restart and current revocation. Full suite log: `/tmp/skd-agw-full-node.log`.
+- `tests/workflow-agents-browser.mjs`: temporary HTTP server and actual fixture subprocess prove native developer-instruction delivery, cancelled settings/preview with zero runs, required exclusion acknowledgement, stale-preview rejection before run creation, persisted selection and frozen attempt details. No real provider inference or user workflow was run. Desktop/mobile screenshots inspected: `output/workflow-agents-settings-desktop.png`, `output/workflow-agents-preview-desktop.png`, `output/workflow-agents-preview-mobile.png`; no 390px horizontal overflow. Shared checkbox sizing is asserted. Full accessibility suite passes after fixing unassigned-workflow inventory lookup.
+- Cached shell version **skd-shell-0.5.0-87**. API data remains network-only; installed clients require the existing explicit Update app action.
+- All **32 Chrome browser suites passed**. The full run resumed from resources after updating its assertion for the intentionally changed run-settings toast; earlier accessibility failure was fixed and rerun successfully. New workflow Agent fixture also passed independently after the shared checkbox layout fix. No remaining regression failures.

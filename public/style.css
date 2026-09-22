@@ -391,3 +391,5 @@ body.terminal-open .issue-detail-layout{grid-template-columns:minmax(0,1fr)}
 .resource-detail form .resource-checklist>label{display:flex;align-items:flex-start}
 .resource-detail form .resource-checklist input[type="checkbox"]{flex:none;margin-top:2px}
 @media(max-width:800px){.playbook-toolbar.global-agent-toolbar{grid-template-columns:1fr}}
+/* Capability checklists are also used in launch-review dialogs. */
+.resource-checklist input[type="checkbox"],.workflow-model input[type="radio"]{width:auto;flex:none;margin:2px 0 0}
