@@ -35,7 +35,7 @@ import {withRegistrations,changeRegistration} from './lib/workspace-registration
 import {GitStatus} from './lib/git-status.js';
 import {Playbooks} from './lib/playbooks.js';
 const root = path.dirname(fileURLToPath(import.meta.url));
-const files = {'/lifecycle-operations-ui.js':'lifecycle-operations-ui.js','/lifecycle-ui.js':'lifecycle-ui.js','/workspace-tasks-ui.js':'workspace-tasks-ui.js','/delegations-ui.js':'delegations-ui.js','/quick-actions-ui.js':'quick-actions-ui.js','/session-import-ui.js':'session-import-ui.js','/git-status-ui.js':'git-status-ui.js','/agent-card.js':'agent-card.js','/planning-ui.js':'planning-ui.js','/knowledge-ui.js':'knowledge-ui.js','/skills-ui.js':'skills-ui.js','/connections-ui.js':'connections-ui.js','/playbooks-ui.js':'playbooks-ui.js','/settings-ui.js':'settings-ui.js','/markdown.js':'markdown.js','/theme.js':'theme.js','/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
+const files = {'/issue-actions-ui.js':'issue-actions-ui.js','/lifecycle-operations-ui.js':'lifecycle-operations-ui.js','/lifecycle-ui.js':'lifecycle-ui.js','/workspace-tasks-ui.js':'workspace-tasks-ui.js','/delegations-ui.js':'delegations-ui.js','/quick-actions-ui.js':'quick-actions-ui.js','/session-import-ui.js':'session-import-ui.js','/git-status-ui.js':'git-status-ui.js','/agent-card.js':'agent-card.js','/planning-ui.js':'planning-ui.js','/knowledge-ui.js':'knowledge-ui.js','/skills-ui.js':'skills-ui.js','/connections-ui.js':'connections-ui.js','/playbooks-ui.js':'playbooks-ui.js','/settings-ui.js':'settings-ui.js','/markdown.js':'markdown.js','/theme.js':'theme.js','/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
   '/icons/icon-192.png':'icons/icon-192.png','/icons/icon-512.png':'icons/icon-512.png','/icons/maskable-512.png':'icons/maskable-512.png','/icons/apple-touch-icon.png':'icons/apple-touch-icon.png'};
 const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
 async function body(req,limit=1024*1024) {
@@ -77,7 +77,7 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
   const retirementService=new RetirementService(directory,{lifecycle,store:lifecycleStore,notes:codex.workspaceNotes,executor:codex,project:id=>store.project(id),projects:()=>store.snapshot().projects});
   const quickActions=new QuickActions(directory,{terminals,github,project:id=>store.project(id),...quickActionOptions});
   const proposals=new IssueProposals(directory,codex,github);
-  const issueWork=new IssueWork(directory,{github,terminals,providers:agent=>agent==='claude'?codex.discoverClaude():codex.discover()});
+  const issueWork=new IssueWork(directory,{github,terminals,instructionsRoot:root,validateProject:project=>assert(store.project(project.id).version===project.version,'Project changed. Reload before reviewing.',409),providers:agent=>agent==='claude'?codex.discoverClaude():codex.discover()});
   const server = http.createServer(async (req,res)=>{
     const json=(value,status=200)=>{res.writeHead(status,{'Content-Type':'application/json'});res.end(JSON.stringify(value));};
     res.setHeader('Cache-Control','no-store');
@@ -198,6 +198,8 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
         if(req.method==='GET')return json(await issueWork.resolve(project,workSettings[2],{validate:true}));
         if(req.method==='PUT')return json(await issueWork.saveSettings(project,workSettings[2],await body(req)));
       }
+      const reviewRuns=pathname.match(/^\/api\/projects\/([\w-]+)\/issues\/(\d+)\/review-runs$/);
+      if(reviewRuns&&req.method==='POST'){const project=store.project(reviewRuns[1]),input=await body(req);assert(input.projectVersion===project.version,'Project changed. Reload before reviewing.',409);return json(await issueWork.startReview(project,reviewRuns[2],input),202);}
       const issuePlanRuns=pathname.match(/^\/api\/projects\/([\w-]+)\/issues\/(\d+)\/plan-runs$/);
       if(issuePlanRuns&&req.method==='POST')return json(await issueWork.startPlanning(store.project(issuePlanRuns[1]),issuePlanRuns[2],await body(req)),202);
       const issueWorkRuns=pathname.match(/^\/api\/projects\/([\w-]+)\/issues\/(\d+)\/work-runs$/);

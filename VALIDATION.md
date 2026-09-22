@@ -951,3 +951,23 @@ delivery to the launch adapter. No real inference or GitHub write was performed.
 - Replaced the separate Agent/Model/Effort dropdown presentation with the existing `agentCard` component. The owning form still handles provider availability, saved model/effort validation, playbooks, reset and explicit Save versus Save and start behavior. Choice updates preserve the focused radio rather than replacing it. Native backing selects remain hidden inside the shared component.
 - Quick-action browser suite passed with fixture PTYs, saved effort/reopen/reset, selector interaction, desktop/mobile screenshots and the existing lost-response/scope guards. Shared agent-card and PWA Chrome suites passed; runtime identity unit test passed. Inspected `output/quick-actions-selector-desktop.png` and `output/quick-actions-selector-mobile.png`. No saved user workflows or live provider calls were used for testing.
 - Shell cache and runtime shell label advanced to `0.5.0-79`; installed clients use the existing explicit Update app action.
+
+## Issue review actions — 2026-09-21
+
+- Added contextual read-only issue reviews using the shared selector and existing
+  interactive side panel, plus unsaved issue inputs for eligible project workflows.
+- `npm test`: 305 passed. Final focused issue/terminal tests: 18 passed, including
+  two additional instruction-loading/native-argument tests. No Node failures.
+- All 31 browser suites passed across the initial run and resumed remainder after
+  updating the PWA cache-count expectation for the added module. New issue-actions
+  coverage uses a real PTY with a fixture CLI and fixture GitHub: conversation,
+  hide/reopen/reload without respawn, read-only context, desktop/mobile, unsaved
+  workflow staging, explicit save and no workflow execution.
+- Inspected `output/issue-review-side-panel.png`, `output/issue-review-mobile.png`
+  and `output/issue-workflow-input.png`. Terminal-open issue layout stacks to retain
+  readable source text. Native provider instruction arguments have unit coverage;
+  no real-provider inference or user workflow execution was performed.
+- Limits: issue discussion is explicitly excluded; benchmark projects retain their
+  existing isolated-execution requirement. Workflow eligibility is project scope,
+  an agent step, input capacity and no duplicate issue; runtime provider validation
+  remains at explicit execution.

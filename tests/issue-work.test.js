@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,rmSync} from 'node:fs';
+import {mkdtempSync,rmSync,writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {IssueWork,issueSourceHash,parseIssueWorkSignal} from '../lib/issue-work.js';
@@ -84,4 +84,25 @@ test('planning launches once with planning-only instructions even when orchestra
  assert.match(f.state.starts[0].input.initialPrompt,/Focus on accessibility/);
  assert(f.state.starts[0].input.initialPrompt.includes(first.planFile));
  assert.equal((await f.work.resolve(f.project,7)).approval,null);
+});
+
+test('direct review needs no plan, is read-only, freezes instructions and deduplicates concurrent launches',async t=>{
+ const {work,state,project}=setup(t);work.reviewInstructions=async()=> 'Project system instructions';
+ const input={requestKey:'review-request-1',sourceHash:issueSourceHash(base),settings,instruction:'Find missing checks'};
+ const [a,b]=await Promise.all([work.startReview(project,7,input),work.startReview(project,7,input)]);
+ assert.equal(a.id,b.id);assert.equal(state.starts.length,1);assert.equal(state.starts[0].input.mode,'read-only');assert.deepEqual(state.starts[0].input.playbook,{mode:'inherit'});assert.match(state.starts[0].input.initialPrompt,/Find missing checks/);assert.match(a.systemInstructions,/Project system instructions/);assert.match(a.systemInstructions,/Do not implement/);assert.equal(work.data.plans.length,0);
+ state.issue.body='Changed after launch';assert.equal((await work.startReview(project,7,input)).id,a.id);
+ await assert.rejects(work.startReview(project,7,{...input,settings:{...settings,effort:'low'}}),/already used/);
+ await assert.rejects(work.startReview(project,7,{...input,requestKey:'review-request-2'}),/issue changed/);
+});
+
+test('review rechecks project and source before inference and records launch failures',async t=>{
+ const {work,state,project}=setup(t);work.reviewInstructions=async()=>'';
+ work.terminals.start=async(input,p,internal)=>{state.issue.body='changed';assert.equal(await internal.shouldLaunch(),false);throw Error('Source changed before launch');};
+ await assert.rejects(work.startReview(project,7,{requestKey:'review-request-3',sourceHash:issueSourceHash(base),settings}),/Source changed/);
+ assert.equal(work.data.runs[0].status,'failed');assert.equal(work.data.runs[0].terminalID,undefined);
+});
+
+ test('review loads bounded current system files and rejects unreadable or oversized context',async t=>{
+ const {work,project}=setup(t);project.folderPath=path.dirname(work.file);writeFileSync(path.join(project.folderPath,'SYSTEM.md'),'Project guidance');writeFileSync(path.join(project.folderPath,'CLAUDE.md'),'Claude guidance');assert.match(await work.reviewInstructions(project,'claude'),/Claude guidance/);assert.doesNotMatch(await work.reviewInstructions(project,'codex'),/Claude guidance/);writeFileSync(path.join(project.folderPath,'SYSTEM.md'),'x'.repeat(64001));await assert.rejects(work.reviewInstructions(project,'codex'),/64,000/);
 });

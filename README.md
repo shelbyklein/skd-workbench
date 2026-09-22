@@ -241,6 +241,8 @@ Run `npm install` after updating: xterm.js renders the terminal and node-pty pro
 
 ## GitHub issues
 
+Issue detail offers **Review with an agent** (shared model selector, contextual read-only CLI in a side panel) and **Add to a workflow** (an unsaved issue input in an eligible project workflow). Open review reconnects to the existing terminal. Adding input does not run or save the workflow. See [issue review actions](instructions/2026-09-21-issue-review-actions.md) for captured context and limits.
+
 Open a project and choose **Issues**. SKD reads the current checkout's GitHub origin
 remote using your installed, signed-in GitHub CLI (`gh auth login`). Without origin,
 a single unambiguous GitHub remote is accepted. This first version supports
