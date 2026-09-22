@@ -67,7 +67,7 @@ export function mountKnowledgeProject({host,project,api,notify}){
  };
  const renderResult=()=>{
   summary.textContent=`${result.totals.codeNodes} code nodes · ${result.totals.codeEdges} relations${result.totals.contextNodes?` · ${result.totals.contextNodes} context nodes`:''}`;
-  const notices=[];if(result.diagnostics.codeDroppedEdges)notices.push(`${result.diagnostics.codeDroppedEdges} dangling code relation${result.diagnostics.codeDroppedEdges===1?'':'s'} omitted`);if(result.diagnostics.contextSkippedFiles)notices.push(`${result.diagnostics.contextSkippedFiles} context file${result.diagnostics.contextSkippedFiles===1?'':'s'} skipped`);diagnostics.textContent=notices.join(' · ');
+  const notices=[];if(result.indexScope==='worktree')notices.push(`Indexed checkout: ${result.indexRoot}`);if(result.diagnostics.codeDroppedEdges)notices.push(`${result.diagnostics.codeDroppedEdges} dangling code relation${result.diagnostics.codeDroppedEdges===1?'':'s'} omitted`);if(result.diagnostics.contextSkippedFiles)notices.push(`${result.diagnostics.contextSkippedFiles} context file${result.diagnostics.contextSkippedFiles===1?'':'s'} skipped`);diagnostics.textContent=notices.join(' · ');
   host.querySelectorAll('[data-graft-tab]').forEach(button=>{const active=button.dataset.graftTab===tab;button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;});
   host.querySelector('#graft-visible-count').textContent=`${result.nodes.length} visible`;status.textContent=result.truncated?'Showing a bounded view. Search or select a node to narrow the graph.':'';
   if(!selectedID||!result.nodes.some(node=>node.id===selectedID))selectedID=result.focus||result.nodes[0]?.id||null;

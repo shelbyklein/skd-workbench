@@ -35,7 +35,7 @@ The **Knowledge Graph** page reads an existing Graft index from a connected
 project folder or its Git repository root. Code, Context and Outline views are
 read-only: opening the page does not run `graft`, rebuild an index, enrich it
 with a model or change project files. Graph reads are size-bounded and scoped to
-the selected project. A missing or unsupported index is reported in the page.
+the selected project. A missing or unsupported index is reported in the page. Development indexes selected by `.graft-dev/config.json` are also supported. An explicit pointer to another checkout is followed only within the same Git repository; that checkout’s current configuration selects the generation, and its path is shown in the graph. Browsing never changes the project’s connected folder.
 
 ## Install as an app
 
