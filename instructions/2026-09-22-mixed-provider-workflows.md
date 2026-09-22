@@ -12,4 +12,6 @@ TT plan: `local:0C50D8BE-A29C-4190-B110-ECCBCB8DD76A`.
 
 - [x] **WCP-01 — Persist per-step providers and execute mixed workflows.** Fixture tests prove Codex-Claude-Codex handoffs, one workspace, provider-bound profile snapshots, retries/restart/cancellation and invalid mappings fail before launch.
 - [x] **WCP-02 — Enable provider choice in shared workflow selectors.** Browser tests prove provider/model/effort and eligible Agent switching in inspector/settings, saved choices, readable attempt provider identity and mobile layout.
-- [ ] **WCP-03 — Validate and activate mixed-provider workflows.** Full regression suites pass, UI inspected, local state preserved, issue and validation evidence recorded; no real inference or remote push.
+- [x] **WCP-03 — Validate and activate mixed-provider workflows.** Full regression suites pass, UI inspected, local state preserved, issue and validation evidence recorded; no real inference or remote push.
+
+Delivery: implementation `49179b9` integrated into local main and idle local service restarted. All 330 Node tests and 33 Chrome suites passed using fixture providers. Live selector visually inspected with Codex and Claude available; zero API writes, page errors or 390px overflow. All 22 live JSON files retain their pre-activation SHA256 hashes. No real inference, saved workflow execution, or remote push.
