@@ -1179,3 +1179,11 @@ Local activation: `2a440ab` fast-forwarded into clean main and the idle service 
   or Workbench workers. No real-provider inference or remote publication was used
   for these checks. Transport/fixture verification is not a paid-model acceptance run.
 - TT plan: `local:4D08A9B0-6388-4E4B-9EC8-F26D566EF603`, WB-MCP-01 through 05.
+- Local activation: implementation `4cf40d8` fast-forwarded into local main.
+  Before restart, no active workflow/agent records or server child shell processes
+  were present. Backed up all 22 existing JSON stores, restarted the idle launchd
+  service, and verified the live `/api/controllers` endpoint and rendered settings.
+  Live browser inspection made zero API writes and recorded zero page errors;
+  all 22 existing JSON hashes remained identical. No controller was enabled.
+  Backup: `output/mcp-activation-1790108234`; screenshot: `output/controllers-live.png`.
+  Remote main was not pushed. Cached clients should use **Update app**.
