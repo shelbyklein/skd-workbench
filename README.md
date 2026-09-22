@@ -412,3 +412,73 @@ Workflows, read-only sessions and issue proposals remain MCP-free. Existing Agen
 The header terminal icon opens a persistent shell column in the SKD Workbench folder. It stays open across views. Hide preserves the shell; reopening reconnects. End session stops it. Server restart ends the shell without automatically restarting it. On narrow screens the panel fills the screen. This plain shell is independent of Agents and selected projects.
 
 Both workspace and Agent terminals stream input/output over a same-origin WebSocket. Reconnecting attaches to the existing session and never resends input. A slow or suspended client may reconnect; retained output is bounded and any missing earlier output is marked. Very large pastes are rejected before sending, so split them into smaller parts.
+
+## Let an external agent control Workbench
+
+Open **Global settings → Agent control (MCP)**. Name a controller, select its
+projects and enable it. Read and workflow editing are selected by default;
+**Run and stop owned workflows** is a separate opt-in. Settings apply immediately.
+Copy the displayed command and arguments into your MCP client's server setup
+(the displayed `mcpServers` example is for clients using that JSON convention).
+The bridge uses the official MCP SDK over stdio. Workbench must already be running.
+It does not install itself in Codex/Claude or in Workbench Agent specializations.
+
+The private configuration file is under `.data/controller-credentials/` with mode
+600; the directory is mode 700. It contains the loopback endpoint and bearer
+credential. The UI/config example references that file without displaying its
+secret. Keep the file private. Revoking a controller rejects future calls,
+including queued launches that have not been accepted. Existing runs continue;
+stop them explicitly through Workbench. These application grants do not sandbox
+an agent with unrestricted access to your local account's files or shell.
+
+Available tools cover scoped projects, saved workflows, Agent summaries, launch
+previews, workflow runs, durable operations and registered workspace status.
+There are no tools for arbitrary shell/terminal input, human-gate approval,
+merge, push, retirement or granting more access. A running Workbench task retains
+its shared execution lock, so a nested controller cannot start a competing run.
+
+A typical sequence is `list_projects`, `list_workflows`, `get_workflow`,
+`list_agents`, `create_workflow` or `update_workflow`, `preview_run`, `start_run`,
+then `get_operation` and `get_run`. Saved workflow input uses the existing flow
+schema, for example:
+
+```json
+{
+  "name": "Review changes",
+  "steps": [
+    {"id":"review","type":"agent","name":"Review","instructions":"Inspect changes and report findings.","agent":"codex","model":"YOUR_MODEL","effort":"high","agentProfile":{"mode":"inherit"}},
+    {"id":"human","type":"human","name":"Review findings","instructions":"Inspect the evidence.","maxRetries":1,"retryFrom":"review"}
+  ]
+}
+```
+
+Use provider-supported model/effort IDs. A specific Agent assignment is
+`{"mode":"selected","agentProfileID":"AGENT_ID"}`; `legacy` selects no
+specialization. `preview_run` takes `projectID`, `flowID`, `projectVersion`,
+`flowVersion`, and `input` with `task`, `acceptance`, `mode` (`read-only` or
+`worktree`), `maxAttempts` (1–60), and `config` keyed by step ID, containing its
+`model` and `effort`. Review the returned context/exclusions, then send the same
+arguments plus its `previewToken` and a unique `requestKey` to `start_run`.
+If exclusions require confirmation, set that step's
+`agentProfile.acknowledgeExclusions: true` and preview again before starting.
+
+All writes require a request key. Retrying the same key and identical arguments
+recovers the existing operation; changing its arguments conflicts. An accepted
+operation is not a completed run. After a lost response, recover using the same
+key. Restart reconciles durable run/flow origins; requests whose outcome cannot
+be proven stay `uncertain` and are never replayed. Inspect those records before
+choosing a new key. Client disconnect does not cancel execution. Human/check
+steps remain waiting for the user. `stop_run` requires the current run revision
+and works only for that controller's runs.
+
+List tools accept numeric `cursor` and `limit` (1–50); run attempts are paginated
+and output is limited to its last 16,000 characters per attempt, explicitly
+marked when truncated. Input is limited to 128 KiB and output to 512 KiB; reduce
+page size on a size error. Unknown usage remains unknown. Controller activity
+and operation/run links are visible in settings, and the run retains its caller.
+
+Controller storage is additive: `controllers.json` holds grants (hashed tokens),
+operation receipts and bounded activity; canonical flows/runs hold operation IDs.
+No existing records migrate or auto-resume. Disabling access means revoking the
+controller, not deleting workflow/worktree history. The initial version is local
+stdio only; remote access and interactive-session control are outside this scope.

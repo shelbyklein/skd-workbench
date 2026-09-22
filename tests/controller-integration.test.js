@@ -1,0 +1,92 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+import {execFileSync} from 'node:child_process';
+import {createServer} from '../server.js';
+import {Client} from '@modelcontextprotocol/sdk/client/index.js';
+import {StdioClientTransport} from '@modelcontextprotocol/sdk/client/stdio.js';
+const delay=ms=>new Promise(r=>setTimeout(r,ms));
+async function fixture(t){
+ const root=mkdtempSync(path.join(tmpdir(),'skd-controller-api-')),repo=path.join(root,'project');mkdirSync(repo);
+ const binary=path.join(root,'fixture');writeFileSync(binary,`#!/usr/bin/env node\nprocess.stdin.resume();process.stdin.on('end',()=>{console.log(JSON.stringify({type:'item.completed',item:{type:'agent_message',text:'Fixture review'}}));console.log(JSON.stringify({type:'turn.completed',usage:{input_tokens:1,output_tokens:2}}));});`,{mode:0o755});
+ const options={directory:path.join(root,'data'),codexOptions:{binary,discover:async()=>({version:'fixture',models:[{id:'fixture',efforts:['low']}]})}},server=createServer(options);await new Promise(r=>server.listen(0,'127.0.0.1',r));const url='http://127.0.0.1:'+server.address().port;
+ t.after(async()=>{server.shutdownCodex();await new Promise(r=>server.close(r));await delay(200);rmSync(root,{recursive:true,force:true});});
+ const api=async(route,input,token)=>{const res=await fetch(url+'/api/'+route,{method:input?'POST':'GET',headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},...(input?{body:JSON.stringify(input)}:{})});return {status:res.status,body:await res.json()};};
+ const p=(await api('projects',{name:'Fixture',folderPath:repo})).body;
+ const setup=(await api('controllers',{name:'External agent',projectIDs:[p.id],capabilities:['read','manage','run']})).body;
+ const {token}=JSON.parse(readFileSync(setup.credentialPath));const call=async(name,args)=>api('controller/call',{name,arguments:args},token);
+ return {root,server,options,url,api,p,setup,call,token};
+}
+const flowInput={name:'MCP review',steps:[{id:'review',type:'agent',name:'Review',model:'fixture',effort:'low',instructions:'Review'},{id:'human',type:'human',name:'Human review',instructions:'Check result',maxRetries:1,retryFrom:'review'}]};
+test('real SDK subprocess discovers and calls tools; no credential leaks; unavailable is actionable',async t=>{
+ const f=await fixture(t),client=new Client({name:'fixture-client',version:'1'}),transport=new StdioClientTransport({command:process.execPath,args:[path.resolve('scripts/workbench-mcp.mjs'),f.setup.credentialPath],stderr:'pipe'});let stderr='';transport.stderr?.on('data',c=>stderr+=c);
+ await client.connect(transport);t.after(()=>client.close());assert.equal((await client.listTools()).tools.length,15);
+ const result=await client.callTool({name:'list_projects',arguments:{}});assert.equal(result.isError,false);assert.match(result.content[0].text,/Fixture/);assert(!result.content[0].text.includes(f.token));
+ const denied=await client.callTool({name:'get_project',arguments:{projectID:'elsewhere'}});assert.equal(denied.isError,true);
+ await f.api('controllers/'+f.setup.id+'/revoke',{version:1});assert.equal((await client.callTool({name:'list_projects',arguments:{}})).isError,true);
+ assert(!stderr.includes(f.token));f.server.shutdownCodex();await new Promise(r=>f.server.close(r));const unavailable=await client.callTool({name:'list_projects',arguments:{}});assert.equal(unavailable.isError,true);assert.match(unavailable.content[0].text,/unavailable/);await client.close();
+});
+test('controller management retries, launch, human gate and stop use canonical records',async t=>{
+ const f=await fixture(t),projectID=f.p.id;
+ const create={projectID,requestKey:'create-review',input:flowInput};const first=(await f.call('create_workflow',create)).body;
+ assert.equal(first.status,'completed',JSON.stringify(first));assert.deepEqual((await f.call('create_workflow',create)).body,first);
+ assert.equal((await f.call('create_workflow',{...create,input:{...flowInput,name:'different'}})).status,409);
+ assert.equal((await f.call('get_workflow',{projectID:'elsewhere',flowID:first.flowID})).status,403);
+ const flow=(await f.call('get_workflow',{projectID,flowID:first.flowID})).body;assert.equal(flow.controllerOrigin.controllerID,f.setup.id);
+ const launch={projectID,flowID:flow.id,flowVersion:flow.version,projectVersion:f.p.version,input:{task:'Review fixture',acceptance:'Report',mode:'read-only',maxAttempts:3,config:{review:{model:'fixture',effort:'low'}}}};
+ const preview=(await f.call('preview_run',launch)).body;assert(preview.previewToken,JSON.stringify(preview));
+ const start={...launch,requestKey:'start-review',previewToken:preview.previewToken};const responses=await Promise.all([f.call('start_run',start),f.call('start_run',start)]);assert.equal(responses[0].body.id,responses[1].body.id);
+ let operation;for(let i=0;i<100;i++){operation=(await f.call('get_operation',{projectID,operationID:responses[0].body.id})).body;if(operation.status!=='preparing')break;await delay(20);}assert.equal(operation.status,'accepted',JSON.stringify(operation));
+ let run;for(let i=0;i<100;i++){run=(await f.call('get_run',{projectID,runID:operation.runID})).body;if(run.status==='waiting')break;await delay(20);}assert.equal(run.status,'waiting',JSON.stringify(run));assert.equal(run.attempts.items.length,1);
+ assert.equal((await f.api('workflows?projectID='+projectID)).body.length,1);
+ assert.equal((await f.call('approve_run',{projectID,runID:run.id})).status,404);
+ const stop=(await f.call('stop_run',{projectID,runID:run.id,revision:run.revision,requestKey:'stop-review'})).body;assert.equal(stop.status,'completed');assert.equal((await f.call('get_run',{projectID,runID:run.id})).body.status,'cancelled');
+ const update={projectID,flowID:flow.id,version:flow.version,requestKey:'update-review',input:{...flowInput,name:'Updated review'}};
+ const updated=(await f.call('update_workflow',update)).body;assert.equal(updated.flowVersion,2);assert.deepEqual((await f.call('update_workflow',update)).body,updated);assert.equal((await f.call('update_workflow',{...update,requestKey:'stale-update'})).status,409);
+ const denied=await f.api('controller/call',{name:'list_projects',arguments:{}});assert.equal(denied.status,401);
+});
+test('stale preview, held execution lock, and foreign stop fail without extra child execution',async t=>{
+ const f=await fixture(t),projectID=f.p.id;
+ const created=(await f.call('create_workflow',{projectID,requestKey:'create',input:flowInput})).body;
+ const launch={projectID,flowID:created.flowID,flowVersion:1,projectVersion:f.p.version,input:{task:'Review',mode:'read-only',maxAttempts:3,config:{review:{model:'fixture',effort:'low'}}}};
+ const preview=(await f.call('preview_run',launch)).body;
+ const waitOperation=async id=>{for(let i=0;i<100;i++){const o=(await f.call('get_operation',{projectID,operationID:id})).body;if(o.status!=='preparing')return o;await delay(20);}throw Error('timeout');};
+ const stale=(await f.call('start_run',{...launch,input:{...launch.input,task:'Changed'},requestKey:'stale',previewToken:preview.previewToken})).body;
+ assert.equal((await waitOperation(stale.id)).status,'failed');assert.equal((await f.api('workflows?projectID='+projectID)).body.length,0);
+ const start=(await f.call('start_run',{...launch,requestKey:'first',previewToken:preview.previewToken})).body;const accepted=await waitOperation(start.id);assert.equal(accepted.status,'accepted');
+ const busy=(await f.call('start_run',{...launch,requestKey:'second',previewToken:preview.previewToken})).body;assert.equal((await waitOperation(busy.id)).status,'failed');
+ const other=(await f.api('controllers',{name:'Other',projectIDs:[projectID],capabilities:['read','run']})).body,token=JSON.parse(readFileSync(other.credentialPath)).token;
+ const r=(await f.call('get_run',{projectID,runID:accepted.runID})).body;
+ assert.equal((await f.api('controller/call',{name:'stop_run',arguments:{projectID,runID:r.id,revision:r.revision,requestKey:'foreign-stop'}},token)).status,403);
+ assert.equal((await f.api('workflows?projectID='+projectID)).body.length,1);
+});
+test('revocation while preparing prevents spawn; changed Agent definition invalidates preview',async t=>{
+ const f=await fixture(t),projectID=f.p.id;
+ const profile=(await f.api('agent-profiles',{revision:0,name:'Specialist',scope:{kind:'global'},providers:['codex'],systemPrompt:'First prompt',skillIDs:[],connectionIDs:[]})).body;
+ const created=(await f.call('create_workflow',{projectID,requestKey:'create-agent',input:{...flowInput,steps:flowInput.steps.map(s=>s.type==='agent'?{...s,agentProfile:{mode:'selected',agentProfileID:profile.id}}:s)}})).body;
+ const launch={projectID,flowID:created.flowID,flowVersion:1,projectVersion:f.p.version,input:{task:'Review',mode:'read-only',maxAttempts:3,config:{review:{model:'fixture',effort:'low'}}}};
+ const preview=(await f.call('preview_run',launch)).body;assert(preview.previewToken,JSON.stringify(preview));
+ const response=await fetch(f.url+'/api/agent-profiles/'+profile.id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({...profile,scope:{kind:'global'},revision:1,version:1,systemPrompt:'Changed prompt'})});assert.equal(response.status,200,await response.text());
+ const start=(await f.call('start_run',{...launch,requestKey:'drift',previewToken:preview.previewToken})).body;
+ let operation;for(let i=0;i<100;i++){operation=(await f.call('get_operation',{projectID,operationID:start.id})).body;if(operation.status!=='preparing')break;await delay(20);}assert.equal(operation.status,'failed');assert.match(operation.error,/Preview changed/);
+ const fresh=(await f.call('preview_run',launch)).body;
+ const pending=(await f.call('start_run',{...launch,requestKey:'revoke',previewToken:fresh.previewToken})).body;await f.api('controllers/'+f.setup.id+'/revoke',{version:1});await delay(200);
+ const persisted=JSON.parse(readFileSync(path.join(f.options.directory,'controllers.json'))).operations.find(o=>o.id===pending.id);assert.equal(persisted.status,'failed');assert.equal((await f.api('workflows?projectID='+projectID)).body.length,0);
+});
+test('MCP client disconnect retains one canonical registered worktree and run',async t=>{
+ const f=await fixture(t),projectID=f.p.id,repo=f.p.folderPath;
+ execFileSync('git',['init','-b','main',repo]);writeFileSync(path.join(repo,'README.md'),'Fixture');execFileSync('git',['-C',repo,'add','.']);execFileSync('git',['-C',repo,'-c','user.name=Fixture','-c','user.email=fixture@example.invalid','commit','-m','fixture']);
+ const created=(await f.call('create_workflow',{projectID,requestKey:'create-worktree',input:flowInput})).body;
+ const launch={projectID,flowID:created.flowID,flowVersion:1,projectVersion:f.p.version,input:{task:'Review',mode:'worktree',maxAttempts:3,config:{review:{model:'fixture',effort:'low'}}}};
+ const preview=(await f.call('preview_run',launch)).body;
+ const client=new Client({name:'fixture',version:'1'});await client.connect(new StdioClientTransport({command:process.execPath,args:[path.resolve('scripts/workbench-mcp.mjs'),f.setup.credentialPath],stderr:'pipe'}));
+ const response=await client.callTool({name:'start_run',arguments:{...launch,requestKey:'worktree-start',previewToken:preview.previewToken}});await client.close();assert.equal(response.isError,false);
+ const started=JSON.parse(response.content[0].text);let o,r;
+ for(let i=0;i<150;i++){o=(await f.call('get_operation',{projectID,operationID:started.id})).body;if(o.runID){r=(await f.call('get_run',{projectID,runID:o.runID})).body;if(r.status==='waiting')break;}await delay(20);}
+ assert.equal(r?.status,'waiting',JSON.stringify(o));assert(r.workspace.worktreePath);assert(r.workspace.workspaceRegistrationID);
+ const workspaces=await f.call('get_workspace_status',{projectID});assert.equal(workspaces.status,200,JSON.stringify(workspaces.body));assert(workspaces.body.items.some(w=>w.id===r.workspace.workspaceRegistrationID));
+ assert.equal((await f.api('workflows?projectID='+projectID)).body.length,1);
+ const stopped=await f.call('stop_run',{projectID,runID:r.id,revision:r.revision,requestKey:'stop-worktree'});assert.equal(stopped.status,200);
+});

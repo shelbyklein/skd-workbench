@@ -1149,3 +1149,33 @@ Local activation: `2a440ab` fast-forwarded into clean main and the idle service 
 - All 36 Chrome suites passed (exit 0). Final focused transport and Agent browser reruns passed after suppressing unchanged session metadata on output frames, avoiding redundant Agent detail rendering. Local implementation is ready; activation is pending because the existing live workspace shell must not be interrupted without the user's decision.
 
 - Activation receipt: user approved ending the old shell and restarting. Integrated 00891f0 into local main, installed ws, and restarted the service. Live Chrome confirmed WebSocket streaming and STREAM_LIVE output from the real workspace shell; inspected output/terminal-stream-live.png and stopped the test shell. All 22 saved JSON files matched pre-activation hashes. No provider inference or remote push.
+
+## Local Workbench control MCP — 2026-09-22
+
+- Implemented 15 official-SDK stdio tools through the running application's
+  authenticated command endpoint. Grants select explicit projects and read/manage/run
+  capabilities; execution is opt-in. Credentials are private mode-600 files, with
+  hashed tokens in the controller store. Revocation, request limits and scoped reads
+  are enforced in the server, independently of client-declared identity.
+- Mutations use durable request keys and canonical flow/run origin receipts before
+  execution is queued. Concurrent duplicates recover one operation. Restart resolves
+  canonical origins and leaves unproven intent uncertain without replay. Existing
+  ownership, retained worktrees, provider restrictions and human gates remain intact.
+- `npm test`: all **351 Node tests passed**. The focused eight controller tests also
+  passed after final refinements, covering real SDK subprocess transport, unavailable
+  server, grants/redaction, revisions, Agent drift, preparing revocation, duplicate
+  requests, lock contention, owned stop, restart reconciliation, and client disconnect
+  with one actual fixture-provider worktree and its canonical lifecycle registration.
+- All **37 Chrome suites passed across the regression run and targeted rerun**.
+  The initial run exposed the expected new PWA asset count; it was updated from 39
+  to 40 and the full regression rerun passed its 36 existing suites. The final new
+  controller suite initially attempted to focus a button in a collapsed card after
+  refresh; the test now expands that card first, and its targeted rerun passed.
+  Controller setup, default execution-off grant, configuration references, operation
+  links, keyboard revocation and 390px layout were checked. Inspected rendered
+  `output/controllers-desktop.png` and `output/controllers-mobile.png`.
+- Public assets use cache `skd-shell-0.5.0-96`; controller APIs remain network-only.
+  Setup is explicit, and nothing installs controller credentials in provider configs
+  or Workbench workers. No real-provider inference or remote publication was used
+  for these checks. Transport/fixture verification is not a paid-model acceptance run.
+- TT plan: `local:4D08A9B0-6388-4E4B-9EC8-F26D566EF603`, WB-MCP-01 through 05.

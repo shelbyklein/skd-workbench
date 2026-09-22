@@ -1,3 +1,5 @@
+import {Controllers} from './lib/controllers.js';
+import {ControllerCommands} from './lib/controller-commands.js';
 import {attachTerminalStreams} from './lib/terminal-stream.js';
 import {LifecycleActivity} from './lib/lifecycle-activity.js';
 import {ReconciliationService} from './lib/lifecycle-reconciliation.js';
@@ -37,7 +39,7 @@ import {withRegistrations,changeRegistration} from './lib/workspace-registration
 import {GitStatus} from './lib/git-status.js';
 import {AgentProfiles} from './lib/playbooks.js';
 const root = path.dirname(fileURLToPath(import.meta.url));
-const files = {'/connection-editor.js':'connection-editor.js','/agent-profile-picker.js':'agent-profile-picker.js','/issue-actions-ui.js':'issue-actions-ui.js','/lifecycle-operations-ui.js':'lifecycle-operations-ui.js','/lifecycle-ui.js':'lifecycle-ui.js','/workspace-tasks-ui.js':'workspace-tasks-ui.js','/delegations-ui.js':'delegations-ui.js','/quick-actions-ui.js':'quick-actions-ui.js','/session-import-ui.js':'session-import-ui.js','/git-status-ui.js':'git-status-ui.js','/agent-card.js':'agent-card.js','/planning-ui.js':'planning-ui.js','/knowledge-ui.js':'knowledge-ui.js','/skills-ui.js':'skills-ui.js','/connections-ui.js':'connections-ui.js','/playbooks-ui.js':'playbooks-ui.js','/settings-ui.js':'settings-ui.js','/markdown.js':'markdown.js','/theme.js':'theme.js','/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
+const files = {'/controllers-ui.js':'controllers-ui.js','/connection-editor.js':'connection-editor.js','/agent-profile-picker.js':'agent-profile-picker.js','/issue-actions-ui.js':'issue-actions-ui.js','/lifecycle-operations-ui.js':'lifecycle-operations-ui.js','/lifecycle-ui.js':'lifecycle-ui.js','/workspace-tasks-ui.js':'workspace-tasks-ui.js','/delegations-ui.js':'delegations-ui.js','/quick-actions-ui.js':'quick-actions-ui.js','/session-import-ui.js':'session-import-ui.js','/git-status-ui.js':'git-status-ui.js','/agent-card.js':'agent-card.js','/planning-ui.js':'planning-ui.js','/knowledge-ui.js':'knowledge-ui.js','/skills-ui.js':'skills-ui.js','/connections-ui.js':'connections-ui.js','/playbooks-ui.js':'playbooks-ui.js','/settings-ui.js':'settings-ui.js','/markdown.js':'markdown.js','/theme.js':'theme.js','/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
   '/icons/icon-192.png':'icons/icon-192.png','/icons/icon-512.png':'icons/icon-512.png','/icons/maskable-512.png':'icons/maskable-512.png','/icons/apple-touch-icon.png':'icons/apple-touch-icon.png'};
 const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
 async function body(req,limit=1024*1024) {
@@ -80,6 +82,8 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
   const quickActions=new QuickActions(directory,{terminals,github,project:id=>store.project(id),...quickActionOptions});
   const proposals=new IssueProposals(directory,codex,github);
   const issueWork=new IssueWork(directory,{github,terminals,instructionsRoot:root,validateProject:project=>assert(store.project(project.id).version===project.version,'Project changed. Reload before reviewing.',409),providers:agent=>agent==='claude'?codex.discoverClaude():codex.discover()});
+  const controllers=new Controllers(directory,{projects:()=>store.snapshot().projects});
+  const controllerCommands=new ControllerCommands({controllers,store,workflows,playbooks,workspaceTasks,codex,lifecycle});
   const server = http.createServer(async (req,res)=>{
     const json=(value,status=200)=>{res.writeHead(status,{'Content-Type':'application/json'});res.end(JSON.stringify(value));};
     res.setHeader('Cache-Control','no-store');
@@ -91,6 +95,16 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       const origin=req.headers.origin;
       assert(!origin || origin===`http://${host}`,'Cross-origin requests are not allowed.',403);
       const url=new URL(req.url,`http://${host}`), pathname=url.pathname.replace(/^\/api\/agent-profiles(?=\/|$)/,'/api/playbooks').replace(/\/agent-profile-preview$/,'/playbook-preview').replace(/\/agent-profiles(?=\/|$)/,'/playbooks');
+      if(pathname==='/api/controller/call'&&req.method==='POST'){
+        const caller=controllers.authenticate(req.headers.authorization),input=await body(req,128*1024);
+        assert(Object.keys(input).every(k=>['name','arguments'].includes(k)),'Invalid controller envelope.');
+        const result=await controllers.call(caller,input.name,input.arguments,controllerCommands);
+        assert(Buffer.byteLength(JSON.stringify(result))<=512*1024,'Result exceeds 512 KiB. Request a smaller page.',413);return json(result);
+      }
+      if(pathname==='/api/controllers'&&req.method==='GET')return json({controllers:controllers.list(),receipts:controllers.data.receipts.slice(-100),operations:controllers.data.operations.slice(-100).map(({id,controllerID,projectID,status,runID,flowID,error})=>({id,controllerID,projectID,status,runID,flowID,error})),bridgePath:path.join(root,'scripts/workbench-mcp.mjs'),nodePath:process.execPath});
+      if(pathname==='/api/controllers'&&req.method==='POST')return json(controllers.create(await body(req),`http://${host}/api/controller/call`),201);
+      const revokeController=pathname.match(/^\/api\/controllers\/([\w-]+)\/revoke$/);
+      if(revokeController&&req.method==='POST'){const input=await body(req);return json(controllers.revoke(revokeController[1],input.version));}
       if(pathname==='/api/settings'&&req.method==='GET')return json(globalSettings.data);
       if(pathname==='/api/settings'&&req.method==='PUT')return json(globalSettings.save(await body(req),store.snapshot().projects));
       if(pathname==='/api/instructions'&&req.method==='GET')return json(await instructionFiles(root));
@@ -337,9 +351,9 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       throw new Problem('Not found.',404);
     } catch(e) { json({error:e instanceof Problem?e.message:'Could not save or load data. Your previous saved state is intact.'},e.status||500); if(!(e instanceof Problem)) console.error(e); }
   });
-  server.on('close',()=>{mcpConnections.shutdown();terminals.shutdown();delegations.shutdown();workflows.shutdown();});
+  server.on('close',()=>{controllerCommands.shutdown();mcpConnections.shutdown();terminals.shutdown();delegations.shutdown();workflows.shutdown();});
   const terminalStreams=attachTerminalStreams(server,{workspace:workspaceTerminal,agents:terminals});
-  server.shutdownCodex=()=>{terminalStreams.shutdown();workspaceTerminal.shutdown();mcpConnections.shutdown();terminals.shutdown();delegations.shutdown();workflows.shutdown();};
+  server.shutdownCodex=()=>{controllerCommands.shutdown();terminalStreams.shutdown();workspaceTerminal.shutdown();mcpConnections.shutdown();terminals.shutdown();delegations.shutdown();workflows.shutdown();};
   return server;
 }
 if(process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) {

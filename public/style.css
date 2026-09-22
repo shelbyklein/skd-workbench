@@ -412,3 +412,6 @@ body.terminal-open .issue-detail-layout{grid-template-columns:minmax(0,1fr)}
 .terminal-resize-edge:hover,.terminal-resize-edge:focus-visible{background:#e9b77f66;outline:none}
 .terminal-resizing,.terminal-resizing *{cursor:col-resize!important;user-select:none!important}
 @media(max-width:650px){.terminal-resize-edge{display:none}}
+
+.controller-create{display:grid;gap:16px}.controller-create fieldset{display:grid;gap:8px;min-width:0}.controller-list pre{white-space:pre-wrap;overflow-wrap:anywhere}
+.controller-create fieldset label{display:flex;align-items:center;gap:10px;font-weight:400;margin:0}.controller-create input[type=checkbox]{width:auto;margin:0;flex:none}.controller-list .instruction-file{padding:14px}.controller-create fieldset{border:1px solid var(--border);border-radius:8px;padding:14px}

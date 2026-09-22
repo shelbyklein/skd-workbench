@@ -1,3 +1,4 @@
+import {controllerSettings} from './controllers-ui.js';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let settings={version:1,accents:{light:'#bf502f',dark:'#ed9777'},hiddenModels:[]};
 export const projectTags=()=>settings.projectTags||[];
@@ -32,13 +33,14 @@ export async function showInstructions(host,api,route){
 export async function openSettings({api,modal,onSaved,projects=[],section='appearance'}){
  let draft;
  try{draft=structuredClone(await loadSettings(api));}catch(e){modal('Global settings','<p>'+esc(e.message)+'</p>',[{label:'Close',close:true}]);return;}
- const groups=[['Preferences',[['appearance','Appearance'],['tags','Project tags']]],['Models',[['codex','Codex'],['claude','Claude']]],['Repository guidance',[['rules','Repository rules'],['references','Reference documents']]]];
+ const groups=[['Preferences',[['appearance','Appearance'],['tags','Project tags'],['controllers','Agent control (MCP)']]],['Models',[['codex','Codex'],['claude','Claude']]],['Repository guidance',[['rules','Repository rules'],['references','Reference documents']]]];
  const guidance=(id,title,help)=>`<section data-settings-panel="${id}" hidden><div class="settings-section-heading"><h3>${title}</h3><span class="settings-readonly">Read only</span></div><p class="field-help">${help}</p><div id="settings-${id}" class="settings-documents">Loading documents…</div></section>`;
  modal('Global settings',`<section class="global-settings">
   <nav class="settings-menu" aria-label="Settings sections">${groups.map(([label,items])=>`<div class="settings-menu-group"><p>${label}</p>${items.map(([id,name])=>`<button type="button" data-settings-section="${id}" aria-controls="settings-panel-${id}" ${id==='appearance'?'aria-current="page"':''}>${name}</button>`).join('')}</div>`).join('')}</nav>
   <label class="settings-mobile-menu">Settings section<select id="settings-section" aria-label="Settings section">${groups.map(([label,items])=>`<optgroup label="${label}">${items.map(([id,name])=>`<option value="${id}">${name}</option>`).join('')}</optgroup>`).join('')}</select></label>
   <div class="settings-content" tabindex="0" role="region" aria-label="Settings content">
    <section data-settings-panel="appearance"><h3>Appearance</h3><p class="field-help">Accent colors apply across all projects.</p><h4>Accent colors</h4><div class="accent-settings"><label>Light mode<input type="color" name="light" value="${draft.accents.light}"></label><label>Dark mode<input type="color" name="dark" value="${draft.accents.dark}"></label></div></section>
+   <section data-settings-panel="controllers" hidden><div id="settings-controllers">Loading controllers…</div></section>
    <section data-settings-panel="tags" hidden><h3>Project tags</h3><p class="field-help">Projects can have multiple tags. Deleting a tag removes it from all projects when you save.</p><div id="settings-tags"></div><button type="button" id="add-project-tag">Add tag</button></section>
    ${['codex','claude'].map(agent=>`<section data-settings-panel="${agent}" hidden><h3>${agent==='codex'?'Codex':'Claude'} models</h3><p class="field-help">Choose which models appear in selectors. Saved model selections remain available.</p><div id="settings-models-${agent}" class="settings-models">Loading models…</div></section>`).join('')}
    ${guidance('rules','Repository rules',"Guidance for developing Workbench. Each project's own files are available in its System page. Agent loading rules determine which files apply; viewing them here does not activate them.")}
@@ -73,6 +75,7 @@ export async function openSettings({api,modal,onSaved,projects=[],section='appea
  };
  root.querySelector('#add-project-tag').onclick=()=>{draft.projectTags.push({id:crypto.randomUUID(),name:'',color:'#bf502f',projectIDs:[]});renderTags();tagHost.querySelectorAll('[data-tag-name]')[draft.projectTags.length-1].focus();};
  renderTags();
+ controllerSettings(root.querySelector('#settings-controllers'),api,projects);
  loadGuidance(root,api);
  const results=await Promise.allSettled(['codex','claude'].map(agent=>api('terminal-agents/'+agent)));
  if(!root.isConnected)return;
