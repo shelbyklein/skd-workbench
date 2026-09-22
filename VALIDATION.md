@@ -977,3 +977,12 @@ delivery to the launch adapter. No real inference or GitHub write was performed.
   the shared selector rendered. `output/issue-review-actions-live.png` records the
   view. The inspection made zero write/execution requests; all 22 existing root
   data-file hashes remained unchanged. This change has not been pushed remotely.
+
+## Separate issue action cards — 2026-09-22
+
+- Review, workflow input and work plan now use three separate shared cards with
+  24px gaps. Plan editing and issue editing retain their original single cards.
+- Existing issues and issue-actions browser suites passed, including mobile,
+  keyboard, draft guards and fixture terminal interaction. Inspected the rendered
+  dark desktop screenshot. No real provider calls or user workflows were run.
+- Shell cache bumped to `0.5.0-81`.
