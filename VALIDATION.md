@@ -1216,8 +1216,18 @@ TT plan `local:F5660300-649C-4650-8AC3-2C96C0328BB9`, DB-01 through DB-07.
   selectors in `overview-browser` and `issues-browser`; renamed to
   `data-briefing-project`, and both passed on rerun, as did `project-tags-browser`.
   `terminal-stream-browser` (2 of 2 runs) and `workspace-terminal-browser`
-  (1 of 2 runs) also fail on unchanged `main`; they are pre-existing and were not
-  changed. `quick-actions-browser` passes but logs a cleanup ENOENT that also occurs
+  (1 of 2 runs) also failed on unchanged `main`. Both were test bugs made visible by
+  high machine load (load average 12–16):
+  - `workspace-terminal-browser` measured the panel after a fixed 250 ms while its
+    220 ms slide-in was usually still running (4 of 5 probes), so the drag started
+    8–26 px beside the resize edge. The page now uses reduced motion: **5 of 5 passed**.
+  - `terminal-stream-browser` read `.terminal-status` without `?.` right after the
+    reload click, before the panel mounted, so the wait threw instead of retrying.
+    Now null-safe: all functional checks **passed 5 of 5**. Its p95 < 50 ms latency
+    check still fails under load (53–75 ms). Delivery commit `00891f0` measures the
+    same today (p95 72–77 ms) versus 15.8 ms when recorded, so this is machine load
+    rather than a code regression. The 50 ms limit was left unchanged; recheck it
+    on an idle machine. `quick-actions-browser` passes but logs a cleanup ENOENT that also occurs
   on `main`. PWA cached asset count updated 40 → 41; cache `skd-shell-0.5.0-98`.
 - Inspected screenshots: `output/briefing-project-ready.png`, `-failed.png`,
   `briefing-home.png`, `briefing-project-mobile.png`, `briefing-home-mobile.png`,
