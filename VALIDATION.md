@@ -971,3 +971,9 @@ delivery to the launch adapter. No real inference or GitHub write was performed.
   existing isolated-execution requirement. Workflow eligibility is project scope,
   an agent step, input capacity and no duplicate issue; runtime provider validation
   remains at explicit execution.
+- Local delivery: implementation `403b172` fast-forwarded to main and the local
+  launchctl service restarted after verifying no active sessions, workflows or
+  delegations. Live issue #6 was inspected at shell `0.5.0-80`; both actions and
+  the shared selector rendered. `output/issue-review-actions-live.png` records the
+  view. The inspection made zero write/execution requests; all 22 existing root
+  data-file hashes remained unchanged. This change has not been pushed remotely.
