@@ -49,7 +49,7 @@ without the agent. Suggestions link to existing work; they do not create tasks o
 
 ## Tasks
 
-- [ ] **DB-01 Evidence collector.** `lib/briefings.js` exports `collectEvidence(projectID, date,
+- [x] **DB-01 Evidence collector.** `lib/briefings.js` exports `collectEvidence(projectID, date,
   timezone)`: exact UTC interval for the calendar day (correct across DST), Workbench records that
   overlap it (sessions crossing midnight flagged as partial), workflow children and briefing runs
   excluded, unresolved/failed/running records as open loops, per-source coverage
@@ -57,20 +57,20 @@ without the agent. Suggestions link to existing work; they do not create tasks o
   *Acceptance:* `node --test tests/briefings.test.js` passes cases for DST spring/fall days, a
   session crossing midnight, workflow-child dedupe, briefing-run exclusion, and empty vs
   unavailable sources.
-- [ ] **DB-02 Git source.** Collect commits in the interval from the project folder
+- [x] **DB-02 Git source.** Collect commits in the interval from the project folder
   (`git log --since/--until`, author/committer time, bounded count and subject length, no network).
   Non-repository folders report `unavailable`; truncated history reports `partial`.
   *Acceptance:* tests against a temporary repository with commits inside and outside the interval
   return only inside commits, cap at the limit with `partial` coverage, and report `unavailable` for
   a plain folder.
-- [ ] **DB-03 Briefing store and endpoints.** `.data/briefings.json` (schema 1, atomic write,
+- [x] **DB-03 Briefing store and endpoints.** `.data/briefings.json` (schema 1, atomic write,
   corrupt file fails visibly). `GET /api/projects/:id/briefing?date=` returns the latest revision
   or `absent`; `POST /api/projects/:id/briefing` collects evidence, stores an `evidence-only`
   revision, and optionally starts synthesis. Concurrent requests for the same project/date share
   one job; failures keep the previous successful revision.
   *Acceptance:* HTTP tests cover absent → generated, concurrent POST dedupe, revision increment on
   regenerate, corrupt store error, and failure preserving the prior revision.
-- [ ] **DB-04 Agent synthesis.** Executor purpose `daily-briefing` (tool-free like
+- [x] **DB-04 Agent synthesis.** Executor purpose `daily-briefing` (tool-free like
   `issue-proposal`, private scratch folder). Queue behind active user execution. Prompt treats
   evidence as data; output is strict JSON `{yesterday[], openLoops[], suggestions[≤3]}` with
   `sourceIDs` validated against the packet. Runs interrupted by a restart become `interrupted`
@@ -78,14 +78,14 @@ without the agent. Suggestions link to existing work; they do not create tasks o
   *Acceptance:* fixture-provider tests: valid output → `ready`; unknown source ID or >3
   suggestions → `failed` with the prior revision kept; purpose excluded from `/api/sessions`;
   restart marks a generating record `interrupted` without relaunching.
-- [ ] **DB-05 Widgets.** Project overview widget and Home panel (Home aggregates the latest project
+- [x] **DB-05 Widgets.** Project overview widget and Home panel (Home aggregates the latest project
   reports, ranks suggestions across projects, dedupes shared repository issues). States: absent,
   evidence-only, generating, ready, stale (date ≠ today), failed, unavailable. Generate button,
   date and updated time, coverage details. Update `server.js` asset allowlist and bump `public/sw.js`.
   *Acceptance:* browser suite `tests/briefing-browser.mjs` exercises the real Home and project
   routes against a temporary store: absent → Generate → ready rendering, failed state, keyboard
   activation, and a 390px mobile layout without horizontal scroll; screenshots inspected.
-- [ ] **DB-06 Opt-in schedule.** Settings for enable, local time, timezone, provider/model/effort.
+- [x] **DB-06 Opt-in schedule.** Settings for enable, local time, timezone, provider/model/effort.
   A server timer enqueues one batch per day while running; startup generates only today's missing
   briefings; defers while user execution is active. Default off.
   *Acceptance:* injected-clock tests: disabled → no runs; enabled → one batch at the configured
