@@ -83,7 +83,7 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
   const quickActions=new QuickActions(directory,{terminals,github,project:id=>store.project(id),...quickActionOptions});
   const proposals=new IssueProposals(directory,codex,github);
   const issueWork=new IssueWork(directory,{github,terminals,instructionsRoot:root,validateProject:project=>assert(store.project(project.id).version===project.version,'Project changed. Reload before reviewing.',409),providers:agent=>agent==='claude'?codex.discoverClaude():codex.discover()});
-  const briefings=new Briefings(directory,{...briefingOptions,sources:project=>({sessions:()=>codex.runs,terminals:()=>terminals.runs,imports:()=>imports.records,workflows:()=>workflows.runs,delegations:()=>delegations.runs,
+  const briefings=new Briefings(directory,{executor:codex,...briefingOptions,sources:project=>({sessions:()=>codex.runs,terminals:()=>terminals.runs,imports:()=>imports.records,workflows:()=>workflows.runs,delegations:()=>delegations.runs,
     issues:async()=>{const page=await github.list(project);const list=page.issues;list.truncated=page.hasMore;return list;},commits:interval=>readCommits(project.folderPath,interval)})});
   const controllers=new Controllers(directory,{projects:()=>store.snapshot().projects});
   const controllerCommands=new ControllerCommands({controllers,store,workflows,playbooks,workspaceTasks,codex,lifecycle});
@@ -362,7 +362,7 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
   });
   server.on('close',()=>{controllerCommands.shutdown();mcpConnections.shutdown();terminals.shutdown();delegations.shutdown();workflows.shutdown();});
   const terminalStreams=attachTerminalStreams(server,{workspace:workspaceTerminal,agents:terminals});
-  server.shutdownCodex=()=>{controllerCommands.shutdown();terminalStreams.shutdown();workspaceTerminal.shutdown();mcpConnections.shutdown();terminals.shutdown();delegations.shutdown();workflows.shutdown();};
+  server.shutdownCodex=()=>{controllerCommands.shutdown();terminalStreams.shutdown();workspaceTerminal.shutdown();mcpConnections.shutdown();terminals.shutdown();delegations.shutdown();workflows.shutdown();briefings.close();};
   return server;
 }
 if(process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
