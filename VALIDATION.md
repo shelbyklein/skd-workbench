@@ -1048,12 +1048,30 @@ are recorded below when complete.
 ### Agents integration verification
 
 - Preserved concurrent Newton Graft discovery commit `856d44f` by merging main
-  into the feature checkout. Shell cache is `skd-shell-0.5.0-85`, including the
+  into the feature checkout. Shell cache is `skd-shell-0.5.0-86`, including the
   allowlisted `agent-profile-picker.js` module.
-- Combined full Node suite: **319/319 passed**. All 31 Chrome browser scripts
-  passed before integration; the combined browser run is recorded on completion.
+- Combined full Node suite: **319/319 passed**; all **31 Chrome browser scripts
+  passed** after integration. Focused resource and PWA checks passed again for the
+  final provider-filter and cache changes.
 - Expanded session browser journey passed: choose specialization, review context,
   open a prompt-free fixture terminal, save frozen specialization from active and
   ended sessions, and preserve the original session.
 - An existing selector browser test needed to expand the previously introduced
   Work plan accordion before editing; the product's collapsed default is intact.
+
+- Activated on local main after confirming zero active sessions, workflows and
+  delegations. Backed up 22 JSON stores under
+  `output/agents-activation-20260922-063303`. Only `playbooks.json` changed on
+  startup; schema 2 and its unique schema-1 backup verified. Other 21 hashes
+  remained unchanged. Existing profile/default counts were zero.
+- Live browser checked Home → Agents, the prompt editor (cancelled), and project
+  Agents at 390px: zero API writes, zero page errors, no horizontal overflow.
+  Inspected `output/agents-live-editor.png` and
+  `output/agents-live-project-mobile.png`. The offline notice is expected because
+  this verification context blocks service workers; installed clients retain the
+  explicit Update app action. No model inference or saved workflow execution.
+- Final visual correction keeps the global scope filter and actions on one row
+  and aligns resource checkboxes with their labels. Resource Chrome checks pass.
+- Source committed and integrated locally; this feature has not been pushed.
+  Issue remains open for user acceptance. Workflow/delegation profile selection
+  and complete native activity capture remain follow-on work.
