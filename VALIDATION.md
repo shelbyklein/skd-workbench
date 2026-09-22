@@ -1043,3 +1043,17 @@ are recorded below when complete.
   mobile horizontal document overflow. All pre-existing top-level JSON stores
   retained their hashes. Verification disabled service workers, producing the
   expected offline-startup notice; installed clients use Update app normally.
+
+
+### Agents integration verification
+
+- Preserved concurrent Newton Graft discovery commit `856d44f` by merging main
+  into the feature checkout. Shell cache is `skd-shell-0.5.0-85`, including the
+  allowlisted `agent-profile-picker.js` module.
+- Combined full Node suite: **319/319 passed**. All 31 Chrome browser scripts
+  passed before integration; the combined browser run is recorded on completion.
+- Expanded session browser journey passed: choose specialization, review context,
+  open a prompt-free fixture terminal, save frozen specialization from active and
+  ended sessions, and preserve the original session.
+- An existing selector browser test needed to expand the previously introduced
+  Work plan accordion before editing; the product's collapsed default is intact.
