@@ -104,6 +104,27 @@ Order: CC-01 → CC-02 → CC-03 → CC-04 → CC-05 → CC-06 → CC-07 → CC-
 Coordination: before CC-02, confirm the session that built `codex/coordinator-agent` is no longer changing
 `lib/coordinator-agent.js`, `public/project-agent-ui.js` or `tests/coordinator-*`; work on a branch from current `main`.
 
+## CC-01 findings (2026-09-23, no inference)
+
+Claude Code 2.1.281 (`claude --help`, binary strings):
+- Confirmed: `--tools ""` disables all built-in tools; `--strict-mcp-config` + `--mcp-config`; `--allowedTools`
+  per tool (`mcp__workbench__<tool>`); `--permission-mode manual` prompts for anything not allowed; `--settings` JSON
+  hooks with a `Notification` hook and `permission_prompt` matcher (strings present); `--setting-sources` limits
+  user/project/local settings (keeps personal hooks and plugins out). `--bare` would skip keychain reads (sign-in), so
+  it is not used. `--no-session-persistence` is print-only, so interactive sessions are saved by Claude Code.
+- To verify at CC-08: first run in the coordinator workspace may show Claude's folder-trust prompt (answered once in
+  the CLI view); personal `~/.claude/CLAUDE.md` may still be read as context.
+
+Codex CLI 0.155.1 (`codex --help`, `codex mcp list`, binary strings):
+- Confirmed: per-tool MCP approval `mcp_servers.<server>.tools.<tool>.approval_mode` = `auto|prompt|writes|approve`
+  and `default_tools_approval_mode`; hook events include `PermissionRequest`, `PreToolUse`, `PostToolUse`, `Stop`;
+  `--dangerously-bypass-hook-trust` exists (hooks need trust). Interactive `codex` has no `--ignore-user-config`
+  (only `codex exec` does).
+- Isolation problem: interactive Codex loads `~/.codex/config.toml` (19 MCP servers here, including `computer-use`,
+  `node_repl`). `-c mcp_servers={}` merges rather than replaces; per-server `-c mcp_servers.<n>.enabled=false` left 8
+  servers enabled (`codex mcp list --json`). A separate `CODEX_HOME` has no user servers but also no sign-in
+  (`~/.codex/auth.json`). Decision needed; see Open questions.
+
 ## Scope boundaries
 
 Excluded: file or shell tools for the coordinator; new Workbench MCP tools; changing mandate rules; multiple
@@ -129,9 +150,8 @@ and routes go through it); execution lock ownership for sessions and workflows; 
 
 ## Open questions
 
-- Codex per-tool approval and an approval-waiting signal are confirmed in CC-01. Fallback if per-tool approval is not
-  supported: Codex prompts for every Workbench tool except that replies still post (via an allow-listed tool if
-  possible); if no waiting signal exists, Codex shows the banner only while the CLI view is open. Not blocking.
+- Codex per-tool approval and a `PermissionRequest` hook exist (CC-01). **Blocking for the Codex path:** how to keep
+  personal Codex MCP servers out of an interactive session (see CC-01 findings). Claude Code work is not blocked.
 
 ## Work preparation
 
