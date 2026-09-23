@@ -65,6 +65,24 @@ try{
  assert.equal((await api('projects/'+a.id+'/mandate')).mandate.version,2);assert.equal((await call('get_run',{projectID:a.id,runID:run.id})).status,'waiting');
  await page.locator('.agent-decision [data-agent-run]').click();await page.locator('.workflow-summary').waitFor();assert.match(page.url(),new RegExp(run.id));
  await page.goBack();await page.locator(`[data-project="${a.id}"],#agent-decisions`).first().waitFor();
+ // Home summarizes the same records and hosts the cross-project coordinator conversation.
+ await call('post_coordinator_message',{requestKey:'coordinator-1',text:'Newton is waiting for your verification.',refs:[{kind:'project',id:a.id},{kind:'run',id:run.id}]});
+ await page.goto(url);await page.locator('#home-decisions').waitFor();await page.waitForFunction(()=>/decision/.test(document.querySelector('#home-agent-summary')?.textContent));
+ assert.equal(await page.locator('#home-agent-summary').textContent(),'0 running · 1 needs a decision · 1 project owner');
+ assert.match(await page.locator('#home-decisions-body').textContent(),/Newton · Verify/);
+ assert.match(await page.locator('.home-owner').first().textContent(),/Newton[\s\S]*Owner: Newton agent[\s\S]*Waiting for you[\s\S]*Plan, implement, verify/);
+ assert.match(await page.locator('#home-recent-body').textContent(),/Newton · Plan, implement, verify[\s\S]*Stopped/);
+ assert.match(await page.locator('.agent-message-agent').textContent(),/waiting for your verification[\s\S]*Project[\s\S]*Run /);
+ assert.match(await page.locator('#agent-message-label').textContent(),/Message coordinator · all projects/);
+ await page.locator('#agent-message').fill('Move Newton forward.');await page.screenshot({path:'output/project-agent-home.png',fullPage:true});
+ await page.locator(`.project-card[data-project="${a.id}"]`).click();await page.locator('#agent-decisions').waitFor();assert.equal(await page.locator('#agent-message').inputValue(),'','Project and coordinator drafts are separate.');
+ await page.locator('#open-projects').click();await page.locator('#home-decisions').waitFor();assert.equal(await page.locator('#agent-message').inputValue(),'Move Newton forward.');
+ await page.locator('#agent-send').click();await page.locator('.agent-message-user').waitFor();
+ const coordinator=await api('coordinator/messages');assert.deepEqual(coordinator.items.map(m=>m.author),['agent','user']);assert.equal((await api('projects/'+a.id+'/messages')).total,2);
+ assert.equal((await call('list_coordinator_messages',{})).items.at(-1).text,'Move Newton forward.');
+ const partial=await api('controllers',{name:'Newton only',projectIDs:[a.id],capabilities:['read','manage']}),partialToken=JSON.parse(readFileSync(partial.credentialPath)).token;
+ const denied=await fetch(url+'/api/controller/call',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+partialToken},body:JSON.stringify({name:'list_coordinator_messages',arguments:{}})});assert.equal(denied.status,403);
+ await page.locator('#home-decisions-body [data-home-run]').click();await page.locator('.workflow-summary').waitFor();assert.match(page.url(),new RegExp(run.id));
  await page.emulateMedia({colorScheme:'dark'});await page.goto(url);await page.locator(`[data-project="${a.id}"]`).click();await page.locator('#agent-decisions').waitFor();assert.equal(await page.evaluate(()=>document.documentElement.dataset.theme),'dark');await page.screenshot({path:'output/project-agent-dark.png'});await page.emulateMedia({colorScheme:'light'});
  await page.setViewportSize({width:390,height:844});await page.goto(url);await page.locator(`[data-project="${a.id}"]`).click();await page.locator('#agent-decisions').waitFor();
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:'output/project-agent-mobile.png',fullPage:true});

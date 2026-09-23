@@ -4,7 +4,7 @@ import {mkdtempSync,readFileSync,writeFileSync,rmSync,statSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {ProjectThreads} from '../lib/project-threads.js';
-import {projectAgentOverview} from '../lib/project-agent.js';
+import {projectAgentOverview,portfolioOverview} from '../lib/project-agent.js';
 const project={id:'p',name:'P',folderPath:'/tmp'},runs=[{id:'run-1',projectID:'p'},{id:'run-2',projectID:'q'}];
 test('project threads are idempotent per author, bounded and validate record links',t=>{
  const dir=mkdtempSync(path.join(tmpdir(),'skd-threads-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));
@@ -35,4 +35,16 @@ test('overview derives decisions, current work, next tasks and results from reco
  assert.equal(overview.current.id,'live');assert.deepEqual(overview.current.steps.map(s=>s.state),['done','current']);assert.equal(overview.current.taskRef,'local:a');
  assert.deepEqual(overview.decisions.map(d=>[d.kind,d.runID]),[['review','live']]);assert.deepEqual(overview.next.map(t=>t.ref),['local:b']);
  assert.equal(overview.recent.id,'old');assert.equal(overview.recent.approvals,1);assert.equal(overview.mandate.history,undefined);assert.equal(overview.working,false);
+});
+test('coordinator thread links any project run and portfolio rows reuse project derivation',t=>{
+ const dir=mkdtempSync(path.join(tmpdir(),'skd-coordinator-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));
+ const threads=new ProjectThreads(dir,{runs:()=>runs,projects:()=>[project,{id:'q',folderPath:'/var'}]});
+ const posted=threads.post({id:'coordinator'},{author:'agent',text:'Report',requestKey:'r',controller:{id:'c',name:'C'},refs:[{kind:'run',id:'run-2'},{kind:'project',id:'q'}]});assert.equal(posted.refs.length,2);
+ assert.throws(()=>threads.post({id:'coordinator'},{author:'agent',text:'x',requestKey:'s',refs:[{kind:'project',id:'unassigned'}]}),/Linked project not found/);
+ assert.throws(()=>threads.post(project,{author:'agent',text:'x',requestKey:'t',refs:[{kind:'run',id:'run-2'}]}),/not in this project/);
+ const flow={name:'Pilot',steps:[{id:'a',name:'Implement',type:'agent'}]},base={flow,task:'T',attempts:[],maxAttempts:1,cursor:0,error:null,createdAt:'2026-09-22T00:00:00Z'};
+ const view=id=>id==='p'?{mandate:{version:2,enabled:true,tasks:[]},profile:{status:'ready',name:'Owner'}}:{mandate:null,profile:null};
+ const overview=portfolioOverview({projects:[project,{id:'q',name:'Q',folderPath:'/var'},{id:'unassigned',folderPath:null}],mandates:{view:p=>view(p.id)},threads,runs:[{...base,id:'x',projectID:'q',status:'running'},{...base,id:'y',projectID:'p',status:'completed',finishedAt:'2026-09-22T01:00:00Z'}],executorOwner:'x',coordinator:'coordinator'});
+ assert.deepEqual(overview.counts,{working:1,decisions:0,owners:1});assert.deepEqual(overview.projects.map(r=>[r.projectID,r.status]),[['p','active'],['q','working']]);
+ assert.deepEqual(overview.recent.map(r=>r.id),['y']);assert.equal(overview.thread.items[0].text,'Report');
 });
