@@ -444,6 +444,14 @@ The header terminal icon opens a persistent shell column in the SKD Workbench fo
 
 Both workspace and Agent terminals stream input/output over a same-origin WebSocket. Reconnecting attaches to the existing session and never resends input. A slow or suspended client may reconnect; retained output is bounded and any missing earlier output is marked. Very large pastes are rejected before sending, so split them into smaller parts.
 
+## Coordinator conversation
+
+Home and each project have a conversation panel. With the coordinator off, messages are only saved. **Set up** chooses Claude Code or Codex, a model and an effort; turning it on creates the internal "Workbench coordinator" controller grant.
+
+Each conversation then has one live CLI session, started by your first message and seeded with the recent conversation. Messages you send are typed into it, and the agent posts its replies to the chat. Switch the panel between **Chat** and **CLI** to watch the session, type in it directly, or **Stop** it. The session has no file or shell tools, only Workbench's own tools: reading records and posting replies need no approval, while `start_run`, `stop_run`, `create_workflow` and `update_workflow` show the CLI's permission prompt. A waiting prompt shows "Waiting for you in the CLI" and appears under **Needs your decision**. Work it starts is still limited by the project mandate.
+
+Sessions end on Stop, a settings change, 30 minutes idle or a server restart, and are never resumed; the last 20 transcripts stay readable under **Previous sessions**. Codex runs with its own Codex home (`.data/coordinator-codex`) so your personal Codex MCP servers and settings are not loaded; the first Codex session asks you to sign in there once. Claude Code may ask once to trust the coordinator folder.
+
 ## Let an external agent control Workbench
 
 Open **Global settings → Agent control (MCP)**. Name a controller, select its

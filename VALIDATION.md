@@ -1421,3 +1421,33 @@ Plan: `instructions/2026-09-23-remote-access.md` · Tracker Trapper `local:E017E
 - `npm test` 404/404; `npm run test:browser` passed all 41 suites in one run (coordinator suite
   uses the fixture CLI). A real Claude Code/Codex coordinator reply was not run (the
   coordinator branch's pending real-provider check, which needs the person's go-ahead).
+
+## Coordinator CLI view — 2026-09-23 (#16)
+
+Plan: `instructions/2026-09-23-coordinator-cli-view.md` · Tracker Trapper `E57D19CA-B394-417F-A0BE-2F3B08F7B5B0`.
+
+- One interactive Claude Code / Codex PTY per conversation replaces one-shot replies
+  (`lib/coordinator-sessions.js`). Chat messages are pasted in; the agent posts replies with
+  `post_message`/`post_coordinator_message`. Read and `post_*` tools are pre-approved;
+  `start_run`, `stop_run`, `create_workflow`, `update_workflow` keep the CLI's permission prompt
+  (derived from the controller catalog: every `manage`/`run` tool prompts). A Claude Code
+  Notification (`permission_prompt`) / Codex `PermissionRequest` hook posts a per-session secret
+  to a loopback-only route, marking the session waiting (panel banner, Needs your decision).
+- Codex runs with a private `CODEX_HOME` (`coordinator-codex/`, 0700) holding only the Workbench
+  MCP server, per-tool approval, the hook and folder trust; interactive Codex otherwise loads the
+  personal `~/.codex/config.toml` servers (`-c mcp_servers={}` merges; per-server disable left 8
+  enabled). First Codex session needs a separate sign-in.
+- Sessions end on Stop, settings change, coordinator off, 30 min idle or server stop; never
+  resumed. Last 20 transcripts (256 KiB tail) kept in `coordinator-sessions.json` (0600).
+  `coordinator-agent.json` migrates schema 1 → 2 with a backup; legacy turns kept read-only.
+- UI: Chat / CLI switch with an inline terminal (`mountTerminal` inline mode), Stop, history,
+  waiting banner, Open CLI from Home and project decisions. Shell cache `skd-shell-0.5.0-113`.
+- Tests (fixture interactive CLI in a real PTY over the real MCP bridge, temporary stores, no
+  inference): `coordinator-sessions` 7/7, `coordinator-agent` 4/4, `remote-access-server`
+  (coordinator stream gated), `coordinator-cli-browser` (screenshots inspected; fixed mandate-card
+  overlap and 390 px overflow). `npm test` 411/411.
+- `tests/editor.mjs` fails its 1.5 layout ratio (1.521) on this machine at unmodified `e0b10be` as
+  well, after passing there earlier today; environment change, not this work. The other 40 browser
+  suites passed (37 run individually after the chain stopped at `editor.mjs`).
+- Not verified: real Claude Code / Codex sessions (CC-08), including Codex hook config and the
+  Claude permission hook firing, folder-trust prompts and Codex sign-in.
