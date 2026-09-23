@@ -16,8 +16,9 @@ const start=(extra={})=>()=>({provider:'claude',model:'opus',effort:'default',bi
 const tick=ms=>new Promise(r=>setTimeout(r,ms));
 
 test('tool split: reading and posting replies are free, managing or running work prompts',()=>{
- assert(freeTools.includes('list_runs')&&freeTools.includes('preview_run')&&freeTools.includes('post_message')&&freeTools.includes('post_coordinator_message'));
- assert.deepEqual([...promptTools].sort(),['create_workflow','start_run','stop_run','update_workflow']);
+ assert(freeTools.includes('list_runs')&&freeTools.includes('preview_run')&&freeTools.includes('post_message')&&freeTools.includes('post_coordinator_message')&&freeTools.includes('message_project_agent'));
+ assert.deepEqual([...promptTools].sort(),['create_workflow','start_run','stop_project_agent','stop_run','update_workflow']);
+ assert(!freeTools.includes('report_to_orchestrator')&&!promptTools.includes('report_to_orchestrator'),'Report tools are for project agents only.');
 });
 
 test('Claude Code args: no built-in tools, only Workbench MCP, prompts for action tools, no bypass',()=>{
@@ -88,4 +89,12 @@ test('corrupt history fails visibly; schema 1 coordinator settings migrate with 
  const backups=readdirSync(dir2).filter(f=>/^coordinator-agent\.json\.schema-1\..+\.backup\.json$/.test(f));assert.equal(backups.length,1);assert.deepEqual(JSON.parse(readFileSync(path.join(dir2,backups[0]),'utf8')),legacy);
  writeFileSync(path.join(dir2,'coordinator-agent.json'),'{"schema":7}');assert.throws(()=>new CoordinatorAgent(dir2,{threads:{},controllers:{},projects:()=>[],executor:{},sessions:{}}),/Damaged coordinator settings/);
  assert(existsSync(path.join(dir2,'coordinator-agent.json')));
+});
+
+test('messages arriving together are submitted one at a time, never merged',async t=>{
+ const dir=temp(t),fake=fakePty(),s=new CoordinatorSessions(dir,{spawn:fake.spawn});
+ s.deliver('coordinator','first',start());s.deliver('coordinator','reply one',start());s.paste('coordinator','relayed report');
+ await tick(500);
+ assert.deepEqual(fake.spawned[0].writes,['\x1b[200~reply one\x1b[201~','\r','\x1b[200~relayed report\x1b[201~','\r']);
+ assert.equal(s.paste('nobody','x'),false,'Relays never start a session.');
 });

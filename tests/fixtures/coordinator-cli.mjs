@@ -17,9 +17,17 @@ if(args[0]==='exec'||args.includes('--print')){
  else out({type:'result',subtype:'success',is_error:false,result:'Workflow fixture done.',usage:{input_tokens:1,output_tokens:1}});
  process.exit(0);
 }
-const codex=!args.includes('--mcp-config'),prompt=args[args.indexOf('--')+1]||'';
+const codex=!args.includes('--mcp-config'),prompt=args.includes('--')?args[args.indexOf('--')+1]:'';
+const projectMode=args.includes('--append-system-prompt')||(codex&&args.some(a=>a.startsWith('mcp_servers.workbench.command=')));
 let server,system,hook,needsPrompt;
-if(codex){
+if(projectMode){
+ // Project agent: the person's normal CLI in the project folder plus the Workbench MCP server.
+ if(codex){const configs=args.filter((a,i)=>args[i-1]==='-c'),get=key=>configs.find(c=>c.startsWith(key+'='))?.slice(key.length+1);
+  server={command:JSON.parse(get('mcp_servers.workbench.command')),args:JSON.parse(get('mcp_servers.workbench.args'))};system=JSON.parse(get('developer_instructions'));hook=JSON.parse(/command=("(?:[^"\\]|\\.)*")/.exec(get('hooks.PermissionRequest'))[1]);}
+ else{server=JSON.parse(value('--mcp-config')).mcpServers.workbench;system=value('--append-system-prompt');hook=JSON.parse(value('--settings')).hooks.Notification[0].hooks[0].command;}
+ needsPrompt=()=>false;
+ log({mode:'session',role:'project',provider:codex?'codex':'claude',args,cwd:process.cwd(),codexHome:process.env.CODEX_HOME||null});
+}else if(codex){
  const config=readFileSync(path.join(process.env.CODEX_HOME,'config.toml'),'utf8'),field=(block,key)=>JSON.parse(new RegExp(`\\[${block}\\][^\\[]*?\\n${key} = (.*)`).exec(config)[1]);
  server={command:field('mcp_servers\\.workbench','command'),args:field('mcp_servers\\.workbench','args')};hook=JSON.parse(/\[\[hooks\.PermissionRequest\.hooks\]\][^[]*?command = (.*)/.exec(config)[1]);
  const configs=args.filter((a,i)=>args[i-1]==='-c');system=JSON.parse(configs.find(c=>c.startsWith('developer_instructions=')).slice(23));
@@ -43,9 +51,30 @@ const call=async(name,input={})=>{
  }
  const r=await client.callTool({name,arguments:input});const parsed=JSON.parse(r.content[0].text);if(r.isError)throw new Error(parsed.error||'tool failed');say(`  ⎿ ok`);return parsed;
 };
-const projectID=/projectID ([\w-]+)\)/.exec(system)?.[1]||null;let posts=0;
+const projectID=projectMode?/projectID ([\w-]+),/.exec(system)?.[1]:/projectID ([\w-]+)\)/.exec(system)?.[1]||null;let posts=0;
+const key=()=>`fixture-${process.pid}-${++posts}`;
 async function handle(text){
  say(`> ${text}`);let reply;
+ if(projectMode){
+  const request=text.replace(/^\[from orchestrator\] /,'');
+  try{if(/ask me/i.test(request))await call('report_to_orchestrator',{projectID,kind:'question',text:`Which option for: ${request}?`,requestKey:key()});
+   else await call('report_to_orchestrator',{projectID,kind:'update',text:`Done: ${request}`,requestKey:key()});}catch(error){say(`Report failed: ${error.message}`);}
+  return;
+ }
+ if(!projectID){
+  // Orchestrator routing and relay.
+  const route=/(?:email about|for) ([\w-]+)/i.exec(text),relay=/^\[from (.+?) agent · (\w+)\] (.*)$/.exec(text),forward=/^reply to ([\w-]+): (.*)$/i.exec(text);
+  try{
+   if(relay){await call('post_coordinator_message',{text:`${relay[1]} agent ${relay[2]}: ${relay[3]}`,requestKey:key()});return;}
+   if(route||forward){
+    const name=(route||forward)[1],target=(await call('list_projects')).items.find(p=>p.name.toLowerCase()===name.toLowerCase());
+    if(!target)throw new Error(`No project named ${name}`);
+    if(route)await call('get_project_instructions',{projectID:target.id});
+    await call('message_project_agent',{projectID:target.id,text:forward?forward[2]:text,requestKey:key()});
+    await call('post_coordinator_message',{text:`Passed to ${target.name}.`,requestKey:key()});return;
+   }
+  }catch(error){await call('post_coordinator_message',{text:`Tool error: ${error.message}`,requestKey:key()}).catch(()=>{});return;}
+ }
  try{
   if(/launch/.test(text)){
    const pid=projectID||(await call('list_projects')).items[0].id;
@@ -55,12 +84,12 @@ async function handle(text){
    reply=`Started ${mandate.tasks[0].ref} under mandate v${mandate.version} (operation ${operation.id}).`;
   }else{const projects=await call('list_projects');reply=`Echo: ${text} (${projects.total} granted project${projects.total===1?'':'s'})`;}
  }catch(error){reply=`Tool error: ${error.message}`;}
- const requestKey=`fixture-${process.pid}-${++posts}`;
+ const requestKey=key();
  try{if(projectID)await call('post_message',{projectID,text:reply,requestKey});else await call('post_coordinator_message',{text:reply,requestKey});}catch(error){say(`Post failed: ${error.message}`);}
 }
 say(`Fixture ${codex?'Codex':'Claude Code'} session · ${codex?value('--model'):value('--model')}`);
 let queue=Promise.resolve();const enqueue=text=>{queue=queue.then(()=>handle(text));};
-const first=[...prompt.matchAll(/\[User [^\]]+\] ([^\n]*)/g)].at(-1)?.[1];if(first&&!/WAIT FOR THE NEXT MESSAGE/.test(prompt))enqueue(first);
+const first=projectMode?prompt:[...prompt.matchAll(/\[User [^\]]+\] ([^\n]*)/g)].at(-1)?.[1];if(first&&!/WAIT FOR THE NEXT MESSAGE/.test(prompt))enqueue(first);
 process.stdin.setRawMode?.(true);process.stdin.setEncoding('utf8');let buffer='';
 process.stdin.on('data',chunk=>{
  buffer+=chunk;

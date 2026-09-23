@@ -54,27 +54,26 @@ test('Claude Code session: messages go into one live CLI and the agent posts rep
  const output=await new Promise((resolve,reject)=>{const ws=new WebSocket(f.url.replace('http','ws')+`/api/coordinator-terminal/${state.session.id}/stream`,{origin:f.url});ws.once('message',m=>{resolve(JSON.parse(m));ws.close();});ws.once('error',reject);});
  assert.match(output.data,/⏺ workbench - list_projects \(MCP\)/);assert.match(output.data,/> and again/);assert.equal(output.session.status,'running');
 });
-test('Codex project session prompts before start_run, surfaces it as a decision and launches after approval',async t=>{
+test('Codex orchestrator prompts before start_run, surfaces it as a decision and launches after approval',async t=>{
  const f=await setup(t);await f.enable('codex');
  const flow=(await f.api('flows',{projectID:f.p.id,name:'Review',steps:[{id:'review',type:'agent',name:'Review',model:'fixture',effort:'low',instructions:'Review'},{id:'accept',type:'human',name:'Accept',instructions:'Check',maxRetries:1,retryFrom:'review'}]})).body;
  const owner=(await f.api('agent-profiles',{revision:0,name:'Pilot owner',scope:{kind:'project',projectID:f.p.id},providers:['codex'],systemPrompt:'Own it.',skillIDs:[],connectionIDs:[]})).body;
  await f.api('projects/'+f.p.id+'/mandate',{version:0,enabled:true,agentProfile:{id:owner.id},objective:'Pilot',tasks:[{ref:'local:pilot'}],workflowIDs:[flow.id],modes:['read-only'],limits:{maxAttempts:1,maxRuntimeMinutes:30}},'PUT');
- const sent=await f.api('projects/'+f.p.id+'/messages',{text:'please launch the pilot',requestKey:'p1'});
- const waiting=await f.until(async()=>{const s=await f.state(f.p.id);return s.coordinator.session?.waiting&&s;},'waiting prompt');
- const decision=waiting.decisions.find(d=>d.kind==='coordinator');assert.equal(decision.sessionID,sent.body.session.id);assert.equal(decision.projectID,f.p.id);
- const home=(await f.state('coordinator'));assert(home.decisions.some(d=>d.kind==='coordinator'&&d.projectName==='Pilot'));assert.equal(home.counts.decisions,1);
+ const sent=await f.api('coordinator/messages',{text:'please launch the pilot',requestKey:'p1'});
+ const waiting=await f.until(async()=>{const s=await f.state('coordinator');return s.coordinator.session?.waiting&&s;},'waiting prompt');
+ const decision=waiting.decisions.find(d=>d.kind==='coordinator');assert.equal(decision.sessionID,sent.body.session.id);assert.equal(decision.projectID,null);assert.equal(waiting.counts.decisions,1);
  assert.equal((await f.api('workflows?projectID='+f.p.id)).body.length,0,'Nothing starts before approval.');
  await f.type(sent.body.session.id,'y\r');
- const thread=await f.replies(f.p.id,1);assert.match(thread.at(-1).text,/Started local:pilot under mandate v1/);
- assert.equal((await f.state(f.p.id)).coordinator.session.waiting,false);
+ const thread=await f.replies('coordinator',1);assert.match(thread.at(-1).text,/Started local:pilot under mandate v1/);
+ assert.equal((await f.state('coordinator')).coordinator.session.waiting,false);
  const runs=(await f.api('workflows?projectID='+f.p.id)).body;assert.equal(runs.length,1);
  let run;for(let i=0;i<150;i++){run=(await f.api('workflows/'+runs[0].id)).body;if(run.status==='waiting')break;await delay(20);}
  assert.equal(run.status,'waiting');assert.equal(run.controllerOrigin.mandate.taskRef,'local:pilot');assert.equal(run.controllerOrigin.controllerName,'Workbench coordinator');
  const session=f.sessions()[0];assert.equal(session.provider,'codex');assert.equal(session.codexHome,path.join(f.root,'data','coordinator-codex'));
  assert.deepEqual([...session.config.matchAll(/^\[mcp_servers\.(\w+)\]$/gm)].map(m=>m[1]),['workbench'],'Only the Workbench MCP server is configured.');
- // The waiting workflow holds the execution lock; the coordinator session still answers.
- await f.api('projects/'+f.p.id+'/messages',{text:'status please',requestKey:'p2'});
- assert.match((await f.replies(f.p.id,2)).at(-1).text,/Echo: status please/);
+ // The waiting workflow holds the execution lock; the orchestrator session still answers.
+ await f.api('coordinator/messages',{text:'status please',requestKey:'p2'});
+ assert.match((await f.replies('coordinator',2)).at(-1).text,/Echo: status please/);
 });
 test('Start session opens a live CLI that waits for the next message and posts nothing',async t=>{
  const f=await setup(t);

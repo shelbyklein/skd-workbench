@@ -97,15 +97,20 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
   const mandates=new Mandates(directory,{playbooks,projects:()=>store.snapshot().projects,flows:()=>store.snapshot().flows});
   const threads=new ProjectThreads(directory,{runs:()=>workflows.runs,projects:()=>store.snapshot().projects});
   const coordinator=new CoordinatorAgent(directory,{threads,controllers,projects:()=>store.snapshot().projects,executor:codex,sessionOptions:coordinatorOptions});
+  // Per-project locking: a live project agent blocks global-lock work in its project, and global-lock work
+  // in a project (session, workflow, delegation…) blocks starting that project's agent.
+  codex.projectAgentBusy=projectID=>projectID!==COORDINATOR&&coordinator.sessions.isLive(projectID);
+  const activeRun=new Set(['launching','starting','running','stopping','preparing','waiting','checking','queued','cleaning']);
+  coordinator.projectBusy=projectID=>!!(codex.owner||codex.active||codex.starting||codex.cleaning)&&[codex.runs,workflows.runs,terminals.runs,delegations.runs].some(runs=>(runs||[]).some(r=>r.projectID===projectID&&activeRun.has(r.status)));
   // Posting is idempotent by requestKey; a retried send must not type the same message into the CLI twice.
   const delivered=new Set();
-  const deliver=(key,message,scope)=>{
+  const deliver=async(key,message,scope)=>{
    if(delivered.has(message.id))return {session:coordinator.sessions.current(key)};
    delivered.add(message.id);if(delivered.size>500)delivered.delete(delivered.values().next().value);
-   try{return {session:coordinator.onMessage(key,message,scope)};}
+   try{return {session:await coordinator.onMessage(key,message,scope)};}
    catch(e){if(!(e instanceof Problem))console.error(e);return {session:null,deliveryError:e instanceof Problem?e.message:'The coordinator session could not start. The message is saved.'};}
   };
-  const controllerCommands=new ControllerCommands({controllers,store,workflows,playbooks,workspaceTasks,codex,lifecycle,mandates,threads});
+  const controllerCommands=new ControllerCommands({agents:()=>coordinator,controllers,store,workflows,playbooks,workspaceTasks,codex,lifecycle,mandates,threads});
   const server = http.createServer(async (req,res)=>{
     const json=(value,status=200)=>{res.writeHead(status,{'Content-Type':'application/json'});res.end(JSON.stringify(value));};
     res.setHeader('Cache-Control','no-store');
@@ -266,13 +271,16 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       const waitingDecisions=key=>coordinator.view().waiting.filter(w=>key===undefined||w.threadKey===key).map(w=>{const project=w.threadKey===COORDINATOR?null:store.snapshot().projects.find(p=>p.id===w.threadKey);return {kind:'coordinator',sessionID:w.id,threadKey:w.threadKey,projectID:project?.id||null,projectName:project?.name||'Coordinator',title:'Waiting for you in the coordinator CLI',detail:'Answer the permission prompt in the CLI view.',status:'waiting'};});
       const withWaiting=(overview,key)=>{const waiting=waitingDecisions(key);return {...overview,decisions:[...waiting,...overview.decisions],...(overview.counts?{counts:{...overview.counts,decisions:overview.counts.decisions+waiting.length}}:{})};};
       if(pathname==='/api/agents/overview'&&req.method==='GET')return json({...withWaiting(portfolioOverview({projects:store.snapshot().projects,mandates,threads,runs:workflows.runs,executorOwner:codex.owner,coordinator:COORDINATOR})),coordinator:coordinator.state(COORDINATOR)});
-      if(pathname==='/api/coordinator/messages'){if(req.method==='GET')return json(threads.list(COORDINATOR,{cursor:Math.max(0,Number(url.searchParams.get('cursor'))||0),limit:50}));if(req.method==='POST'){const input=await body(req,16*1024);assert(Object.keys(input).every(k=>['text','requestKey','refs'].includes(k)),'Unknown message field.');const message=threads.post({id:COORDINATOR},{...input,author:'user'});return json({...message,...deliver(COORDINATOR,message,{})},201);}}
+      if(pathname==='/api/coordinator/messages'){if(req.method==='GET')return json(threads.list(COORDINATOR,{cursor:Math.max(0,Number(url.searchParams.get('cursor'))||0),limit:50}));if(req.method==='POST'){const input=await body(req,16*1024);assert(Object.keys(input).every(k=>['text','requestKey','refs'].includes(k)),'Unknown message field.');const message=threads.post({id:COORDINATOR},{...input,author:'user'});return json({...message,...await deliver(COORDINATOR,message,{})},201);}}
       if(pathname==='/api/coordinator'&&req.method==='GET')return json(coordinator.view());
       if(pathname==='/api/coordinator'&&req.method==='PUT')return json(await coordinator.save(await body(req,16*1024),`http://${host}/api/controller/call`));
+      const agentSettings=pathname.match(/^\/api\/projects\/([\w-]+)\/agent-settings$/);
+      if(agentSettings&&req.method==='GET'){const p=store.project(agentSettings[1]);return json({version:coordinator.data.version,agent:coordinator.projectAgent(p.id)});}
+      if(agentSettings&&req.method==='PUT')return json(await coordinator.saveProjectAgent(store.project(agentSettings[1]).id,await body(req,4096)));
       if(pathname==='/api/coordinator/sessions'&&req.method==='POST'){
        const input=await body(req,4096);assert(Object.keys(input).every(k=>k==='threadKey')&&typeof input.threadKey==='string','Choose a conversation.');
        if(input.threadKey===COORDINATOR)return json(coordinator.startSession(COORDINATOR,{}),201);
-       const project=store.project(input.threadKey);return json(coordinator.startSession(project.id,{projectID:project.id,projectName:project.name}),201);
+       const project=store.project(input.threadKey);return json(await coordinator.startSession(project.id,{projectID:project.id,projectName:project.name}),201);
       }
       const coordinatorSession=pathname.match(/^\/api\/coordinator\/sessions\/([\w-]+)\/(stop|signal)$/);
       if(coordinatorSession&&req.method==='POST'){
@@ -285,7 +293,7 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       const agentOverview=pathname.match(/^\/api\/projects\/([\w-]+)\/agent$/);
       if(agentOverview&&req.method==='GET')return json({...withWaiting(projectAgentOverview({project:store.project(agentOverview[1]),mandates,threads,runs:workflows.runs,executorOwner:codex.owner}),agentOverview[1]),coordinator:coordinator.state(agentOverview[1])});
       const messages=pathname.match(/^\/api\/projects\/([\w-]+)\/messages$/);
-      if(messages){const project=store.project(messages[1]);if(req.method==='GET')return json(threads.list(project.id,{cursor:Math.max(0,Number(url.searchParams.get('cursor'))||0),limit:50}));if(req.method==='POST'){const input=await body(req,16*1024);assert(Object.keys(input).every(k=>['text','requestKey','refs'].includes(k)),'Unknown message field.');const message=threads.post(project,{...input,author:'user'});return json({...message,...deliver(project.id,message,{projectID:project.id,projectName:project.name})},201);}}
+      if(messages){const project=store.project(messages[1]);if(req.method==='GET')return json(threads.list(project.id,{cursor:Math.max(0,Number(url.searchParams.get('cursor'))||0),limit:50}));if(req.method==='POST'){const input=await body(req,16*1024);assert(Object.keys(input).every(k=>['text','requestKey','refs'].includes(k)),'Unknown message field.');const message=threads.post(project,{...input,author:'user'});return json({...message,...await deliver(project.id,message,{projectID:project.id,projectName:project.name})},201);}}
       const workSettings=pathname.match(/^\/api\/projects\/([\w-]+)\/issues\/(\d+)\/work-settings$/);
       if(workSettings){const project=store.project(workSettings[1]);
         if(req.method==='GET')return json(await issueWork.resolve(project,workSettings[2],{validate:true}));
