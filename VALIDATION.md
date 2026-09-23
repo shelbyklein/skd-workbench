@@ -1407,3 +1407,17 @@ Plan: `instructions/2026-09-23-remote-access.md` · Tracker Trapper `local:E017E
   browser showed "Log in to workbench".
 - End to end: the person signed in at the public address in a private window with the
   emailed code and reported the Workbench and a terminal working (RA-09).
+
+## Merge: coordinator agent into main — 2026-09-23
+
+- Merged `codex/coordinator-agent` (4409315, 8674cff: Claude Code/Codex coordinator replies with
+  provider/model/effort settings) onto main 71120ff (remote access).
+- Conflicts: `server.js` imports and shutdown/terminal-stream wiring (kept the coordinator's
+  shutdown and listening hooks and the remote-access gate for terminal streams); `package.json`
+  `test:browser` (both new suites). Both branches had bumped the shell cache to `…-111`; the
+  combined shell is `skd-shell-0.5.0-112`.
+- Coordinator settings and replies go through the same `api()` and server gate, so remote use
+  needs the Cloudflare Access token; the coordinator's controller endpoint stays loopback.
+- `npm test` 404/404; `npm run test:browser` passed all 41 suites in one run (coordinator suite
+  uses the fixture CLI). A real Claude Code/Codex coordinator reply was not run (the
+  coordinator branch's pending real-provider check, which needs the person's go-ahead).

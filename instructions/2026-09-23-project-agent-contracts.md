@@ -95,3 +95,15 @@ User decision 2026-09-23: the project agent conversation is a saved thread, answ
 - `GET /api/agents/overview` applies the project derivation to every connected project and returns counts, cross-project decisions, project owner rows (projects with a mandate, active work or decisions) and the five most recent finished runs.
 - The coordinator thread uses the reserved thread key `coordinator`. `list_coordinator_messages` (read) and `post_coordinator_message` (manage) require a controller grant for every connected project, because the thread can mention any of them. Its record links may name runs in any project and `project` references.
 - Project Overview folding (user direction 2026-09-23): priority issues sit under Up next, the last session and Import under Recent result, and the Git widget is the strip under the heading. The Project views grid was removed because the sidebar has every view link.
+
+## Live coordinator agent (follow-on, user decision 2026-09-23)
+
+The user asked for the coordinator to be Claude Code or Codex that they chat with normally, answering both the Home thread and project threads, in a separate lane.
+
+- `coordinator-agent.json`: provider (`claude` or `codex`), model, effort, `enabled` (off by default), `version`, and the last 200 turns. Saving validates the model against provider discovery and starts nothing.
+- Enabling creates the internal controller grant "Workbench coordinator" (read, manage, run) over connected projects. It appears in Controllers. Revoking it stops replies, and only turning the coordinator on again creates a new one.
+- Each saved user message queues one turn (at most 10 waiting, one running). A turn runs the CLI through `scripts/codex-child.mjs` in an empty `coordinator-workspace` with the conversation transcript, and the coordinator instructions as the system or developer prompt.
+  - Claude Code: `--tools ""`, `--allowedTools mcp__workbench`, `--permission-mode dontAsk`, `--strict-mcp-config`, and no session persistence.
+  - Codex: `--sandbox read-only`, shell tools disabled, user config ignored, and only the `workbench` MCP server with approval mode `approve`.
+- The final answer is posted to the thread as the coordinator, linking runs and operations its grant started during the turn. Stop kills the process group and posts nothing. A restart marks queued and running turns interrupted; nothing is replayed.
+- The lane does not take the execution lock, so a reply can run while a workflow waits or runs. Any work it starts still takes the lock through `start_run`.

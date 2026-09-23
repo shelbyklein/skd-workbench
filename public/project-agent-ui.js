@@ -14,7 +14,7 @@ function progress(steps){return `<ol class="agent-steps" aria-label="Workflow st
 
 // Shared conversation panel: one draft and request key per scope (project ID or coordinator).
 function threadAside(label,eyebrow,card){return `<aside class="agent-thread" aria-label="${label}"><header><div><span class="eyebrow">${eyebrow}</span><h2 id="agent-thread-title"></h2></div><button type="button" class="text-button" id="agent-refresh">Refresh</button></header>
- <p class="agent-thread-status" id="agent-thread-status"></p><ol class="agent-messages" id="agent-messages" aria-live="polite"></ol>${card?'<button type="button" class="agent-mandate-card" id="agent-mandate-card"></button>':''}
+ <p class="agent-thread-status" id="agent-thread-status"></p><ol class="agent-messages" id="agent-messages" aria-live="polite"></ol>${card?'<button type="button" class="agent-mandate-card" id="agent-mandate-card"></button>':''}<div class="agent-coordinator" id="agent-coordinator"></div>
  <form class="agent-composer" id="agent-composer"><label for="agent-message" id="agent-message-label">Message</label><textarea id="agent-message" rows="3" maxlength="8000"></textarea><div class="agent-composer-actions"><span class="field-help" id="agent-message-help"></span><button type="submit" class="primary" id="agent-send">Send</button></div><p class="form-error" id="agent-send-error" role="alert"></p></form></aside>`;}
 function bindComposer(host,{key,send,sent}){
  const q=s=>host.querySelector(s),input=q('#agent-message');let sending=false;
@@ -38,8 +38,38 @@ function renderMessages(host,t,name){
  list.scrollTop=list.scrollHeight;
 }
 
+const providerLabels={claude:'Claude Code',codex:'Codex'},turnLabels={queued:'Waiting to reply…',running:'Replying…'};
+// Coordinator state for one thread: whether replies are on, the pending reply and the last failure.
+function renderCoordinator(host,c,{onSettings,onStop}){
+ const slot=host.querySelector('#agent-coordinator'),list=host.querySelector('#agent-messages'),last=c?.turns?.at(-1),pending=last&&['queued','running'].includes(last.status);
+ slot.innerHTML=c?.enabled?`<span class="agent-coordinator-state agent-owner-active">${esc(providerLabels[c.provider])} · ${esc(c.model)}</span><button type="button" class="text-button" data-coordinator-settings>Settings</button>`:`<span class="agent-coordinator-state agent-owner-none">Coordinator agent off</span><button type="button" class="text-button" data-coordinator-settings>Set up</button>`;
+ slot.querySelector('[data-coordinator-settings]').onclick=onSettings;
+ host.querySelector('#agent-message-help').textContent=c?.enabled?`${providerLabels[c.provider]} replies here and can start work only within the project mandate.`:'Messages are saved. Turn on the coordinator agent to get replies.';
+ if(pending){list.insertAdjacentHTML('beforeend',`<li class="agent-message agent-message-agent agent-pending" aria-live="polite"><div class="agent-message-meta"><strong>${esc(providerLabels[last.provider])}</strong></div><p>${turnLabels[last.status]}</p><div class="agent-refs"><button type="button" class="text-button" data-stop-turn="${esc(last.id)}">Stop</button></div></li>`);list.querySelector('[data-stop-turn]').onclick=()=>onStop(last.id);list.scrollTop=list.scrollHeight;}
+ else if(last&&['failed','interrupted','cancelled'].includes(last.status)&&!last.replyID)list.insertAdjacentHTML('beforeend',`<li class="agent-turn-error">${esc(last.status==='cancelled'?'Reply stopped.':last.error||'The reply failed.')}</li>`);
+ return pending;
+}
+export async function openCoordinatorSettings({api,modal,notify,onSaved}){
+ let current,catalogs={};try{current=await api('coordinator');}catch(error){notify(error.message);return;}
+ const load=async provider=>{if(!catalogs[provider]){try{catalogs[provider]=(await api('agents/'+provider)).models||[];}catch(error){catalogs[provider]={error:error.message};}}return catalogs[provider];};
+ const models=await load(current.provider);
+ const options=list=>Array.isArray(list)&&list.length?list.map(m=>`<option value="${esc(m.id)}"${m.id===current.model?' selected':''}>${esc(m.name||m.id)}</option>`).join(''):'<option value="">No models available</option>';
+ modal('Coordinator agent',`<p class="field-help">Claude Code or Codex answers the Home and project conversations. Each reply runs without file or shell tools; it can start work only through Workbench, within each project mandate. Enabling creates the “Workbench coordinator” controller grant, which you can revoke in Controllers.</p>
+  <label class="agent-check"><input type="checkbox" name="enabled"${current.enabled?' checked':''}> Reply to conversation messages</label>
+  <label>Agent<select name="provider"><option value="claude"${current.provider==='claude'?' selected':''}>Claude Code</option><option value="codex"${current.provider==='codex'?' selected':''}>Codex</option></select></label>
+  <label>Model<select name="model">${options(models)}</select></label>
+  <label>Effort<select name="effort"></select></label>`,[{label:'Cancel',close:true},{label:'Save',primary:true,submit:true}],
+  async form=>{const saved=await api('coordinator','PUT',{version:current.version,enabled:form.get('enabled')==='on',provider:form.get('provider'),model:form.get('model'),effort:form.get('effort')});notify(saved.enabled?'Coordinator agent on.':'Coordinator agent off.');onSaved?.(saved);});
+ const d=document.querySelector('#dialog'),provider=d.querySelector('[name=provider]'),model=d.querySelector('[name=model]'),effort=d.querySelector('[name=effort]');
+ const efforts=()=>{const m=(catalogs[provider.value]||[]).find?.(x=>x.id===model.value);effort.innerHTML=(m?.efforts||[]).map(e=>`<option value="${esc(e)}"${e===current.effort?' selected':''}>${esc(e)}</option>`).join('');};
+ provider.onchange=async()=>{const list=await load(provider.value);model.innerHTML=list.error?`<option value="">${esc(list.error)}</option>`:options(list);efforts();};
+ model.onchange=efforts;efforts();
+}
+
 export function mountProjectAgent(host,{project,api,modal,notify,flows,owner,onRun,onIssue,onIssues}){
- let state=null,timer=null;
+ let state=null,timer=null,fast=null;
+ // Check often only while a reply is pending.
+ const pace=pending=>{if(pending&&!fast)fast=setTimeout(()=>{fast=null;if(host.isConnected)refresh();},1500);};
  host.className='project-agent';host.setAttribute('aria-label','Project agent');
  host.innerHTML=`<div class="agent-main" id="agent-main"><section aria-labelledby="agent-decisions"><h2 id="agent-decisions">Needs your decision</h2><div id="agent-decisions-body" aria-live="polite"><p class="widget-empty">Loading…</p></div></section>
  <section aria-labelledby="agent-current"><h2 id="agent-current">Current work</h2><div id="agent-current-body" aria-live="polite"></div></section>
@@ -81,8 +111,8 @@ export function mountProjectAgent(host,{project,api,modal,notify,flows,owner,onR
   q('#agent-thread-title').textContent=name;
   q('#agent-thread-status').textContent=state.current?`${statusLabels[state.current.status]||state.current.status}: ${state.current.taskRef||state.current.flowName}`:'';
   q('#agent-message-label').textContent=`Message ${name} · ${project.name}`;
-  q('#agent-message-help').textContent='Replies arrive when your coordinator reads this project. Sending starts no work.';
   renderMessages(host,state.thread,name);
+  pace(renderCoordinator(host,state.coordinator,{onSettings:()=>openCoordinatorSettings({api,modal,notify,onSaved:()=>refresh()}),onStop:id=>api('coordinator/turns/'+encodeURIComponent(id)+'/stop','POST',{}).then(()=>refresh(),error=>notify(error.message))}));
   q('#agent-mandate-card').innerHTML=m?`<span class="eyebrow">OWNER MANDATE · V${m.version}</span><strong>${m.enabled?'Active':'Paused'} · ${esc(m.modes.join(', ')||'no modes')} · ${m.tasks.length} task${m.tasks.length===1?'':'s'}</strong><small>${esc((m.instructions||m.objective).slice(0,160))}</small>`:'<span class="eyebrow">OWNER MANDATE</span><strong>Not set</strong><small>Choose an owner Agent, eligible tasks and limits.</small>';
  }
  async function refresh(announce=false){
@@ -118,8 +148,9 @@ export function mountProjectAgent(host,{project,api,modal,notify,flows,owner,onR
 
 const ownerStates={working:'Running',waiting:'Waiting for you',attention:'Needs attention',active:'Active',paused:'Paused',none:'No mandate'};
 // Home summarizes the same project records and hosts the cross-project coordinator conversation.
-export function mountHomeAgents(host,{api,notify,onProject,onRun}){
- let state=null,timer=null;
+export function mountHomeAgents(host,{api,modal,notify,onProject,onRun}){
+ let state=null,timer=null,fast=null;
+ const pace=pending=>{if(pending&&!fast)fast=setTimeout(()=>{fast=null;if(host.isConnected)refresh();},1500);};
  host.className='project-agent home-agents';host.setAttribute('aria-label','Project owners');
  host.innerHTML=`<div class="agent-main"><p class="agent-summary" id="home-agent-summary" aria-live="polite">Loading project owners…</p>
  <section aria-labelledby="home-decisions"><h2 id="home-decisions">Needs your decision</h2><div id="home-decisions-body"></div></section>
@@ -143,8 +174,8 @@ export function mountHomeAgents(host,{api,notify,onProject,onRun}){
   q('#agent-thread-title').textContent='Coordinator';
   q('#agent-thread-status').textContent=`${c.owners} project owner${c.owners===1?'':'s'}`;
   q('#agent-message-label').textContent='Message coordinator · all projects';
-  q('#agent-message-help').textContent='Replies arrive when your coordinator reads Workbench. Sending starts no work.';
   renderMessages(host,state.thread,'Coordinator');
+  pace(renderCoordinator(host,state.coordinator,{onSettings:()=>openCoordinatorSettings({api,modal,notify,onSaved:()=>refresh()}),onStop:id=>api('coordinator/turns/'+encodeURIComponent(id)+'/stop','POST',{}).then(()=>refresh(),error=>notify(error.message))}));
  }
  async function refresh(announce=false){
   try{const next=await api('agents/overview');if(!host.isConnected)return;state=next;render();if(announce)notify('Project owners refreshed.');}

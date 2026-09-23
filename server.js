@@ -44,6 +44,7 @@ import {Mandates} from './lib/mandates.js';
 import {ProjectThreads,COORDINATOR} from './lib/project-threads.js';
 import {projectAgentOverview,portfolioOverview} from './lib/project-agent.js';
 import {RemoteAccess} from './lib/remote-access.js';
+import {CoordinatorAgent} from './lib/coordinator-agent.js';
 const root = path.dirname(fileURLToPath(import.meta.url));
 const files = {'/project-agent-ui.js':'project-agent-ui.js','/sidebar-texture.png':'sidebar-texture.png','/briefing-ui.js':'briefing-ui.js','/controllers-ui.js':'controllers-ui.js','/connection-editor.js':'connection-editor.js','/agent-profile-picker.js':'agent-profile-picker.js','/issue-actions-ui.js':'issue-actions-ui.js','/lifecycle-operations-ui.js':'lifecycle-operations-ui.js','/lifecycle-ui.js':'lifecycle-ui.js','/workspace-tasks-ui.js':'workspace-tasks-ui.js','/delegations-ui.js':'delegations-ui.js','/quick-actions-ui.js':'quick-actions-ui.js','/session-import-ui.js':'session-import-ui.js','/git-status-ui.js':'git-status-ui.js','/agent-card.js':'agent-card.js','/planning-ui.js':'planning-ui.js','/knowledge-ui.js':'knowledge-ui.js','/skills-ui.js':'skills-ui.js','/connections-ui.js':'connections-ui.js','/playbooks-ui.js':'playbooks-ui.js','/settings-ui.js':'settings-ui.js','/markdown.js':'markdown.js','/theme.js':'theme.js','/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
   '/icons/icon-192.png':'icons/icon-192.png','/icons/icon-512.png':'icons/icon-512.png','/icons/maskable-512.png':'icons/maskable-512.png','/icons/apple-touch-icon.png':'icons/apple-touch-icon.png'};
@@ -95,6 +96,7 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
   const controllers=new Controllers(directory,{projects:()=>store.snapshot().projects});
   const mandates=new Mandates(directory,{playbooks,projects:()=>store.snapshot().projects,flows:()=>store.snapshot().flows});
   const threads=new ProjectThreads(directory,{runs:()=>workflows.runs,projects:()=>store.snapshot().projects});
+  const coordinator=new CoordinatorAgent(directory,{threads,controllers,projects:()=>store.snapshot().projects,executor:codex});
   const controllerCommands=new ControllerCommands({controllers,store,workflows,playbooks,workspaceTasks,codex,lifecycle,mandates,threads});
   const server = http.createServer(async (req,res)=>{
     const json=(value,status=200)=>{res.writeHead(status,{'Content-Type':'application/json'});res.end(JSON.stringify(value));};
@@ -250,12 +252,17 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       }
       const mandate=pathname.match(/^\/api\/projects\/([\w-]+)\/mandate$/);
       if(mandate){const project=store.project(mandate[1]);if(req.method==='GET')return json(mandates.view(project));if(req.method==='PUT')return json(mandates.save(project,await body(req,64*1024)));}
-      if(pathname==='/api/agents/overview'&&req.method==='GET')return json(portfolioOverview({projects:store.snapshot().projects,mandates,threads,runs:workflows.runs,executorOwner:codex.owner,coordinator:COORDINATOR}));
-      if(pathname==='/api/coordinator/messages'){if(req.method==='GET')return json(threads.list(COORDINATOR,{cursor:Math.max(0,Number(url.searchParams.get('cursor'))||0),limit:50}));if(req.method==='POST'){const input=await body(req,16*1024);assert(Object.keys(input).every(k=>['text','requestKey','refs'].includes(k)),'Unknown message field.');return json(threads.post({id:COORDINATOR},{...input,author:'user'}),201);}}
+      const agentState=key=>{const v=coordinator.view();return {enabled:v.enabled,provider:v.provider,model:v.model,grant:!!v.grant,active:v.active?.threadKey===key?v.active:null,turns:coordinator.turnsFor(key)};};
+      if(pathname==='/api/agents/overview'&&req.method==='GET')return json({...portfolioOverview({projects:store.snapshot().projects,mandates,threads,runs:workflows.runs,executorOwner:codex.owner,coordinator:COORDINATOR}),coordinator:agentState(COORDINATOR)});
+      if(pathname==='/api/coordinator/messages'){if(req.method==='GET')return json(threads.list(COORDINATOR,{cursor:Math.max(0,Number(url.searchParams.get('cursor'))||0),limit:50}));if(req.method==='POST'){const input=await body(req,16*1024);assert(Object.keys(input).every(k=>['text','requestKey','refs'].includes(k)),'Unknown message field.');const message=threads.post({id:COORDINATOR},{...input,author:'user'});return json({...message,turn:coordinator.onMessage(COORDINATOR,message,{})},201);}}
+      if(pathname==='/api/coordinator'&&req.method==='GET')return json(coordinator.view());
+      if(pathname==='/api/coordinator'&&req.method==='PUT')return json(await coordinator.save(await body(req,16*1024),`http://${host}/api/controller/call`));
+      const coordinatorStop=pathname.match(/^\/api\/coordinator\/turns\/([\w-]+)\/stop$/);
+      if(coordinatorStop&&req.method==='POST'){await body(req);return json(coordinator.stop(coordinatorStop[1]));}
       const agentOverview=pathname.match(/^\/api\/projects\/([\w-]+)\/agent$/);
-      if(agentOverview&&req.method==='GET')return json(projectAgentOverview({project:store.project(agentOverview[1]),mandates,threads,runs:workflows.runs,executorOwner:codex.owner}));
+      if(agentOverview&&req.method==='GET')return json({...projectAgentOverview({project:store.project(agentOverview[1]),mandates,threads,runs:workflows.runs,executorOwner:codex.owner}),coordinator:agentState(agentOverview[1])});
       const messages=pathname.match(/^\/api\/projects\/([\w-]+)\/messages$/);
-      if(messages){const project=store.project(messages[1]);if(req.method==='GET')return json(threads.list(project.id,{cursor:Math.max(0,Number(url.searchParams.get('cursor'))||0),limit:50}));if(req.method==='POST'){const input=await body(req,16*1024);assert(Object.keys(input).every(k=>['text','requestKey','refs'].includes(k)),'Unknown message field.');return json(threads.post(project,{...input,author:'user'}),201);}}
+      if(messages){const project=store.project(messages[1]);if(req.method==='GET')return json(threads.list(project.id,{cursor:Math.max(0,Number(url.searchParams.get('cursor'))||0),limit:50}));if(req.method==='POST'){const input=await body(req,16*1024);assert(Object.keys(input).every(k=>['text','requestKey','refs'].includes(k)),'Unknown message field.');const message=threads.post(project,{...input,author:'user'});return json({...message,turn:coordinator.onMessage(project.id,message,{projectID:project.id,projectName:project.name})},201);}}
       const workSettings=pathname.match(/^\/api\/projects\/([\w-]+)\/issues\/(\d+)\/work-settings$/);
       if(workSettings){const project=store.project(workSettings[1]);
         if(req.method==='GET')return json(await issueWork.resolve(project,workSettings[2],{validate:true}));
@@ -383,7 +390,8 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
   });
   server.on('close',()=>{controllerCommands.shutdown();mcpConnections.shutdown();terminals.shutdown();delegations.shutdown();workflows.shutdown();});
   const terminalStreams=attachTerminalStreams(server,{workspace:workspaceTerminal,agents:terminals,remoteAccess});
-  server.shutdownCodex=()=>{controllerCommands.shutdown();terminalStreams.shutdown();workspaceTerminal.shutdown();mcpConnections.shutdown();terminals.shutdown();delegations.shutdown();workflows.shutdown();briefings.close();};
+  server.shutdownCodex=()=>{coordinator.shutdown();controllerCommands.shutdown();terminalStreams.shutdown();workspaceTerminal.shutdown();mcpConnections.shutdown();terminals.shutdown();delegations.shutdown();workflows.shutdown();briefings.close();};
+  server.on('listening',()=>{const address=server.address();if(address&&typeof address==='object')coordinator.endpoint=`http://127.0.0.1:${address.port}/api/controller/call`;});
   return server;
 }
 if(process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
