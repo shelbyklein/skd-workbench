@@ -22,7 +22,7 @@ async function fixture(t){
 const flowInput={name:'MCP review',steps:[{id:'review',type:'agent',name:'Review',model:'fixture',effort:'low',instructions:'Review'},{id:'human',type:'human',name:'Human review',instructions:'Check result',maxRetries:1,retryFrom:'review'}]};
 test('real SDK subprocess discovers and calls tools; no credential leaks; unavailable is actionable',async t=>{
  const f=await fixture(t),client=new Client({name:'fixture-client',version:'1'}),transport=new StdioClientTransport({command:process.execPath,args:[path.resolve('scripts/workbench-mcp.mjs'),f.setup.credentialPath],stderr:'pipe'});let stderr='';transport.stderr?.on('data',c=>stderr+=c);
- await client.connect(transport);t.after(()=>client.close());assert.equal((await client.listTools()).tools.length,20);
+ await client.connect(transport);t.after(()=>client.close());assert.equal((await client.listTools()).tools.length,25);
  const result=await client.callTool({name:'list_projects',arguments:{}});assert.equal(result.isError,false);assert.match(result.content[0].text,/Fixture/);assert(!result.content[0].text.includes(f.token));
  const denied=await client.callTool({name:'get_project',arguments:{projectID:'elsewhere'}});assert.equal(denied.isError,true);
  await f.api('controllers/'+f.setup.id+'/revoke',{version:1});assert.equal((await client.callTool({name:'list_projects',arguments:{}})).isError,true);

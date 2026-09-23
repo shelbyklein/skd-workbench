@@ -1496,3 +1496,5 @@ Plan: `instructions/2026-09-23-hub-orchestrator.md` · Tracker Trapper `EAAFEE50
   `hub-orchestrator-browser`, updated `coordinator-cli-browser`, `sidebar-browser`, `overview-browser`.
   Screenshots inspected (relay, project agent card, settings dialog, dark, 390 px). Fixture CLIs only; real
   providers not run (HO-07). Shell cache `skd-shell-0.5.0-117`.
+- Full run: `npm test` 420/420 (controller catalog/integration counts updated to 25 tools); all 41 browser suites
+  pass, including `editor.mjs` this run (`projects-browser` now opens Workflows by route).

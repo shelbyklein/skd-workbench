@@ -33,7 +33,7 @@ try{
  // Chat: the message goes into a new live session and the agent posts its reply.
  await page.locator('#dock-message').fill('hi from browser');await page.locator('#dock-send').click();
  await page.getByText('Echo: hi from browser (1 granted project)').waitFor();
- assert.match(await dock.locator('.agent-message-agent').last().textContent(),/Workbench coordinator/);
+ assert.match(await dock.locator('.agent-message-agent').last().textContent(),/Orchestrator/);
  await page.waitForFunction(()=>/Session running/.test(document.querySelector('#dock-coordinator')?.textContent));
  // CLI: the same session, with the tool calls, live.
  await tab('CLI').click();await page.locator('.coordinator-terminal').waitFor();
