@@ -67,7 +67,7 @@ try{
  await schedule.locator('#schedule-timezone').fill('Mars/Base');await schedule.locator('#schedule-save').click();
  await schedule.locator('#schedule-error:not(:empty)').waitFor();assert.match(await schedule.locator('#schedule-error').textContent(),/timezone/);
  await page.screenshot({path:'output/briefing-schedule.png',fullPage:true});
- await home.locator('.briefing-action-card [data-briefing-project]').first().click();await page.locator('.briefing-widget').waitFor();
+ await home.locator('.briefing-action-card[data-briefing-project]').first().click();await page.locator('.briefing-widget').waitFor();
  // Mobile layout.
  await page.setViewportSize({width:390,height:900});await page.goto(url+'/#project/'+project.id);await page.locator('.briefing-widget .briefing-state-failed').waitFor();
  assert.equal(await noHorizontalScroll(page),true,'project page scrolls horizontally at 390px');
