@@ -1,3 +1,4 @@
+import {launcherStatus,saveLauncher} from './lib/launcher.js';
 import {Controllers} from './lib/controllers.js';
 import {ControllerCommands} from './lib/controller-commands.js';
 import {attachTerminalStreams} from './lib/terminal-stream.js';
@@ -109,6 +110,8 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       if(pathname==='/api/controllers'&&req.method==='POST')return json(controllers.create(await body(req),`http://${host}/api/controller/call`),201);
       const revokeController=pathname.match(/^\/api\/controllers\/([\w-]+)\/revoke$/);
       if(revokeController&&req.method==='POST'){const input=await body(req);return json(controllers.revoke(revokeController[1],input.version));}
+      if(pathname==='/api/launcher'&&req.method==='GET')return json(launcherStatus());
+      if(pathname==='/api/launcher'&&req.method==='PUT')return json(saveLauncher(await body(req)));
       if(pathname==='/api/settings'&&req.method==='GET')return json(globalSettings.data);
       if(pathname==='/api/settings'&&req.method==='PUT')return json(globalSettings.save(await body(req),store.snapshot().projects));
       if(pathname==='/api/instructions'&&req.method==='GET')return json(await instructionFiles(root));

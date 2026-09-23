@@ -15,7 +15,7 @@ import { mountKnowledgeHome, mountKnowledgeProject } from './knowledge-ui.js';
 import { mountSkills } from './skills-ui.js';
 import { mountConnections } from './connections-ui.js';
 import { mountAgents } from './playbooks-ui.js';
-import { installApp, isStandalone, setupPWA, serverAvailable } from './pwa.js';
+import { installApp, isStandalone, setupPWA, serverAvailable, startWorkbench } from './pwa.js';
 const $ = s => document.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const clone = v=>structuredClone(v);
@@ -557,7 +557,7 @@ function applyRoute(hash=location.hash){
  if(!data.projects.some(p=>p.id===projectID))projectID='unassigned';draft=clone(data.flows.find(f=>f.id===route[1]&&f.projectID===projectID)||scopedFlows()[0]||null);
 }
 async function boot(){try{await reload();await loadSettings(api);try{primeAgentCache(await api('sessions'));}catch{}applyRoute();loaded=true;render();}
- catch(e){$('#app').innerHTML=`<section class="empty offline-startup"><img src="/icon.svg" alt=""><h1>Server unavailable</h1><p>The interface is ready. Your projects and workflows need the local server.</p><p>Open <strong>Launch SKD Workbench.command</strong> in the SKD Workbench folder, then reconnect.</p><button id="retry-load" class="primary">Reconnect</button><p class="offline-note">${esc(e.message)}</p></section>`;$('#retry-load').onclick=boot;}}
+ catch(e){$('#app').innerHTML=`<section class="empty offline-startup"><img src="/icon.svg" alt=""><h1>Server unavailable</h1><p>The interface is ready. Your projects and workflows need the local server.</p><p>Start the local server with the installed Mac launcher.</p><button id="start-workbench" data-start-workbench class="primary">Start Workbench</button><button id="retry-load">Reconnect</button><details class="launcher-help"><summary>Launcher not installed?</summary><p>Open <strong>Launch SKD Workbench.command</strong> in the Workbench folder. To install the launcher, run <code>npm run launcher:install</code> there once.</p></details><p class="offline-note">${esc(e.message)}</p></section>`;$('#retry-load').onclick=boot;$('#start-workbench').onclick=startWorkbench;}}
 let followingLocation=false;
 async function openLocation(target){if(followingLocation)return;followingLocation=true;try{await reload();applyRoute(target);render();}catch(error){history.replaceState(null,'',lastRenderedHash);toast(error.message);}finally{followingLocation=false;}}
 function followLocation(){if(!loaded||followingLocation||location.hash===lastRenderedHash)return;const target=location.hash;if(hasUnsaved()){history.replaceState(null,'',lastRenderedHash);confirmLeave(()=>{history.pushState(null,'',target);openLocation(target);});return;}openLocation(target);}

@@ -17,6 +17,27 @@ npm start
 
 Open **http://127.0.0.1:4390**. Keep the terminal/server running; Ctrl-C stops it. If the port is busy, use `PORT=4391 npm start`. Use one server process per data directory.
 
+## Mac launcher
+
+Run `npm run launcher:install` once to install **SKD Workbench Launcher** in
+`~/Applications` and register `skd-workbench://start`. The offline page's
+**Start Workbench** button opens this launcher and reconnects automatically.
+Allow the browser's external-app prompt. Existing drafts remain in the window;
+failed actions are not retried. Cached installations need **Update app** while
+connected before the new button is available offline.
+
+The launcher starts the canonical checkout on port **4390** using launchd.
+Repeated clicks leave an existing server running. Alternate-port development
+servers still need manual startup. Installation itself does not start or restart
+a server. **Settings → Startup → Start Workbench at login** is off by default;
+changes apply at the next login without interrupting sessions.
+
+Logs are in `~/Library/Logs/SKD Workbench/`. Reinstall after moving the checkout
+or changing/removing its Node executable. The launch agent is
+`~/Library/LaunchAgents/com.shelbyklein.skd-workbench.plist`. A previously loaded
+job retains its old paths until logout/login; preserve active sessions before
+that transition. The existing `.command` launcher remains a manual fallback.
+
 ## Graft for source development
 
 [Graft](https://github.com/NanoNets/context-graph-engine) is pinned as a local

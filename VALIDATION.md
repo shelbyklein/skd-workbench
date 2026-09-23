@@ -1277,3 +1277,20 @@ TT plan `local:F5660300-649C-4650-8AC3-2C96C0328BB9`, DB-01 through DB-07.
 - PWA Chrome suite also passed: installability, offline shell, uncached/unqueued
   APIs, explicit update and retained drafts. Mobile header stacks its status under
   the date to avoid squeezing the title beside the badge.
+
+## Offline Mac launcher — 2026-09-23
+
+- Installed the signed local AppleScript launcher and registered
+  `skd-workbench://start`. Actual macOS URL dispatch started the previously
+  stopped server on 4390; a repeated dispatch retained launchd PID 72143.
+  All pre-existing `.data/*.json` hashes stayed unchanged during these checks.
+- PWA Chrome suite passed with a fixture launch callback: Starting state, automatic
+  reconnect, retained drafts, no replayed writes, and explicit shell updates.
+  Inspected the rendered offline screenshot. Native browser confirmation itself
+  was not automated; actual OS dispatch was tested separately.
+- Full Node suite passed 378/378; Settings Chrome suite passed. Launcher tests cover healthy/occupied/stopped
+  ports and isolated plist preference changes. Start at login is installed off;
+  no logout/login cycle was performed. No provider inference was run.
+- Launcher uses the installation checkout and Node paths and fixed port 4390.
+  Reinstall after moving either; existing loaded jobs need a later login to adopt
+  changed paths. The manual command remains available.

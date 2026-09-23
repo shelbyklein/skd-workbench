@@ -14,7 +14,8 @@
     "graft:check": "node scripts/graft.mjs check",
     "graft:map": "node scripts/graft.mjs map",
     "postinstall": "node scripts/prepare-terminal.mjs",
-    "mcp": "node scripts/workbench-mcp.mjs"
+    "mcp": "node scripts/workbench-mcp.mjs",
+    "launcher:install": "node scripts/install-launcher.mjs"
   },
   "engines": {
     "node": ">=22"
