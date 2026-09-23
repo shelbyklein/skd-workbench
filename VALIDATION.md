@@ -1240,3 +1240,21 @@ TT plan `local:F5660300-649C-4650-8AC3-2C96C0328BB9`, DB-01 through DB-07.
   agent output quality is unverified and each Generate uses provider usage.
 - Not activated: the live server on port 4390 was not restarted, and nothing was merged
   or pushed.
+
+## Home briefing action groups — 2026-09-22
+
+- Implemented the selected design concept: three responsive columns, Needs attention,
+  Ready for review and Suggested next; compact evidence cards; expandable per-column
+  overflow and project coverage. Preserved scheduling and project navigation.
+- Classification uses cited saved records, never title keywords: failure/interruption
+  and delegation clarification go to attention; workflow waiting/checking gates go
+  to review; other recommendations remain suggestions. Process completion alone is
+  not review readiness. Coverage explicitly identifies saved-state scope, record
+  counts, missing summaries, incomplete sources and fallback summaries.
+- `node tests/briefing-browser.mjs`, `node tests/overview-browser.mjs` and
+  `node tests/pwa-browser.mjs` passed. Browser fixture verifies all three categories,
+  fallback after failed generation, evidence navigation, scheduling, keyboard
+  controls and no 390px horizontal overflow. Inspected dark desktop/mobile renders.
+  The test's added gate response uses serviceWorkers:block so interception is reliable.
+- Cache version: skd-shell-0.5.0-99. Frontend-only change; no live inference, saved
+  report mutation, provider launch or server restart was required for delivery.

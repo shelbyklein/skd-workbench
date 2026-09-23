@@ -482,3 +482,11 @@ operation receipts and bounded activity; canonical flows/runs hold operation IDs
 No existing records migrate or auto-resume. Disabling access means revoking the
 controller, not deleting workflow/worktree history. The initial version is local
 stdio only; remote access and interactive-session control are outside this scope.
+
+Home's Daily briefing groups saved suggestions into **Needs attention**, **Ready
+for review**, and **Suggested next**. Groups follow cited records: failures and
+clarification requests, explicit workflow review/check gates, then other suggestions.
+They describe saved briefing evidence, not independently verified live readiness.
+**View evidence** opens the project's briefing; **View coverage** expands source
+counts and generation status. Extra cards expand within each group; mobile stacks
+all three groups. Reading the board never starts work.

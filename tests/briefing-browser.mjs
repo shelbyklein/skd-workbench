@@ -25,7 +25,7 @@ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const url=`http
 const browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL||'chrome',headless:true});
 const noHorizontalScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth);
 try{
- const page=await browser.newPage({viewport:{width:1440,height:1100}}),errors=[];page.on('pageerror',error=>errors.push(error.message));
+ const page=await browser.newPage({viewport:{width:1440,height:1100},serviceWorkers:'block'}),errors=[];page.on('pageerror',error=>errors.push(error.message));
  await page.goto(url+'/#project/'+project.id);
  const widget=page.locator('.briefing-widget');await widget.getByText('Not generated').waitFor();
  assert.match(await widget.textContent(),/No briefing for/);
@@ -47,9 +47,16 @@ try{
  // Source links open the cited session.
  await widget.locator('.briefing-suggestions [data-source="session:failed-session"]').first().click();
  await page.waitForURL(/#sessions\/.*failed-session|failed-session/);
+ // Inject an explicit workflow gate into saved-read responses; no execution is started.
+ await page.route('**/api/briefings',async route=>{const response=await route.fetch(),rows=await response.json();for(const row of rows)for(const report of [row.briefing?.latest,row.briefing?.lastSuccessful].filter(Boolean)){report.evidence.openLoops.push({id:'workflow:review-gate',kind:'workflow',recordID:'review-gate',title:'Review results',status:'waiting'});if(report.synthesis)report.synthesis.suggestions.push({title:'Inspect workflow gate',reason:'The workflow awaits a human decision.',sourceIDs:['workflow:review-gate']});}await route.fulfill({response,json:rows});});
  // Home aggregates the last successful suggestions and reports status.
  await page.goto(url+'/#home');const home=page.locator('#home-briefings');await home.getByText('Fix the settings migration').waitFor();
  assert.match(await home.locator('.briefing-project-list').textContent(),/Briefing fixture.*Failed/);
+ assert.equal(await home.locator('.briefing-action-attention .briefing-action-card').count(),1);
+ assert.equal(await home.locator('.briefing-action-next .briefing-action-card').count(),1);
+ assert.equal(await home.locator('.briefing-action-review .briefing-action-card').count(),1);
+ assert.equal(await home.locator('.briefing-home-coverage').getAttribute('open'),null);
+ await page.locator('[data-theme-picker]').selectOption('dark');
  await page.screenshot({path:'output/briefing-home.png'});
  // Schedule: off by default, saved explicitly, and shows the server-uptime limit.
  const schedule=home.locator('.briefing-schedule');assert.equal(await schedule.locator('summary').textContent(),'Schedule: off');
@@ -60,12 +67,12 @@ try{
  await schedule.locator('#schedule-timezone').fill('Mars/Base');await schedule.locator('#schedule-save').click();
  await schedule.locator('#schedule-error:not(:empty)').waitFor();assert.match(await schedule.locator('#schedule-error').textContent(),/timezone/);
  await page.screenshot({path:'output/briefing-schedule.png',fullPage:true});
- await home.locator('.briefing-suggestions .briefing-home-link').first().click();await page.locator('.briefing-widget').waitFor();
+ await home.locator('.briefing-action-card [data-briefing-project]').first().click();await page.locator('.briefing-widget').waitFor();
  // Mobile layout.
  await page.setViewportSize({width:390,height:900});await page.goto(url+'/#project/'+project.id);await page.locator('.briefing-widget .briefing-state-failed').waitFor();
  assert.equal(await noHorizontalScroll(page),true,'project page scrolls horizontally at 390px');
  await page.locator('.briefing-widget').screenshot({path:'output/briefing-project-mobile.png'});
- await page.goto(url+'/#home');await page.locator('#home-briefings .briefing-suggestions').waitFor();
+ await page.goto(url+'/#home');await page.locator('#home-briefings .briefing-action-board').waitFor();
  assert.equal(await noHorizontalScroll(page),true,'home scrolls horizontally at 390px');
  await page.screenshot({path:'output/briefing-home-mobile.png',fullPage:true});
  assert.deepEqual(errors,[]);
