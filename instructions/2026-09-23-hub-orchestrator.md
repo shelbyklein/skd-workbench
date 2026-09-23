@@ -133,4 +133,7 @@ None blocking.
 
 - Scope: confirmed 2026-09-23 (plus per-project worktree setting).
 - Tracking: issue #18, Tracker Trapper `EAAFEE50-1CDB-4D4D-B979-6CC7946B3DED`.
-- Mode: _asked_. Now/later: _not asked_. Readiness: _checked after mode_.
+- Mode: `linear` (solo), this Claude Code session, Opus 5.5 (`claude-opus-5-5`) at its current effort; no subagents.
+- Now/later: _asked after readiness_.
+- Readiness: pass · 2026-09-23 · R3 current screenshots, mockup and flow diagram · R12 additive settings field, worktrees
+  kept for review, revert-only rollback.
