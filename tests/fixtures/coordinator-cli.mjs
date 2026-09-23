@@ -60,7 +60,7 @@ async function handle(text){
 }
 say(`Fixture ${codex?'Codex':'Claude Code'} session · ${codex?value('--model'):value('--model')}`);
 let queue=Promise.resolve();const enqueue=text=>{queue=queue.then(()=>handle(text));};
-const first=[...prompt.matchAll(/\[User [^\]]+\] ([^\n]*)/g)].at(-1)?.[1];if(first)enqueue(first);
+const first=[...prompt.matchAll(/\[User [^\]]+\] ([^\n]*)/g)].at(-1)?.[1];if(first&&!/WAIT FOR THE NEXT MESSAGE/.test(prompt))enqueue(first);
 process.stdin.setRawMode?.(true);process.stdin.setEncoding('utf8');let buffer='';
 process.stdin.on('data',chunk=>{
  buffer+=chunk;

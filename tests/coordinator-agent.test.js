@@ -76,6 +76,19 @@ test('Codex project session prompts before start_run, surfaces it as a decision 
  await f.api('projects/'+f.p.id+'/messages',{text:'status please',requestKey:'p2'});
  assert.match((await f.replies(f.p.id,2)).at(-1).text,/Echo: status please/);
 });
+test('Start session opens a live CLI that waits for the next message and posts nothing',async t=>{
+ const f=await setup(t);
+ assert.equal((await f.api('coordinator/sessions',{threadKey:'coordinator'})).status,409,'Off by default.');
+ await f.enable('claude');await f.api('coordinator/messages',{text:'earlier question',requestKey:'w0'});await f.replies('coordinator',1);
+ const first=(await f.state('coordinator')).coordinator.session;await f.api('coordinator/sessions/'+first.id+'/stop',{});await f.until(async()=>!(await f.state('coordinator')).coordinator.session,'stop');
+ const started=await f.api('coordinator/sessions',{threadKey:'coordinator'});assert.equal(started.status,201);assert.equal(started.body.status,'running');
+ assert.equal((await f.api('coordinator/sessions',{threadKey:'coordinator'})).body.id,started.body.id,'Starting again returns the running session.');
+ await delay(500);assert.equal((await f.thread('coordinator')).filter(m=>m.author==='agent').length,1,'Opening a session posts nothing.');
+ assert.match(f.sessions().at(-1).args.at(-1),/WAIT FOR THE NEXT MESSAGE[\s\S]*earlier question/);
+ await f.api('coordinator/messages',{text:'now answer',requestKey:'w1'});assert.equal((await f.replies('coordinator',2)).at(-1).text,'Echo: now answer (1 granted project)');
+ const project=await f.api('coordinator/sessions',{threadKey:f.p.id});assert.equal(project.status,201);assert.equal(project.body.threadKey,f.p.id);
+ assert.equal((await f.api('coordinator/sessions',{threadKey:'missing'})).status,404);assert.equal((await f.api('coordinator/sessions',{threadKey:'coordinator',extra:1})).status,400);
+});
 test('Stop and restart end sessions without replay; history stays readable',async t=>{
  const f=await setup(t);await f.enable('claude');
  const sent=await f.api('coordinator/messages',{text:'hello',requestKey:'s1'});await f.replies('coordinator',1);

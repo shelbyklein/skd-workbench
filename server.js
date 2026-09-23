@@ -267,6 +267,11 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       if(pathname==='/api/coordinator/messages'){if(req.method==='GET')return json(threads.list(COORDINATOR,{cursor:Math.max(0,Number(url.searchParams.get('cursor'))||0),limit:50}));if(req.method==='POST'){const input=await body(req,16*1024);assert(Object.keys(input).every(k=>['text','requestKey','refs'].includes(k)),'Unknown message field.');const message=threads.post({id:COORDINATOR},{...input,author:'user'});return json({...message,...deliver(COORDINATOR,message,{})},201);}}
       if(pathname==='/api/coordinator'&&req.method==='GET')return json(coordinator.view());
       if(pathname==='/api/coordinator'&&req.method==='PUT')return json(await coordinator.save(await body(req,16*1024),`http://${host}/api/controller/call`));
+      if(pathname==='/api/coordinator/sessions'&&req.method==='POST'){
+       const input=await body(req,4096);assert(Object.keys(input).every(k=>k==='threadKey')&&typeof input.threadKey==='string','Choose a conversation.');
+       if(input.threadKey===COORDINATOR)return json(coordinator.startSession(COORDINATOR,{}),201);
+       const project=store.project(input.threadKey);return json(coordinator.startSession(project.id,{projectID:project.id,projectName:project.name}),201);
+      }
       const coordinatorSession=pathname.match(/^\/api\/coordinator\/sessions\/([\w-]+)\/(stop|signal)$/);
       if(coordinatorSession&&req.method==='POST'){
        const input=await body(req,4096);

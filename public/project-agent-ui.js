@@ -63,13 +63,15 @@ function coordinatorPanel(host,{key,api,modal,notify,refresh}){
   if(!cli){clear();return;}
   const saved=viewing&&c.history.find(h=>h.id===viewing),target=saved||c.session||null;
   if(target)mount(target,!saved&&target===c.session);else clear();
-  q('#agent-cli-empty').textContent=target?'':'No session is running. Send a message to start one.';
-  q('#agent-cli-history').innerHTML=c.history.length?`<h3>Previous sessions</h3><ul>${c.history.map(h=>`<li><button type="button" class="text-button" data-coordinator-history="${esc(h.id)}" aria-pressed="${h.id===termID}">${esc(when(h.startedAt))} · ${esc(providerLabels[h.provider])} · ${esc(endReasons[h.endReason]||'ended')}</button></li>`).join('')}</ul>${saved?'<button type="button" class="text-button" data-coordinator-history="">Back to current session</button>':''}`:'';
+  q('#agent-cli-empty').innerHTML=c.session?'':`${target?'':'No session is running. '}<button type="button" class="primary" data-coordinator-start>Start session</button>`;
+  q('#agent-cli-history').innerHTML=c.history.length?`<h3>Previous sessions</h3><ul>${c.history.map(h=>`<li><button type="button" class="text-button" data-coordinator-history="${esc(h.id)}" aria-pressed="${h.id===termID}">${esc(when(h.startedAt))} · ${esc(providerLabels[h.provider])} · ${esc(endReasons[h.endReason]||'ended')}</button></li>`).join('')}</ul>${saved&&c.session?'<button type="button" class="text-button" data-coordinator-history="">Back to current session</button>':''}`:'';
  }
  host.addEventListener('click',e=>{
   const m=e.target.closest('[data-coordinator-mode]');if(m){cliModes.set(key,m.dataset.coordinatorMode);viewing=null;apply();if(mode()==='cli')q('#agent-cli .xterm-helper-textarea')?.focus();return;}
   const h=e.target.closest('[data-coordinator-history]');if(h){viewing=h.dataset.coordinatorHistory||null;apply();return;}
   if(e.target.closest('[data-coordinator-open-cli]')){cliModes.set(key,'cli');viewing=null;apply();}
+  const start=e.target.closest('[data-coordinator-start]');
+  if(start){start.disabled=true;viewing=null;api('coordinator/sessions','POST',{threadKey:key}).then(()=>refresh(),error=>{start.disabled=false;notify(error.message);});return;}
   if(e.target.closest('[data-coordinator-settings]'))openCoordinatorSettings({api,modal,notify,onSaved:()=>refresh()});
  });
  return {

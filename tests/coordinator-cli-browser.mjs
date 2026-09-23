@@ -52,7 +52,16 @@ try{
  await page.waitForFunction(()=>/No session/.test(document.querySelector('#agent-coordinator')?.textContent));
  await page.locator('[data-coordinator-history]').first().waitFor();assert.match(await page.locator('.coordinator-terminal footer').textContent(),/Read-only transcript\. This session stopped\./);
  await waitScreen(/> from chat again/);
+ assert.equal(await page.getByRole('button',{name:'Stop session',exact:true}).count(),0,'No Stop on a read-only transcript.');assert.equal(await page.getByText('Back to current session').count(),0);
  await page.screenshot({path:'output/coordinator-cli-history.png'});
+ // Start session from the CLI view without sending a message.
+ const agentReplies=async()=>(await api('coordinator/messages')).items.filter(m=>m.author==='agent').length,before=await agentReplies();
+ await page.getByRole('button',{name:'Start session',exact:true}).click();
+ await page.waitForFunction(()=>/Session running/.test(document.querySelector('#agent-coordinator')?.textContent));await waitScreen(/Fixture Claude Code session/);
+ assert.equal(await page.getByRole('button',{name:'Start session',exact:true}).count(),0);assert.equal(sessions(),2);
+ await page.waitForTimeout(300);assert.equal(await agentReplies(),before,'Starting a session posts nothing.');
+ await page.screenshot({path:'output/coordinator-cli-started.png'});
+ await page.getByRole('button',{name:'Stop session',exact:true}).click();await page.waitForFunction(()=>/No session/.test(document.querySelector('#agent-coordinator')?.textContent));
  // A project session asks before starting work: waiting banner, Needs your decision, then approval in the CLI.
  const flow=await api('flows',{projectID:project.id,name:'Review',steps:[{id:'review',type:'agent',name:'Review',model:'fixture',effort:'low',instructions:'Review'},{id:'accept',type:'human',name:'Accept',instructions:'Check',maxRetries:1,retryFrom:'review'}]});
  const owner=await api('agent-profiles',{revision:0,name:'Newton owner',scope:{kind:'project',projectID:project.id},providers:['codex'],systemPrompt:'Own it.',skillIDs:[],connectionIDs:[]});

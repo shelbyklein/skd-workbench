@@ -504,3 +504,5 @@ body.terminal-open .issue-detail-layout{grid-template-columns:minmax(0,1fr)}
 .agent-cli-history button[aria-pressed="true"]{font-weight:600}
 .agent-thread,.agent-cli,.coordinator-terminal,.coordinator-terminal .terminal-screen{min-width:0;max-width:100%}
 .coordinator-terminal .terminal-screen{overflow:hidden}
+#agent-cli-empty{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0}
+#agent-cli-empty:empty{display:none}

@@ -58,7 +58,7 @@ export function mountTerminal({session,api,onChange,workspace=false,inline=null}
    if(frame.reset){terminal.reset();terminal.writeln('[Earlier terminal output is no longer available]');}
    const rendered=()=>{
     rendering=false;if(disposed)return;cursor=frame.cursor;latest=frame.session||latest;
-    status.textContent=latest.status+(latest.reset?' · workspace '+latest.reset.status:'');end.disabled=!running();
+    status.textContent=latest.status+(latest.reset?' · workspace '+latest.reset.status:'');end.disabled=!running();if(inline)end.hidden=!running();
     if(frame.session)onChange?.(latest,!panel.hidden);
     if(ws.readyState===WebSocket.OPEN){const wasConnected=connected;connected=true;retryDelay=250;terminal.options.disableStdin=!running();error.textContent='';ws.send(JSON.stringify({type:'ack',cursor}));if(!wasConnected)resize();}
    };
