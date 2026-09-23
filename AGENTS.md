@@ -52,13 +52,14 @@ read-only GitHub browsing with explicit agent proposal and apply actions.
   Corrupt data must fail visibly rather than being replaced with empty records.
 - Preserve project scope and captured source context. A folder, repository root,
   and common Git directory are different facts; distinct worktrees can be projects.
-- Sessions and workflows share execution ownership. The one exception is the coordinator
-  (`lib/coordinator-agent.js`, `lib/coordinator-sessions.js`): one interactive Claude Code or
-  Codex PTY per conversation, outside the lock, with no worktree, no built-in tools and only
-  the Workbench MCP bridge under its internal grant. Read and `post_*` tools are pre-approved;
-  every `manage`/`run` tool must keep the CLI's native permission prompt. Codex runs with a
-  private `CODEX_HOME` so personal MCP servers never load. Work it starts goes through
-  mandate-checked controller tools, which take the lock. Hiding/reopening a terminal
+- Sessions and workflows share execution ownership, with two exceptions. The orchestrator
+  (`lib/coordinator-agent.js`, `lib/coordinator-sessions.js`) is one interactive CLI per conversation outside
+  the lock with no worktree, no built-in tools and only the Workbench MCP bridge; read, `post_*` and
+  `message_project_agent` tools are pre-approved and every other `manage`/`run` tool keeps the native prompt.
+  Project agents run the person's normal CLI in the project folder (or one dedicated worktree) under a
+  per-project lock: a live project agent blocks global-lock work in that project and vice versa. Their
+  internal grant has only `read` and `report`. Never bypass either CLI's permission prompts. Workflow launches
+  through controller tools stay mandate-checked and take the lock. Hiding/reopening a terminal
   must not spawn another process; restarting the server must not resume execution.
 - Normal execution worktrees remain for review. Do not add automatic merge or
   deletion. Benchmark cleanup requires a successful archive and ownership checks;

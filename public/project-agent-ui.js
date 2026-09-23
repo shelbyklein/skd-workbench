@@ -36,7 +36,7 @@ function bindComposer(host,{key,send,sent,p='agent'}){
 }
 function renderMessages(host,t,name,p='agent'){
  const list=host.querySelector('#'+p+'-messages');
- list.innerHTML=(t.trimmed?`<li class="field-help">${t.trimmed} older message${t.trimmed===1?'':'s'} not shown.</li>`:'')+(t.items.length?t.items.map(msg=>`<li class="agent-message agent-message-${esc(msg.author)}"><div class="agent-message-meta"><strong>${msg.author==='user'?'You':esc(msg.controllerName||name)}</strong><time datetime="${esc(msg.createdAt)}">${esc(time(msg.createdAt))}</time></div><p>${esc(msg.text)}</p>${msg.refs.length?`<div class="agent-refs">${msg.refs.map(refButton).join('')}</div>`:''}</li>`).join(''):'<li class="widget-empty">No messages.</li>');
+ list.innerHTML=(t.trimmed?`<li class="field-help">${t.trimmed} older message${t.trimmed===1?'':'s'} not shown.</li>`:'')+(t.items.length?t.items.map(msg=>`<li class="agent-message agent-message-${esc(msg.author)}"><div class="agent-message-meta"><strong>${msg.author==='user'?'You':esc(msg.controllerName==='Workbench coordinator'?'Orchestrator':msg.controllerName||name)}</strong><time datetime="${esc(msg.createdAt)}">${esc(time(msg.createdAt))}</time></div><p>${esc(msg.text)}</p>${msg.refs.length?`<div class="agent-refs">${msg.refs.map(refButton).join('')}</div>`:''}</li>`).join(''):'<li class="widget-empty">No messages.</li>');
  list.scrollTop=list.scrollHeight;
 }
 
@@ -53,7 +53,7 @@ function coordinatorPanel(host,{key,api,modal,notify,refresh,p='agent'}){
  function mount(session,live){
   if(termID===session.id&&termLive===live)return;clear();termID=session.id;termLive=live;
   term=mountTerminal({session,api,onChange:s=>{if(s.status!=='running')refresh();},inline:{host:q('#'+p+'-cli-screen'),endpoint:'coordinator-terminal/',stopPath:id=>'coordinator/sessions/'+encodeURIComponent(id)+'/stop',
-   eyebrow:`${providerLabels[session.provider]} · ${session.model}`,title:live?'Coordinator session':'Previous session',endLabel:'Stop session',
+   eyebrow:`${providerLabels[session.provider]} · ${session.model}`,title:live?(key==='coordinator'?'Orchestrator session':'Project agent session'):'Previous session',endLabel:'Stop session',
    footer:live?'Messages sent from Chat are typed here. Answer permission prompts in this terminal.':`Read-only transcript. This session ${endReasons[session.endReason]||'ended'}.`}});
  }
  function apply(){
@@ -73,7 +73,7 @@ function coordinatorPanel(host,{key,api,modal,notify,refresh,p='agent'}){
   if(e.target.closest('[data-coordinator-open-cli]')){cliModes.set(key,'cli');viewing=null;apply();}
   const start=e.target.closest('[data-coordinator-start]');
   if(start){start.disabled=true;viewing=null;api('coordinator/sessions','POST',{threadKey:key}).then(()=>refresh(),error=>{start.disabled=false;notify(error.message);});return;}
-  if(e.target.closest('[data-coordinator-settings]'))openCoordinatorSettings({api,modal,notify,onSaved:()=>refresh()});
+  if(e.target.closest('[data-coordinator-settings]')){if(key!=='coordinator'&&c?.enabled)openProjectAgentSettings({api,modal,notify,projectID:key,onSaved:()=>refresh()});else openCoordinatorSettings({api,modal,notify,onSaved:()=>refresh()});}
  });
  return {
   openCLI(){cliModes.set(key,'cli');viewing=null;apply();},
@@ -83,10 +83,11 @@ function coordinatorPanel(host,{key,api,modal,notify,refresh,p='agent'}){
    c=next;const s=c?.session,slot=q('#'+p+'-coordinator');
    const status=s?(s.waiting?'Waiting for you in CLI':s.status==='running'?'Session running':'Session ending'):'No session';
    q('#'+p+'-view-switch').innerHTML=c?.enabled?'<span class="agent-view-switch" role="group" aria-label="Conversation view"><button type="button" data-coordinator-mode="chat" aria-pressed="false">Chat</button><button type="button" data-coordinator-mode="cli" aria-pressed="false">CLI</button></span>':'';
-   slot.innerHTML=c?.enabled?`<span class="agent-coordinator-state agent-owner-${s?.waiting?'waiting':s?'active':'none'}">${esc(providerLabels[c.provider])} · ${esc(c.model)} · ${esc(status)}</span><button type="button" class="text-button" data-coordinator-settings>Settings</button>`
+   const who=c?.agent?`${providerLabels[c.agent.provider]} · ${c.agent.model} · ${c.agent.workspace==='worktree'?'dedicated worktree':'project folder'}`:`${providerLabels[c?.provider]} · ${c?.model}`;
+   slot.innerHTML=c?.enabled?`<span class="agent-coordinator-state agent-owner-${s?.waiting?'waiting':s?'active':'none'}">${esc(who)} · ${esc(status)}</span><button type="button" class="text-button" data-coordinator-settings>Settings</button>`
     :`<span class="agent-coordinator-state agent-owner-none">Coordinator agent off</span><button type="button" class="text-button" data-coordinator-settings>Set up</button>`;
    if(s?.waiting)slot.insertAdjacentHTML('beforeend',`<p class="agent-waiting" role="status"><strong>Waiting for you in the CLI.</strong> Answer the permission prompt to continue.${mode()==='cli'?'':' <button type="button" class="primary" data-coordinator-open-cli>Open CLI</button>'}</p>`);
-   q('#'+p+'-message-help').textContent=c?.enabled?`Messages are typed into the ${providerLabels[c.provider]} session. It posts replies here and asks in the CLI before starting or changing work.`:'Messages are saved. Turn on the coordinator agent to get replies.';
+   q('#'+p+'-message-help').textContent=!c?.enabled?'Messages are saved. Turn on the coordinator agent to get replies.':c.agent?`Messages go to this project's agent. It works with the project's own instructions and tools, reports to the orchestrator, and asks in its CLI before edits and commands.`:'Messages go to the orchestrator. It hands work to project agents and relays their questions here.';
    if(viewing&&!c.history.some(h=>h.id===viewing))viewing=null;
    // A session that just ended stays on screen as its read-only transcript.
    if(termID&&!s&&c.history.some(h=>h.id===termID))viewing=termID;
@@ -95,6 +96,23 @@ function coordinatorPanel(host,{key,api,modal,notify,refresh,p='agent'}){
   },
   destroy:clear
  };
+}
+// Per-project agent: provider, model, effort and where it works. Saving ends a running session for that project.
+export async function openProjectAgentSettings({api,modal,notify,projectID,onSaved}){
+ let current,catalogs={};try{current=await api('projects/'+encodeURIComponent(projectID)+'/agent-settings');}catch(error){notify(error.message);return;}
+ const a=current.agent,load=async provider=>{if(!catalogs[provider]){try{catalogs[provider]=(await api('agents/'+provider)).models||[];}catch(error){catalogs[provider]={error:error.message};}}return catalogs[provider];};
+ const options=list=>Array.isArray(list)&&list.length?list.map(m=>`<option value="${esc(m.id)}"${m.id===a.model?' selected':''}>${esc(m.name||m.id)}</option>`).join(''):'<option value="">No models available</option>';
+ const models=await load(a.provider);
+ modal('Project agent',`<p class="field-help">This project's live agent runs Claude Code or Codex with your normal configuration, the project's CLAUDE.md / AGENTS.md and its own tools, and asks in its CLI before edits and commands. Changing these settings ends a running session.</p>
+  <label>Agent<select name="provider"><option value="claude"${a.provider==='claude'?' selected':''}>Claude Code</option><option value="codex"${a.provider==='codex'?' selected':''}>Codex</option></select></label>
+  <label>Model<select name="model">${options(models)}</select></label>
+  <label>Effort<select name="effort"></select></label>
+  <div class="agent-mandate-form"><fieldset><legend>Where it works</legend><label class="agent-check"><input type="radio" name="workspace" value="folder"${a.workspace!=='worktree'?' checked':''}> Project folder</label><label class="agent-check"><input type="radio" name="workspace" value="worktree"${a.workspace==='worktree'?' checked':''}> Dedicated worktree (agent branch, kept for review)</label></fieldset></div>`,[{label:'Cancel',close:true},{label:'Save',primary:true,submit:true}],
+  async form=>{await api('projects/'+encodeURIComponent(projectID)+'/agent-settings','PUT',{version:current.version,provider:form.get('provider'),model:form.get('model'),effort:form.get('effort'),workspace:form.get('workspace')});notify('Project agent saved.');onSaved?.();});
+ const d=document.querySelector('#dialog'),provider=d.querySelector('[name=provider]'),model=d.querySelector('[name=model]'),effort=d.querySelector('[name=effort]');
+ const efforts=()=>{const m=(catalogs[provider.value]||[]).find?.(x=>x.id===model.value);effort.innerHTML=(m?.efforts||[]).map(e=>`<option value="${esc(e)}"${e===a.effort?' selected':''}>${esc(e)}</option>`).join('');};
+ provider.onchange=async()=>{const list=await load(provider.value);model.innerHTML=list.error?`<option value="">${esc(list.error)}</option>`:options(list);efforts();};
+ model.onchange=efforts;efforts();
 }
 export async function openCoordinatorSettings({api,modal,notify,onSaved}){
  let current,catalogs={};try{current=await api('coordinator');}catch(error){notify(error.message);return;}
@@ -120,16 +138,15 @@ export function mountProjectAgent(host,{project,api,modal,notify,flows,owner,onR
  host.className='project-agent';host.setAttribute('aria-label','Project agent');
  host.innerHTML=`<div class="agent-main" id="agent-main"><section aria-labelledby="agent-decisions"><h2 id="agent-decisions">Needs your decision</h2><div id="agent-decisions-body" aria-live="polite"><p class="widget-empty">Loading…</p></div></section>
  <section aria-labelledby="agent-current"><h2 id="agent-current">Current work</h2><div id="agent-current-body" aria-live="polite"></div></section>
- <section aria-labelledby="agent-next"><div class="agent-section-head"><h2 id="agent-next">Up next</h2><button type="button" class="text-button" data-agent-issues>All issues</button></div><div id="agent-next-body"></div>
+ <section aria-labelledby="agent-next"><div class="agent-section-head"><h2 id="agent-next">Issues</h2><button type="button" class="text-button" data-agent-issues>All issues</button></div><div id="agent-next-body" hidden></div>
   <div class="agent-subsection"><div class="agent-subhead"><h3>Priority issues</h3><span id="priority-issues-meta">Loading…</span></div><ol id="priority-issues-list" class="priority-issue-list" aria-live="polite"><li class="widget-empty">Loading issues…</li></ol><p class="field-help" id="priority-issues-note"></p></div></section>
  <section aria-labelledby="agent-recent"><h2 id="agent-recent">Recent result</h2><div id="agent-recent-body"></div>
   <div class="agent-subsection session-report-widget"><div class="agent-subhead"><h3>Last session</h3><button type="button" class="text-button" id="import-project-chat">Import</button></div><div id="last-session-report" aria-live="polite"><p class="widget-empty">Loading session…</p></div></div></section></div>
- ${threadAside('Project conversation','PROJECT CONVERSATION',true)}`;
+ ${threadAside('Project agent','PROJECT AGENT',false)}`;
  const q=s=>host.querySelector(s);
  const composer=bindComposer(host,{key:project.id,send:body=>api('projects/'+encodeURIComponent(project.id)+'/messages','POST',body).then(r=>{if(r.deliveryError)notify(r.deliveryError);return r;}),sent:()=>refresh()});
  const coordinator=coordinatorPanel(host,{key:project.id,api,modal,notify,refresh:()=>refresh()});
  q('#agent-refresh').onclick=()=>refresh(true);
- q('#agent-mandate-card').onclick=()=>openMandate();
  host.addEventListener('click',e=>{
   const ref=e.target.closest('[data-agent-ref]');if(ref){if(ref.dataset.agentRef==='run')onRun(ref.dataset.refId);else if(ref.dataset.agentRef==='issue'){const n=issueNumber(ref.dataset.refId)||Number(ref.dataset.refId);if(n)onIssue(n);}return;}
   const run=e.target.closest('[data-agent-run]');if(run){onRun(run.dataset.agentRun);return;}
@@ -141,7 +158,8 @@ export function mountProjectAgent(host,{project,api,modal,notify,flows,owner,onR
  function ownerName(){return state?.profile?.name||'Project owner';}
  function renderOwner(){
   if(!owner?.isConnected)return;const m=state.mandate;
-  owner.innerHTML=m?`<span>Owner: ${esc(ownerName())}</span><span class="agent-owner-state agent-owner-${state.working?'working':m.enabled?'active':'paused'}">${state.working?'Working':m.enabled?'Active':'Paused'}</span>`:'<span>No owner mandate</span>';
+  const a=state.coordinator?.agent,live=state.coordinator?.session;
+  owner.innerHTML=a?.model?`<span>Agent: ${esc(providerLabels[a.provider])} · ${esc(a.model)}</span><span class="agent-owner-state agent-owner-${live?.waiting?'waiting':live?'working':'none'}">${live?.waiting?'Waiting for you':live?'Running':'Idle'}</span>`:'';
  }
  function renderMain(){
   const m=state.mandate;
@@ -156,13 +174,13 @@ export function mountProjectAgent(host,{project,api,modal,notify,flows,owner,onR
   q('#agent-decisions-body').innerHTML=decisions;q('#agent-current-body').innerHTML=current;q('#agent-next-body').innerHTML=next;q('#agent-recent-body').innerHTML=recent;
  }
  function renderThread(){
-  const name=ownerName(),m=state.mandate;
+  const name=`${project.name} agent`;
   q('#agent-thread-title').textContent=name;
   q('#agent-thread-status').textContent=state.current?`${statusLabels[state.current.status]||state.current.status}: ${state.current.taskRef||state.current.flowName}`:'';
   q('#agent-message-label').textContent=`Message ${name} · ${project.name}`;
   renderMessages(host,state.thread,name);
   pace(coordinator.update(state.coordinator));
-  q('#agent-mandate-card').innerHTML=m?`<span class="eyebrow">OWNER MANDATE · V${m.version}</span><strong>${m.enabled?'Active':'Paused'} · ${esc(m.modes.join(', ')||'no modes')} · ${m.tasks.length} task${m.tasks.length===1?'':'s'}</strong><small>${esc((m.instructions||m.objective).slice(0,160))}</small>`:'<span class="eyebrow">OWNER MANDATE</span><strong>Not set</strong><small>Choose an owner Agent, eligible tasks and limits.</small>';
+  // Mandates are off the main path (#18); the conversation card is the project's live agent.
  }
  async function refresh(announce=false){
   try{const next=await api('projects/'+encodeURIComponent(project.id)+'/agent');if(!host.isConnected)return;state=next;renderOwner();renderMain();renderThread();if(announce)notify('Project agent refreshed.');}
@@ -203,7 +221,6 @@ export function mountHomeAgents(host,{api,modal,notify,onProject,onRun}){
  host.className='project-agent home-agents';host.setAttribute('aria-label','Project owners');
  host.innerHTML=`<div class="agent-main"><p class="agent-summary" id="home-agent-summary" aria-live="polite">Loading project owners…</p>
  <section aria-labelledby="home-decisions"><h2 id="home-decisions">Needs your decision</h2><div id="home-decisions-body"></div></section>
- <section aria-labelledby="home-owners"><h2 id="home-owners">Project owners</h2><div id="home-owners-body"></div></section>
  <section aria-labelledby="home-recent"><h2 id="home-recent">Recent results</h2><div id="home-recent-body"></div></section></div>
  `;
  const q=s=>host.querySelector(s);
@@ -215,9 +232,9 @@ export function mountHomeAgents(host,{api,modal,notify,onProject,onRun}){
  });
  function render(){
   const c=state.counts;
-  q('#home-agent-summary').textContent=[`${c.working} running`,`${c.decisions} need${c.decisions===1?'s':''} a decision`,`${c.owners} project owner${c.owners===1?'':'s'}`].join(' · ');
+  q('#home-agent-summary').textContent=[`${c.working} running`,`${c.decisions} need${c.decisions===1?'s':''} a decision`].join(' · ');
   q('#home-decisions-body').innerHTML=state.decisions.length?`<ul class="agent-list">${state.decisions.map(d=>`<li class="agent-decision"><span class="agent-dot agent-dot-${esc(d.kind)}" aria-hidden="true"></span><span class="agent-copy"><strong>${esc(d.projectName)} · ${esc(d.title)}</strong><small>${esc(d.detail)}</small></span>${d.runID?`<button type="button" class="primary" data-run-project="${esc(d.projectID)}" data-home-run="${esc(d.runID)}">${d.kind==='review'?'Review':'Inspect'}</button>`:d.kind==='coordinator'?`<button type="button" class="primary" data-home-open-cli="${esc(d.projectID||'')}">Open CLI</button>`:`<button type="button" data-home-project="${esc(d.projectID)}">Open project</button>`}</li>`).join('')}</ul>`:'<p class="widget-empty">No decisions waiting.</p>';
-  q('#home-owners-body').innerHTML=state.projects.length?`<ul class="agent-list">${state.projects.map(p=>{const work=p.current||null,next=p.next;return `<li class="home-owner"><span class="agent-copy home-owner-name"><strong>${esc(p.name)}</strong><small>${p.owner?'Owner: '+esc(p.owner):'No owner mandate'}</small></span><span class="agent-owner-state agent-owner-${esc(p.status)}">${esc(ownerStates[p.status])}</span><span class="agent-copy home-owner-work"><strong>${esc(work?work.flowName:next?next.title||next.ref:'No active work')}</strong><small>${esc(work?(work.taskRef||work.task):next?'Next eligible task':'')}</small></span>${work?`<button type="button" class="text-button" data-run-project="${esc(p.projectID)}" data-home-run="${esc(work.id)}">View run</button>`:`<button type="button" class="text-button" data-home-project="${esc(p.projectID)}">View project</button>`}</li>`;}).join('')}</ul>`:'<p class="widget-empty">No project owners. Set a mandate from a project overview.</p>';
+  // Project owners (mandates) are off the main path (#18).
   q('#home-recent-body').innerHTML=state.recent.length?`<ul class="agent-list">${state.recent.map(r=>`<li class="agent-result"><span class="agent-copy"><strong>${esc(r.projectName)} · ${esc(r.flowName)}</strong><small>${esc(r.task)}</small></span><span class="agent-status agent-status-${esc(r.status)}">${esc(statusLabels[r.status]||r.status)}</span><span class="agent-result-facts">${r.approvals?`${r.approvals} review${r.approvals===1?'':'s'} approved`:'No review approval recorded'}</span><button type="button" class="text-button" data-run-project="${esc(r.projectID)}" data-home-run="${esc(r.id)}">View evidence</button></li>`).join('')}</ul>`:'<p class="widget-empty">No finished workflow runs.</p>';
   pace(state.decisions.some(d=>d.kind==='coordinator'));
  }
@@ -244,7 +261,7 @@ export function mountCoordinatorConversation(host,{api,modal,notify}){
   try{
    const next=await api('agents/overview');if(!host.isConnected)return;state=next;const c=state.counts;
    q('#dock-thread-title').textContent='Coordinator';
-   q('#dock-thread-status').textContent=`${c.owners} project owner${c.owners===1?'':'s'}`;
+   q('#dock-thread-status').textContent='';
    q('#dock-message-label').textContent='Message coordinator · all projects';
    renderMessages(host,state.thread,'Coordinator',p);pace(coordinator.update(state.coordinator));
    if(announce)notify('Coordinator refreshed.');

@@ -1469,3 +1469,30 @@ Plan: `instructions/2026-09-23-coordinator-dock.md` · Tracker Trapper `CBE87726
   panel for Home and adds the all-projects Open CLI + decline case; `project-agent-browser` checks the Home
   conversation in the panel; `pwa-browser` asset count 44. Screenshots inspected (shell, dark chat, 390 px, prompt).
   Shell cache `skd-shell-0.5.0-116`.
+
+## Hub orchestrator and project agents — 2026-09-23 (#18)
+
+Plan: `instructions/2026-09-23-hub-orchestrator.md` · Tracker Trapper `EAAFEE50-1CDB-4D4D-B979-6CC7946B3DED`.
+
+- Orchestrator (side panel) routes requests: new controller tools `get_project_instructions`,
+  `message_project_agent` (pre-approved), `get_project_agent`, `stop_project_agent` (prompts). Its instructions
+  now route and relay instead of using workflows.
+- Project conversation cards are live project agents: the person's normal Claude Code / Codex in the project
+  folder (or a dedicated `agent/<project>` worktree under `.data/project-agent-worktrees/`, created once, reused,
+  never deleted), plus the Workbench MCP server under a per-project internal grant with capabilities `read` and a
+  new `report` (`report_to_orchestrator`). Reports post to the orchestrator thread attributed to the agent and are
+  typed into a running orchestrator session; the orchestrator does not repeat them.
+- Per-project agent settings (`projectAgents` in `coordinator-agent.json`, optional field): provider, model,
+  effort, workspace; saving ends that project's session.
+- Per-project lock: `CodexRuns.projectFree` in session, workflow, delegation, terminal, quick-action and
+  workspace-task starts refuses while that project's agent is live; a project agent refuses while global-lock
+  work in that project is unfinished. Different projects run in parallel.
+- Fixed while testing: two messages arriving together (a relayed report and the user's reply) were merged into one
+  CLI message because both pastes preceded either Enter; session input is now queued per session.
+- Main path: Workflows removed from the project sidebar and Home; Project owners, mandate card, owner line and
+  mandate task list removed; routes and data intact. `project-agent-browser` (mandate UI) is replaced by
+  `hub-orchestrator-browser`; mandate behaviour stays covered by `mandates` / `mandate-execution` Node tests.
+- Tests: `project-agents` (7), `coordinator-sessions` (8), `coordinator-agent` (5) Node suites; browser
+  `hub-orchestrator-browser`, updated `coordinator-cli-browser`, `sidebar-browser`, `overview-browser`.
+  Screenshots inspected (relay, project agent card, settings dialog, dark, 390 px). Fixture CLIs only; real
+  providers not run (HO-07). Shell cache `skd-shell-0.5.0-117`.

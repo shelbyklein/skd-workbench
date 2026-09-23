@@ -78,26 +78,22 @@ try{
  await page.locator('.coordinator-terminal .terminal-screen').click();await page.keyboard.type('n');
  await tab('Chat').click();await dock.getByText('Tool error: declined by the user').waitFor();assert.equal((await api('workflows?projectID='+project.id)).length,0);
  await dock.getByRole('button',{name:'Hide',exact:true}).click();
- await api('projects/'+project.id+'/messages',{text:'please launch the pilot',requestKey:'b1'});
- await page.goto(url+'#home');
- await page.getByText('Newton · Waiting for you in the coordinator CLI').waitFor();await page.getByText('Coordinator · Waiting for you in the coordinator CLI').waitFor({state:'detached'});
- assert.match(await page.locator('#home-agent-summary').textContent(),/1 needs a decision/);
- await page.screenshot({path:'output/coordinator-home-waiting.png',fullPage:true});
- await page.locator('[data-home-open-cli]').click();await page.locator('#agent-decisions').waitFor();
- await page.locator('.coordinator-terminal').waitFor();await waitScreen(/Do you want to allow workbench - start_run\?/);
- assert.match(await page.locator('#agent-coordinator').textContent(),/Waiting for you in CLI/);assert.equal(await page.locator('[data-coordinator-open-cli]').count(),0,'No Open CLI button inside the CLI view.');
- assert.equal((await api('workflows?projectID='+project.id)).length,0,'Nothing starts before approval.');
- await page.screenshot({path:'output/coordinator-cli-prompt.png'});
- await page.locator('.coordinator-terminal .terminal-screen').click();await page.keyboard.type('y');
- await page.getByRole('button',{name:'Chat',exact:true}).click();await page.getByText(/Started local:pilot under mandate v1/).waitFor();
- await page.waitForFunction(()=>!/Waiting for you/.test(document.querySelector('#agent-coordinator')?.textContent));
- assert.equal((await api('workflows?projectID='+project.id)).length,1);
- await page.screenshot({path:'output/coordinator-project-chat.png',fullPage:true});
+ // The project conversation card is the project's live agent, working in the project folder.
+ await page.locator(`.project-card[data-project="${project.id}"]`).click();await page.locator('#agent-decisions').waitFor();
+ await page.waitForFunction(()=>/Newton agent/.test(document.querySelector('#agent-thread-title')?.textContent||''));
+ assert.equal(await page.locator('#agent-mandate-card').count(),0,'Mandates are off the main path.');
+ await page.locator('#agent-message').fill('update the footer');await page.locator('#agent-send').click();
+ await page.waitForFunction(()=>/Session running/.test(document.querySelector('#agent-coordinator')?.textContent||''));
+ await page.getByRole('button',{name:'CLI',exact:true}).click();await page.locator('.coordinator-terminal').waitFor();
+ await waitScreen(/> update the footer/);await waitScreen(/workbench - report_to_orchestrator/);
+ assert.match(await page.locator('#agent-coordinator').textContent(),/Claude Code · fixture · project folder/);
+ await page.screenshot({path:'output/coordinator-project-agent.png'});
+ assert.match((await api('coordinator/messages')).items.map(m=>m.text).join('\n'),/Update: Done: update the footer/);
  // Dark theme and a phone-width CLI view.
  await page.getByRole('button',{name:'CLI',exact:true}).click();await page.locator('.coordinator-terminal').waitFor();
  await page.emulateMedia({colorScheme:'dark'});await page.waitForFunction(()=>document.documentElement.dataset.theme==='dark');await page.screenshot({path:'output/coordinator-cli-dark.png'});
  await page.setViewportSize({width:390,height:844});await page.locator('.coordinator-terminal').scrollIntoViewIfNeeded();await page.waitForTimeout(400);
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:'output/coordinator-cli-mobile.png'});
  assert.deepEqual(errors,[]);
- console.log('Coordinator CLI browser passed: setup, chat into a live session, Chat/CLI switch, typing in the CLI, no respawn, stop and read-only history, permission prompt as a Home and project decision approved in the CLI, keyboard, dark and 390 px. Fixture CLI only.');
+ console.log('Coordinator CLI browser passed: orchestrator setup and chat in the side panel, Chat/CLI, typing in the CLI, no respawn, stop, history, Start session, all-projects permission prompt via Home Open CLI (declined), project card as live project agent reporting to the orchestrator, keyboard, dark and 390 px. Fixture CLI only.');
 }finally{await browser.close();server.shutdownCodex();server.closeAllConnections();await new Promise(r=>server.close(r));rmSync(root,{recursive:true,force:true});}

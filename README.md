@@ -444,13 +444,15 @@ The header terminal icon toggles a side panel with three tabs: **Chat** and **CL
 
 Both workspace and Agent terminals stream input/output over a same-origin WebSocket. Reconnecting attaches to the existing session and never resends input. A slow or suspended client may reconnect; retained output is bounded and any missing earlier output is marked. Very large pastes are rejected before sending, so split them into smaller parts.
 
-## Coordinator conversation
+## Orchestrator and project agents
 
-The all-projects coordinator is in the side panel (header terminal icon), available on every page; each project overview has its own conversation card. With the coordinator off, messages are only saved. **Set up** chooses Claude Code or Codex, a model and an effort; turning it on creates the internal "Workbench coordinator" controller grant.
+The Workbench is a hub: tell the **orchestrator** (side panel, header terminal icon) what you need — for example paste an email — and it decides which project the request belongs to from the project names and each project's `CLAUDE.md` / `AGENTS.md`, then hands it to that project's **agent**. Agents report questions, actions they need from you and updates; these appear in the orchestrator chat attributed to the agent, and the orchestrator forwards your replies. Routing needs no approval; stopping an agent asks first. **Set up** in the panel chooses the orchestrator's Claude Code or Codex model and turns the hub on.
 
-Each conversation then has one live CLI session, started by your first message and seeded with the recent conversation. Messages you send are typed into it, and the agent posts its replies to the chat. Switch the panel between **Chat** and **CLI** to watch the session, type in it directly, or **Stop** it. The session has no file or shell tools, only Workbench's own tools: reading records and posting replies need no approval, while `start_run`, `stop_run`, `create_workflow` and `update_workflow` show the CLI's permission prompt. A waiting prompt shows "Waiting for you in the CLI" and appears under **Needs your decision**. Work it starts is still limited by the project mandate.
+Each project's conversation card is its live agent: Claude Code or Codex running in the project folder with your normal configuration, the project's instructions, tools and native permission prompts (answered in its **CLI** view; waiting prompts appear under **Needs your decision**). Its **Settings** choose the provider, model and effort, and whether it works in the project folder or in one dedicated worktree on an `agent/<project>` branch (created once, reused, never deleted automatically; needs a Git repository). One agent runs per project and different projects run in parallel; while a project's agent runs, other agent sessions and workflows in that project wait, and vice versa.
 
-Sessions end on Stop, a settings change, 30 minutes idle or a server restart, and are never resumed; the last 20 transcripts stay readable under **Previous sessions**. Codex runs with its own Codex home (`.data/coordinator-codex`) so your personal Codex MCP servers and settings are not loaded; the first Codex session asks you to sign in there once. Claude Code may ask once to trust the coordinator folder.
+The orchestrator itself has no file or shell tools. Its Codex uses a private home (`.data/coordinator-codex`) with a one-time sign-in; project agents use your normal Codex and Claude Code setup. Sessions end on Stop, a settings change, 30 minutes idle or a server restart and are never resumed; recent transcripts stay under **Previous sessions**.
+
+Workflows, delegation and project mandates are off the main path: they are no longer in the sidebar, Home or project pages, but existing data and the `#workflows` routes keep working.
 
 ## Let an external agent control Workbench
 

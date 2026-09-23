@@ -65,7 +65,7 @@ async function handle(text){
   // Orchestrator routing and relay.
   const route=/(?:email about|for) ([\w-]+)/i.exec(text),relay=/^\[from (.+?) agent · (\w+)\] (.*)$/.exec(text),forward=/^reply to ([\w-]+): (.*)$/i.exec(text);
   try{
-   if(relay){await call('post_coordinator_message',{text:`${relay[1]} agent ${relay[2]}: ${relay[3]}`,requestKey:key()});return;}
+   if(relay)return;// Reports already appear in the chat, attributed to the agent.
    if(route||forward){
     const name=(route||forward)[1],target=(await call('list_projects')).items.find(p=>p.name.toLowerCase()===name.toLowerCase());
     if(!target)throw new Error(`No project named ${name}`);

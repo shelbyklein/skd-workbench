@@ -74,7 +74,7 @@ test('the orchestrator routes pasted email text, relays a question and forwards 
  await f.api('coordinator/messages',{text:'I got an email about Austin: change the hours banner',requestKey:'o1'});
  await f.until(async()=>(await f.thread('coordinator')).some(m=>m.text==='Passed to Austin.'),'routed');
  const handoff=(await f.thread(f.projects.Austin.id)).at(0);assert.match(handoff.text,/^From the orchestrator: I got an email about Austin/);assert.equal(handoff.controllerName,'Orchestrator');
- await f.until(async()=>(await f.thread('coordinator')).some(m=>/Austin agent update: Done: I got an email about Austin/.test(m.text)),'relayed update');
+ await f.until(async()=>(await f.thread('coordinator')).some(m=>m.controllerName==='Austin agent'&&/Update: Done: I got an email about Austin/.test(m.text)),'relayed update');
  const austin=f.sessions().find(s=>s.role==='project');assert.equal(realpathSync(austin.cwd),realpathSync(f.projects.Austin.folderPath));
  await f.api('coordinator/messages',{text:'email about Newton: ask me which colours',requestKey:'o2'});
  await f.until(async()=>(await f.thread('coordinator')).some(m=>/^Question: Which option for: \[?.*email about Newton/.test(m.text)||/Question: Which option for: email about Newton/.test(m.text)),'question');
