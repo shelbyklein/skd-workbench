@@ -89,3 +89,9 @@ User decision 2026-09-23: the project agent conversation is a saved thread, answ
 - Controller tools: `list_messages` (read) and `post_message` (manage). Messages are context, not authority: they cannot change a mandate or start work.
 - `GET /api/projects/:id/agent` derives the owner line, decisions (runs waiting for review, failed or interrupted runs, owner Agent drift), current work, unclaimed mandate tasks and the latest finished run from canonical records. Nothing is stored separately.
 - The UI keeps one unsent draft per project in memory and `sessionStorage`, with a stable request key until it is sent.
+
+## Home and coordinator (PA-04, after visual acceptance)
+
+- `GET /api/agents/overview` applies the project derivation to every connected project and returns counts, cross-project decisions, project owner rows (projects with a mandate, active work or decisions) and the five most recent finished runs.
+- The coordinator thread uses the reserved thread key `coordinator`. `list_coordinator_messages` (read) and `post_coordinator_message` (manage) require a controller grant for every connected project, because the thread can mention any of them. Its record links may name runs in any project and `project` references.
+- Project Overview folding (user direction 2026-09-23): priority issues sit under Up next, the last session and Import under Recent result, and the Git widget is the strip under the heading. The Project views grid was removed because the sidebar has every view link.

@@ -1339,12 +1339,20 @@ TT plan `local:F5660300-649C-4650-8AC3-2C96C0328BB9`, DB-01 through DB-07.
   `tests/project-agent-browser.mjs` covers scope, keyboard send, pausing the mandate without
   stopping the run, the run link, dark theme and a 390 px viewport, with zero
   execution requests. Desktop, dialog, dark and mobile screenshots were inspected.
-- Full Node suite 388/388. Browser suites: 37 of 39 pass. `project-tags-browser`
+- Final: full Node suite 390/390. Browser suites: 37 of 39 pass, each run individually. `project-tags-browser`
   (dark project-card background) and `issues-browser` (waitForFunction timeout)
   fail the same way on unmodified main 375d6f8 and are recorded as pre-existing.
-  `npm run test:browser` stops at the first of these, so the remaining suites were
-  run individually.
-- The Home adaptation (coordinator thread, consolidated summaries) and PA-05's
-  end-to-end stdio pilot are pending. No provider inference was run and nothing
-  was pushed. The live data store and server were not touched; all
+  `npm run test:browser` stops at the first of these.
+- The project view was accepted on 2026-09-23. Overlapping widgets were folded into the owner
+  view and the Project views grid was removed (the sidebar has every view link). Home
+  gained the project-owner summary and coordinator conversation. Coordinator tools require
+  a grant for every connected project. Screenshot `output/project-agent-home.png` inspected.
+- PA-05 fixture pilot (`tests/project-agent-pilot.test.js`): a real stdio MCP
+  client through `scripts/workbench-mcp.mjs` against a temporary store reads the mandate
+  and the user's direction and is refused over-limit and out-of-mode launches. It then launches
+  one mandate-bound task, reads the attempt output and posts an idempotent report
+  linking the run, operation and issue. After a server restart on the same port the run stays
+  waiting with one attempt (no replay) and the operation stays accepted. The one-attempt cap
+  stops the rerun after a change request. Real-provider inference was not run;
+  it needs a separately authorized pilot. Nothing was pushed. The live data store and server were not touched. All
   checks used temporary stores in the `codex/project-agents` worktree.
