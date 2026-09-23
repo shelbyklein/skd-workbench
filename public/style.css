@@ -434,7 +434,8 @@ body.terminal-open .issue-detail-layout{grid-template-columns:minmax(0,1fr)}
 
 /* Primary-derived surfaces keep the supplied grayscale texture adaptable. */
 :root .sidebar{background-color:var(--sidebar);background-image:linear-gradient(color-mix(in srgb,var(--sidebar) 88%,transparent),color-mix(in srgb,var(--sidebar) 88%,transparent)),url('/sidebar-texture.png');background-size:auto,640px}
-:root .brand img{width:64px;height:40px;object-fit:contain;flex-shrink:0}
+:root .brand{justify-content:center;align-items:center}
+:root .brand img{width:auto;height:.9075em;height:1.21cap;object-fit:contain;flex-shrink:0}
 :root button:hover:not(:disabled){background-color:var(--surface-hover);border-color:var(--line)}
 :root .primary:hover:not(:disabled){background:var(--accent);filter:brightness(.94)}
 :root .project-link.active,:root .nav-button.active,:root .flow-nav.active{background:var(--surface-hover);color:var(--ink)}
