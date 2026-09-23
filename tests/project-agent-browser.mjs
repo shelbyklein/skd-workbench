@@ -39,6 +39,7 @@ try{
  assert.match(await page.locator('.agent-message-agent').textContent(),/waiting for your verification[\s\S]*Issue #141[\s\S]*Run /);
  assert.match(await page.locator('#agent-mandate-card').textContent(),/Active · read-only · 2 tasks/);
  assert.match(await page.locator('#agent-message-label').textContent(),/Message Newton agent · Newton/);
+ assert.equal(await page.locator('.topbar .project-agent,.topbar .project-dashboard').count(),0);assert((await page.locator('.project-agent').boundingBox()).width>900,'Agent section spans the content column.');assert.equal(await page.locator('main .project-views,#priority-issues-widget,.priority-issues-widget').count(),0,'Folded widgets are not duplicated.');
  mkdirSync('output',{recursive:true});await page.screenshot({path:'output/project-agent-desktop.png',fullPage:true});
  // Drafts stay with their project across navigation and reload; each composer names its scope.
  await page.locator('#agent-message').fill('Draft for Newton');

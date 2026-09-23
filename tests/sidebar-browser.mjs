@@ -24,14 +24,14 @@ try{
  await page.locator('.sidebar-all-projects').click();await page.getByRole('button',{name:'Discard changes',exact:true}).click();
  await page.getByRole('navigation',{name:'Projects',exact:true}).getByRole('button',{name:'Second project'}).click();
  await page.getByRole('heading',{name:'Second project',exact:true}).waitFor();
- assert.equal(await page.locator('.project-views .view-icon').count(),9);
+ assert.equal(await page.locator('.project-view-list .view-icon').count(),9);assert.equal(await page.locator('main .project-views').count(),0);
  await page.getByRole('button',{name:'Project details',exact:true}).click();await page.getByLabel('Project name',{exact:true}).waitFor();await page.keyboard.press('Escape');
  await page.locator('[data-add-project]').click();await page.getByLabel('Project name',{exact:true}).fill('Selected project');
  await page.getByLabel('Local folder',{exact:true}).fill('/keep/manual');
  await page.locator('#choose-folder').click();await page.waitForFunction(()=>!document.querySelector('#choose-folder').disabled);assert.equal(await page.getByLabel('Local folder',{exact:true}).inputValue(),'/keep/manual');
  await page.locator('#choose-folder').click();await page.waitForFunction(()=>!document.querySelector('#choose-folder').disabled);assert.equal(await page.getByLabel('Local folder',{exact:true}).inputValue(),root);assert.equal(await page.getByLabel('Project name',{exact:true}).inputValue(),'Selected project');
  await page.locator('#choose-folder').click();await page.waitForFunction(()=>document.querySelector('#dialog-error').textContent.length>0);assert.equal(await page.getByLabel('Local folder',{exact:true}).inputValue(),root);await page.keyboard.press('Escape');
- await page.locator('main [data-view-link="overview"]').click();await page.getByRole('heading',{name:'Workflows',exact:true}).waitFor();
+ await page.locator('.sidebar [data-sidebar-view="overview"]').click();await page.getByRole('heading',{name:'Workflows',exact:true}).waitFor();
  assert.equal(await views.locator('[aria-current]').getAttribute('data-sidebar-view'),'overview');
  mkdirSync('output',{recursive:true});await page.screenshot({path:'output/projects-sidebar-desktop.png'});
  await page.reload();await views.waitFor();assert.equal(await views.locator('[aria-current]').getAttribute('data-sidebar-view'),'overview');
