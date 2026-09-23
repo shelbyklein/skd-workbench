@@ -123,7 +123,7 @@ Codex CLI 0.155.1 (`codex --help`, `codex mcp list`, binary strings):
 - Isolation problem: interactive Codex loads `~/.codex/config.toml` (19 MCP servers here, including `computer-use`,
   `node_repl`). `-c mcp_servers={}` merges rather than replaces; per-server `-c mcp_servers.<n>.enabled=false` left 8
   servers enabled (`codex mcp list --json`). A separate `CODEX_HOME` has no user servers but also no sign-in
-  (`~/.codex/auth.json`). Decision needed; see Open questions.
+  (`~/.codex/auth.json`). Decision: separate Codex home with its own sign-in (see Open questions).
 
 ## Scope boundaries
 
@@ -150,8 +150,11 @@ and routes go through it); execution lock ownership for sessions and workflows; 
 
 ## Open questions
 
-- Codex per-tool approval and a `PermissionRequest` hook exist (CC-01). **Blocking for the Codex path:** how to keep
-  personal Codex MCP servers out of an interactive session (see CC-01 findings). Claude Code work is not blocked.
+None blocking.
+
+Resolved 2026-09-23 (person): the coordinator's Codex runs with its own `CODEX_HOME` under the data directory
+(`coordinator-codex/`, mode 700) containing only the Workbench MCP server config; the first Codex session shows
+Codex's own sign-in in the CLI view and the person signs in once. The main `~/.codex` login and config are untouched.
 
 ## Work preparation
 
