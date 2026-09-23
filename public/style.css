@@ -476,3 +476,32 @@ body.terminal-open .issue-detail-layout{grid-template-columns:minmax(0,1fr)}
 .home-agents{padding-top:0}
 .agent-coordinator{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:11px}.agent-coordinator-state{display:inline-flex;align-items:center;gap:7px}.agent-coordinator-state::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--muted)}.agent-coordinator-state.agent-owner-active::before{background:#3f8a47}.agent-coordinator-state.agent-owner-none::before{background:var(--line)}
 .agent-pending p{color:var(--muted);font-style:italic}.agent-turn-error{align-self:stretch;font-size:11px;color:#a43b29;padding:4px 2px}[data-theme="dark"] .agent-turn-error{color:#f2a79c}
+/* Coordinator Chat / CLI view */
+.agent-coordinator{flex-wrap:wrap}
+.agent-coordinator-state.agent-owner-waiting::before{background:#c98b1d}
+.agent-view-switch{display:inline-flex;border:1px solid var(--line);border-radius:7px;padding:2px;margin-left:auto}
+.agent-view-switch button{border:0;background:transparent;padding:4px 10px;font-size:11px;border-radius:5px;color:var(--muted)}
+.agent-view-switch button[aria-pressed="true"]{background:var(--surface);color:var(--ink);font-weight:600}
+.agent-waiting{flex-basis:100%;margin:4px 0 0;padding:8px 10px;border-radius:7px;background:#fbefd9;color:#6b4a0c;font-size:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.agent-waiting button{margin-left:auto;padding:4px 10px;font-size:11px}
+[data-theme="dark"] .agent-waiting{background:#3a2c14;color:#f3d49a}
+.agent-cli{display:flex;flex-direction:column;gap:10px;height:clamp(360px,62vh,560px);overflow:hidden}
+.agent-thread.agent-cli-mode{grid-template-rows:none;grid-auto-rows:auto;max-height:none}
+#agent-cli-screen{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+#agent-cli-screen:empty{display:none}
+.agent-cli-history{flex:none;max-height:140px;overflow:auto}
+.agent-cli[hidden],.agent-messages[hidden]{display:none}
+.coordinator-terminal{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;background:#101010;color:#eeeeee;border-radius:8px;overflow:hidden}
+.coordinator-terminal .terminal-header{padding:10px 12px}
+.coordinator-terminal .terminal-header h2{font-size:14px}
+.coordinator-terminal .terminal-status{padding:4px 12px}
+.coordinator-terminal .terminal-screen{padding:0 8px}
+.coordinator-terminal footer{padding:8px 12px;color:#bbbbbb;font-size:11px;line-height:1.5}
+.agent-cli-history h3{font-size:12px;margin:0 0 4px}
+.agent-cli-history ul{list-style:none;margin:0 0 4px;padding:0}
+.agent-cli-history button[aria-pressed="true"]{font-weight:600}
+.agent-thread,.agent-cli,.coordinator-terminal,.coordinator-terminal .terminal-screen{min-width:0;max-width:100%}
+.coordinator-terminal .terminal-screen{overflow:hidden}
+.agent-coordinator .agent-coordinator-state{flex-basis:100%}
+.agent-coordinator .agent-view-switch{margin-left:0}
+.agent-coordinator [data-coordinator-settings]{margin-left:auto}

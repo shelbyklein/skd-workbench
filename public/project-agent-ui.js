@@ -1,5 +1,7 @@
 // Project owner view: mandate, decisions, current work, next tasks, recent result and the project conversation.
 // Everything shown is derived from canonical records; sending a message or saving a mandate starts nothing.
+// With the coordinator on, messages are typed into a live Claude Code or Codex session shown in the CLI view.
+import {mountTerminal} from './terminal-ui.js';
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const drafts=new Map();
 try{for(const [id,value] of Object.entries(JSON.parse(sessionStorage.getItem('skd-agent-drafts')||'{}')))if(value&&typeof value.text==='string')drafts.set(id,{text:value.text,key:typeof value.key==='string'?value.key:null});}catch{}
@@ -14,7 +16,7 @@ function progress(steps){return `<ol class="agent-steps" aria-label="Workflow st
 
 // Shared conversation panel: one draft and request key per scope (project ID or coordinator).
 function threadAside(label,eyebrow,card){return `<aside class="agent-thread" aria-label="${label}"><header><div><span class="eyebrow">${eyebrow}</span><h2 id="agent-thread-title"></h2></div><button type="button" class="text-button" id="agent-refresh">Refresh</button></header>
- <p class="agent-thread-status" id="agent-thread-status"></p><ol class="agent-messages" id="agent-messages" aria-live="polite"></ol>${card?'<button type="button" class="agent-mandate-card" id="agent-mandate-card"></button>':''}<div class="agent-coordinator" id="agent-coordinator"></div>
+ <p class="agent-thread-status" id="agent-thread-status"></p><ol class="agent-messages" id="agent-messages" aria-live="polite"></ol><div class="agent-cli" id="agent-cli" hidden><div id="agent-cli-screen"></div><p class="field-help" id="agent-cli-empty"></p><div class="agent-cli-history" id="agent-cli-history"></div></div>${card?'<button type="button" class="agent-mandate-card" id="agent-mandate-card"></button>':''}<div class="agent-coordinator" id="agent-coordinator"></div>
  <form class="agent-composer" id="agent-composer"><label for="agent-message" id="agent-message-label">Message</label><textarea id="agent-message" rows="3" maxlength="8000"></textarea><div class="agent-composer-actions"><span class="field-help" id="agent-message-help"></span><button type="submit" class="primary" id="agent-send">Send</button></div><p class="form-error" id="agent-send-error" role="alert"></p></form></aside>`;}
 function bindComposer(host,{key,send,sent}){
  const q=s=>host.querySelector(s),input=q('#agent-message');let sending=false;
@@ -38,23 +40,62 @@ function renderMessages(host,t,name){
  list.scrollTop=list.scrollHeight;
 }
 
-const providerLabels={claude:'Claude Code',codex:'Codex'},turnLabels={queued:'Waiting to reply…',running:'Replying…'};
-// Coordinator state for one thread: whether replies are on, the pending reply and the last failure.
-function renderCoordinator(host,c,{onSettings,onStop}){
- const slot=host.querySelector('#agent-coordinator'),list=host.querySelector('#agent-messages'),last=c?.turns?.at(-1),pending=last&&['queued','running'].includes(last.status);
- slot.innerHTML=c?.enabled?`<span class="agent-coordinator-state agent-owner-active">${esc(providerLabels[c.provider])} · ${esc(c.model)}</span><button type="button" class="text-button" data-coordinator-settings>Settings</button>`:`<span class="agent-coordinator-state agent-owner-none">Coordinator agent off</span><button type="button" class="text-button" data-coordinator-settings>Set up</button>`;
- slot.querySelector('[data-coordinator-settings]').onclick=onSettings;
- host.querySelector('#agent-message-help').textContent=c?.enabled?`${providerLabels[c.provider]} replies here and can start work only within the project mandate.`:'Messages are saved. Turn on the coordinator agent to get replies.';
- if(pending){list.insertAdjacentHTML('beforeend',`<li class="agent-message agent-message-agent agent-pending" aria-live="polite"><div class="agent-message-meta"><strong>${esc(providerLabels[last.provider])}</strong></div><p>${turnLabels[last.status]}</p><div class="agent-refs"><button type="button" class="text-button" data-stop-turn="${esc(last.id)}">Stop</button></div></li>`);list.querySelector('[data-stop-turn]').onclick=()=>onStop(last.id);list.scrollTop=list.scrollHeight;}
- else if(last&&['failed','interrupted','cancelled'].includes(last.status)&&!last.replyID)list.insertAdjacentHTML('beforeend',`<li class="agent-turn-error">${esc(last.status==='cancelled'?'Reply stopped.':last.error||'The reply failed.')}</li>`);
- return pending;
+const providerLabels={claude:'Claude Code',codex:'Codex'},endReasons={stopped:'stopped',idle:'ended after 30 minutes idle',settings:'ended by a settings change',server:'ended when the server stopped',exited:'exited'};
+// Chat or CLI view per conversation, kept while navigating.
+const cliModes=new Map();
+export const openCoordinatorCLI=key=>cliModes.set(key,'cli');
+// Coordinator state for one conversation: settings, the live session, the Chat / CLI switch and history.
+// The terminal is remounted only when the shown session changes, so refreshes never reset it.
+function coordinatorPanel(host,{key,api,modal,notify,refresh}){
+ const q=s=>host.querySelector(s);let c=null,term=null,termID=null,termLive=false,viewing=null;
+ const mode=()=>cliModes.get(key)||'chat';
+ const clear=()=>{term?.dispose();term=null;termID=null;};
+ function mount(session,live){
+  if(termID===session.id&&termLive===live)return;clear();termID=session.id;termLive=live;
+  term=mountTerminal({session,api,onChange:s=>{if(s.status!=='running')refresh();},inline:{host:q('#agent-cli-screen'),endpoint:'coordinator-terminal/',stopPath:id=>'coordinator/sessions/'+encodeURIComponent(id)+'/stop',
+   eyebrow:`${providerLabels[session.provider]} · ${session.model}`,title:live?'Coordinator session':'Previous session',endLabel:'Stop session',
+   footer:live?'Messages sent from Chat are typed here. Answer permission prompts in this terminal.':`Read-only transcript. This session ${endReasons[session.endReason]||'ended'}.`}});
+ }
+ function apply(){
+  const cli=mode()==='cli'&&!!c?.enabled;
+  q('#agent-messages').hidden=cli;q('#agent-cli').hidden=!cli;q('.agent-thread').classList.toggle('agent-cli-mode',cli);
+  host.querySelectorAll('[data-coordinator-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.coordinatorMode===mode())));
+  if(!cli){clear();return;}
+  const saved=viewing&&c.history.find(h=>h.id===viewing),target=saved||c.session||null;
+  if(target)mount(target,!saved&&target===c.session);else clear();
+  q('#agent-cli-empty').textContent=target?'':'No session is running. Send a message to start one.';
+  q('#agent-cli-history').innerHTML=c.history.length?`<h3>Previous sessions</h3><ul>${c.history.map(h=>`<li><button type="button" class="text-button" data-coordinator-history="${esc(h.id)}" aria-pressed="${h.id===termID}">${esc(when(h.startedAt))} · ${esc(providerLabels[h.provider])} · ${esc(endReasons[h.endReason]||'ended')}</button></li>`).join('')}</ul>${saved?'<button type="button" class="text-button" data-coordinator-history="">Back to current session</button>':''}`:'';
+ }
+ host.addEventListener('click',e=>{
+  const m=e.target.closest('[data-coordinator-mode]');if(m){cliModes.set(key,m.dataset.coordinatorMode);viewing=null;apply();if(mode()==='cli')q('#agent-cli .xterm-helper-textarea')?.focus();return;}
+  const h=e.target.closest('[data-coordinator-history]');if(h){viewing=h.dataset.coordinatorHistory||null;apply();return;}
+  if(e.target.closest('[data-coordinator-open-cli]')){cliModes.set(key,'cli');viewing=null;apply();}
+  if(e.target.closest('[data-coordinator-settings]'))openCoordinatorSettings({api,modal,notify,onSaved:()=>refresh()});
+ });
+ return {
+  openCLI(){cliModes.set(key,'cli');viewing=null;apply();},
+  update(next){
+   c=next;const s=c?.session,slot=q('#agent-coordinator');
+   const status=s?(s.waiting?'Waiting for you in CLI':s.status==='running'?'Session running':'Session ending'):'No session';
+   slot.innerHTML=c?.enabled?`<span class="agent-coordinator-state agent-owner-${s?.waiting?'waiting':s?'active':'none'}">${esc(providerLabels[c.provider])} · ${esc(c.model)} · ${esc(status)}</span><span class="agent-view-switch" role="group" aria-label="Conversation view"><button type="button" data-coordinator-mode="chat" aria-pressed="false">Chat</button><button type="button" data-coordinator-mode="cli" aria-pressed="false">CLI</button></span><button type="button" class="text-button" data-coordinator-settings>Settings</button>`
+    :`<span class="agent-coordinator-state agent-owner-none">Coordinator agent off</span><button type="button" class="text-button" data-coordinator-settings>Set up</button>`;
+   if(s?.waiting)slot.insertAdjacentHTML('beforeend',`<p class="agent-waiting" role="status"><strong>Waiting for you in the CLI.</strong> Answer the permission prompt to continue.${mode()==='cli'?'':' <button type="button" class="primary" data-coordinator-open-cli>Open CLI</button>'}</p>`);
+   q('#agent-message-help').textContent=c?.enabled?`Messages are typed into the ${providerLabels[c.provider]} session. It posts replies here and asks in the CLI before starting or changing work.`:'Messages are saved. Turn on the coordinator agent to get replies.';
+   if(viewing&&!c.history.some(h=>h.id===viewing))viewing=null;
+   // A session that just ended stays on screen as its read-only transcript.
+   if(termID&&!s&&c.history.some(h=>h.id===termID))viewing=termID;
+   apply();
+   return !!s;
+  },
+  destroy:clear
+ };
 }
 export async function openCoordinatorSettings({api,modal,notify,onSaved}){
  let current,catalogs={};try{current=await api('coordinator');}catch(error){notify(error.message);return;}
  const load=async provider=>{if(!catalogs[provider]){try{catalogs[provider]=(await api('agents/'+provider)).models||[];}catch(error){catalogs[provider]={error:error.message};}}return catalogs[provider];};
  const models=await load(current.provider);
  const options=list=>Array.isArray(list)&&list.length?list.map(m=>`<option value="${esc(m.id)}"${m.id===current.model?' selected':''}>${esc(m.name||m.id)}</option>`).join(''):'<option value="">No models available</option>';
- modal('Coordinator agent',`<p class="field-help">Claude Code or Codex answers the Home and project conversations. Each reply runs without file or shell tools; it can start work only through Workbench, within each project mandate. Enabling creates the “Workbench coordinator” controller grant, which you can revoke in Controllers.</p>
+ modal('Coordinator agent',`<p class="field-help">Claude Code or Codex answers the Home and project conversations in a live session you can watch in the CLI view. It has no file or shell tools and asks in the CLI before it starts or changes work, which it can do only within each project mandate. Codex uses its own sign-in for the coordinator: the first Codex session asks you to sign in there. Changing these settings ends running sessions. Enabling creates the “Workbench coordinator” controller grant, which you can revoke in Controllers.</p>
   <label class="agent-check"><input type="checkbox" name="enabled"${current.enabled?' checked':''}> Reply to conversation messages</label>
   <label>Agent<select name="provider"><option value="claude"${current.provider==='claude'?' selected':''}>Claude Code</option><option value="codex"${current.provider==='codex'?' selected':''}>Codex</option></select></label>
   <label>Model<select name="model">${options(models)}</select></label>
@@ -79,13 +120,15 @@ export function mountProjectAgent(host,{project,api,modal,notify,flows,owner,onR
   <div class="agent-subsection session-report-widget"><div class="agent-subhead"><h3>Last session</h3><button type="button" class="text-button" id="import-project-chat">Import</button></div><div id="last-session-report" aria-live="polite"><p class="widget-empty">Loading session…</p></div></div></section></div>
  ${threadAside('Project conversation','PROJECT CONVERSATION',true)}`;
  const q=s=>host.querySelector(s);
- const composer=bindComposer(host,{key:project.id,send:body=>api('projects/'+encodeURIComponent(project.id)+'/messages','POST',body),sent:()=>refresh()});
+ const composer=bindComposer(host,{key:project.id,send:body=>api('projects/'+encodeURIComponent(project.id)+'/messages','POST',body).then(r=>{if(r.deliveryError)notify(r.deliveryError);return r;}),sent:()=>refresh()});
+ const coordinator=coordinatorPanel(host,{key:project.id,api,modal,notify,refresh:()=>refresh()});
  q('#agent-refresh').onclick=()=>refresh(true);
  q('#agent-mandate-card').onclick=()=>openMandate();
  host.addEventListener('click',e=>{
   const ref=e.target.closest('[data-agent-ref]');if(ref){if(ref.dataset.agentRef==='run')onRun(ref.dataset.refId);else if(ref.dataset.agentRef==='issue'){const n=issueNumber(ref.dataset.refId)||Number(ref.dataset.refId);if(n)onIssue(n);}return;}
   const run=e.target.closest('[data-agent-run]');if(run){onRun(run.dataset.agentRun);return;}
   const issue=e.target.closest('[data-agent-issue]');if(issue){onIssue(Number(issue.dataset.agentIssue));return;}
+  if(e.target.closest('[data-agent-open-cli]')){coordinator.openCLI();return;}
   if(e.target.closest('[data-agent-mandate]'))openMandate();
   if(e.target.closest('[data-agent-issues]'))onIssues();
  });
@@ -96,7 +139,7 @@ export function mountProjectAgent(host,{project,api,modal,notify,flows,owner,onR
  }
  function renderMain(){
   const m=state.mandate;
-  const decisions=state.decisions.length?`<ul class="agent-list">${state.decisions.map(d=>`<li class="agent-decision"><span class="agent-dot agent-dot-${esc(d.kind)}" aria-hidden="true"></span><span class="agent-copy"><strong>${esc(d.title)}</strong><small>${esc(d.detail)}</small></span>${d.runID?`<button type="button" class="primary" data-agent-run="${esc(d.runID)}">${d.kind==='review'?'Review':'Inspect'}</button>`:'<button type="button" data-agent-mandate>Review mandate</button>'}</li>`).join('')}</ul>`:'<p class="widget-empty">No decisions waiting.</p>';
+  const decisions=state.decisions.length?`<ul class="agent-list">${state.decisions.map(d=>`<li class="agent-decision"><span class="agent-dot agent-dot-${esc(d.kind)}" aria-hidden="true"></span><span class="agent-copy"><strong>${esc(d.title)}</strong><small>${esc(d.detail)}</small></span>${d.runID?`<button type="button" class="primary" data-agent-run="${esc(d.runID)}">${d.kind==='review'?'Review':'Inspect'}</button>`:d.kind==='coordinator'?'<button type="button" class="primary" data-agent-open-cli>Open CLI</button>':'<button type="button" data-agent-mandate>Review mandate</button>'}</li>`).join('')}</ul>`:'<p class="widget-empty">No decisions waiting.</p>';
   const c=state.current;
   const current=c?`<article class="agent-card"><div class="agent-card-head"><span class="eyebrow">${esc(c.taskRef||'WORKFLOW RUN')}</span><span class="agent-status agent-status-${esc(c.status)}">${esc(statusLabels[c.status]||c.status)}</span></div><h3>${esc(c.flowName)}</h3><p>${esc(c.task)}</p>${progress(c.steps)}
    <dl class="agent-facts"><div><dt>Attempts</dt><dd>${c.agentAttempts} of ${c.maxAttempts}</dd></div>${c.workspace?.branch?`<div><dt>Workspace</dt><dd>${esc(c.workspace.branch)}</dd></div>`:''}${c.deadlineAt?`<div><dt>Runtime limit</dt><dd>${esc(when(c.deadlineAt))}</dd></div>`:''}${c.controllerName?`<div><dt>Started by</dt><dd>${esc(c.controllerName)}${c.mandateVersion?` · mandate v${c.mandateVersion}`:''}</dd></div>`:''}</dl>
@@ -112,7 +155,7 @@ export function mountProjectAgent(host,{project,api,modal,notify,flows,owner,onR
   q('#agent-thread-status').textContent=state.current?`${statusLabels[state.current.status]||state.current.status}: ${state.current.taskRef||state.current.flowName}`:'';
   q('#agent-message-label').textContent=`Message ${name} · ${project.name}`;
   renderMessages(host,state.thread,name);
-  pace(renderCoordinator(host,state.coordinator,{onSettings:()=>openCoordinatorSettings({api,modal,notify,onSaved:()=>refresh()}),onStop:id=>api('coordinator/turns/'+encodeURIComponent(id)+'/stop','POST',{}).then(()=>refresh(),error=>notify(error.message))}));
+  pace(coordinator.update(state.coordinator));
   q('#agent-mandate-card').innerHTML=m?`<span class="eyebrow">OWNER MANDATE · V${m.version}</span><strong>${m.enabled?'Active':'Paused'} · ${esc(m.modes.join(', ')||'no modes')} · ${m.tasks.length} task${m.tasks.length===1?'':'s'}</strong><small>${esc((m.instructions||m.objective).slice(0,160))}</small>`:'<span class="eyebrow">OWNER MANDATE</span><strong>Not set</strong><small>Choose an owner Agent, eligible tasks and limits.</small>';
  }
  async function refresh(announce=false){
@@ -143,7 +186,7 @@ export function mountProjectAgent(host,{project,api,modal,notify,flows,owner,onR
  }
  refresh();
  timer=setInterval(()=>{if(!host.isConnected){clearInterval(timer);return;}if(document.visibilityState==='visible'&&!composer.sending())refresh();},15000);
- return {refresh,openMandate,destroy(){clearInterval(timer);}};
+ return {refresh,openMandate,destroy(){clearInterval(timer);coordinator.destroy();}};
 }
 
 const ownerStates={working:'Running',waiting:'Waiting for you',attention:'Needs attention',active:'Active',paused:'Paused',none:'No mandate'};
@@ -158,24 +201,26 @@ export function mountHomeAgents(host,{api,modal,notify,onProject,onRun}){
  <section aria-labelledby="home-recent"><h2 id="home-recent">Recent results</h2><div id="home-recent-body"></div></section></div>
  ${threadAside('Coordinator conversation','ALL PROJECTS',false)}`;
  const q=s=>host.querySelector(s);
- const composer=bindComposer(host,{key:'coordinator',send:body=>api('coordinator/messages','POST',body),sent:()=>refresh()});
+ const composer=bindComposer(host,{key:'coordinator',send:body=>api('coordinator/messages','POST',body).then(r=>{if(r.deliveryError)notify(r.deliveryError);return r;}),sent:()=>refresh()});
+ const coordinator=coordinatorPanel(host,{key:'coordinator',api,modal,notify,refresh:()=>refresh()});
  q('#agent-refresh').onclick=()=>refresh(true);
  host.addEventListener('click',e=>{
   const ref=e.target.closest('[data-agent-ref]');if(ref){if(ref.dataset.agentRef==='project')onProject(ref.dataset.refId);else if(ref.dataset.agentRef==='run'){const owner=state?.projects.find(p=>p.current?.id===ref.dataset.refId||p.recent?.id===ref.dataset.refId)||state?.recent.find(r=>r.id===ref.dataset.refId);if(owner)onRun(owner.projectID,ref.dataset.refId);}return;}
   const run=e.target.closest('[data-home-run]');if(run){onRun(run.dataset.runProject,run.dataset.homeRun);return;}
+  const cli=e.target.closest('[data-home-open-cli]');if(cli){if(cli.dataset.homeOpenCli){openCoordinatorCLI(cli.dataset.homeOpenCli);onProject(cli.dataset.homeOpenCli);}else coordinator.openCLI();return;}
   const project=e.target.closest('[data-home-project]');if(project)onProject(project.dataset.homeProject);
  });
  function render(){
   const c=state.counts;
   q('#home-agent-summary').textContent=[`${c.working} running`,`${c.decisions} need${c.decisions===1?'s':''} a decision`,`${c.owners} project owner${c.owners===1?'':'s'}`].join(' · ');
-  q('#home-decisions-body').innerHTML=state.decisions.length?`<ul class="agent-list">${state.decisions.map(d=>`<li class="agent-decision"><span class="agent-dot agent-dot-${esc(d.kind)}" aria-hidden="true"></span><span class="agent-copy"><strong>${esc(d.projectName)} · ${esc(d.title)}</strong><small>${esc(d.detail)}</small></span>${d.runID?`<button type="button" class="primary" data-run-project="${esc(d.projectID)}" data-home-run="${esc(d.runID)}">${d.kind==='review'?'Review':'Inspect'}</button>`:`<button type="button" data-home-project="${esc(d.projectID)}">Open project</button>`}</li>`).join('')}</ul>`:'<p class="widget-empty">No decisions waiting.</p>';
+  q('#home-decisions-body').innerHTML=state.decisions.length?`<ul class="agent-list">${state.decisions.map(d=>`<li class="agent-decision"><span class="agent-dot agent-dot-${esc(d.kind)}" aria-hidden="true"></span><span class="agent-copy"><strong>${esc(d.projectName)} · ${esc(d.title)}</strong><small>${esc(d.detail)}</small></span>${d.runID?`<button type="button" class="primary" data-run-project="${esc(d.projectID)}" data-home-run="${esc(d.runID)}">${d.kind==='review'?'Review':'Inspect'}</button>`:d.kind==='coordinator'?`<button type="button" class="primary" data-home-open-cli="${esc(d.projectID||'')}">Open CLI</button>`:`<button type="button" data-home-project="${esc(d.projectID)}">Open project</button>`}</li>`).join('')}</ul>`:'<p class="widget-empty">No decisions waiting.</p>';
   q('#home-owners-body').innerHTML=state.projects.length?`<ul class="agent-list">${state.projects.map(p=>{const work=p.current||null,next=p.next;return `<li class="home-owner"><span class="agent-copy home-owner-name"><strong>${esc(p.name)}</strong><small>${p.owner?'Owner: '+esc(p.owner):'No owner mandate'}</small></span><span class="agent-owner-state agent-owner-${esc(p.status)}">${esc(ownerStates[p.status])}</span><span class="agent-copy home-owner-work"><strong>${esc(work?work.flowName:next?next.title||next.ref:'No active work')}</strong><small>${esc(work?(work.taskRef||work.task):next?'Next eligible task':'')}</small></span>${work?`<button type="button" class="text-button" data-run-project="${esc(p.projectID)}" data-home-run="${esc(work.id)}">View run</button>`:`<button type="button" class="text-button" data-home-project="${esc(p.projectID)}">View project</button>`}</li>`;}).join('')}</ul>`:'<p class="widget-empty">No project owners. Set a mandate from a project overview.</p>';
   q('#home-recent-body').innerHTML=state.recent.length?`<ul class="agent-list">${state.recent.map(r=>`<li class="agent-result"><span class="agent-copy"><strong>${esc(r.projectName)} · ${esc(r.flowName)}</strong><small>${esc(r.task)}</small></span><span class="agent-status agent-status-${esc(r.status)}">${esc(statusLabels[r.status]||r.status)}</span><span class="agent-result-facts">${r.approvals?`${r.approvals} review${r.approvals===1?'':'s'} approved`:'No review approval recorded'}</span><button type="button" class="text-button" data-run-project="${esc(r.projectID)}" data-home-run="${esc(r.id)}">View evidence</button></li>`).join('')}</ul>`:'<p class="widget-empty">No finished workflow runs.</p>';
   q('#agent-thread-title').textContent='Coordinator';
   q('#agent-thread-status').textContent=`${c.owners} project owner${c.owners===1?'':'s'}`;
   q('#agent-message-label').textContent='Message coordinator · all projects';
   renderMessages(host,state.thread,'Coordinator');
-  pace(renderCoordinator(host,state.coordinator,{onSettings:()=>openCoordinatorSettings({api,modal,notify,onSaved:()=>refresh()}),onStop:id=>api('coordinator/turns/'+encodeURIComponent(id)+'/stop','POST',{}).then(()=>refresh(),error=>notify(error.message))}));
+  pace(coordinator.update(state.coordinator));
  }
  async function refresh(announce=false){
   try{const next=await api('agents/overview');if(!host.isConnected)return;state=next;render();if(announce)notify('Project owners refreshed.');}
@@ -183,5 +228,5 @@ export function mountHomeAgents(host,{api,modal,notify,onProject,onRun}){
  }
  refresh();
  timer=setInterval(()=>{if(!host.isConnected){clearInterval(timer);return;}if(document.visibilityState==='visible'&&!composer.sending())refresh();},15000);
- return {refresh,destroy(){clearInterval(timer);}};
+ return {refresh,destroy(){clearInterval(timer);coordinator.destroy();}};
 }

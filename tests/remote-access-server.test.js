@@ -47,6 +47,9 @@ test('remote HTTP requests need configured remote access and a valid Access toke
  // admitted with one (then 404 for the unknown session, proving the gate let it through).
  const upgrade=async headers=>{const ws=new WebSocket(`ws://127.0.0.1:${port}/api/workspace-terminal/none/stream`,{origin:`https://${remoteConfig.host}`,headers:{Host:remoteConfig.host,...headers}});ws.on('error',()=>{});const [,res]=await once(ws,'unexpected-response');res.resume();ws.terminate();return res.statusCode;};
  assert.equal(await upgrade({}),403);assert.equal(await upgrade({'cf-access-jwt-assertion':fixture.token()}),404);
+ // Coordinator CLI streams use the same gate.
+ const coordinatorUpgrade=async headers=>{const ws=new WebSocket(`ws://127.0.0.1:${port}/api/coordinator-terminal/none/stream`,{origin:`https://${remoteConfig.host}`,headers:{Host:remoteConfig.host,...headers}});ws.on('error',()=>{});const [,res]=await once(ws,'unexpected-response');res.resume();ws.terminate();return res.statusCode;};
+ assert.equal(await coordinatorUpgrade({}),403);assert.equal(await coordinatorUpgrade({'cf-access-jwt-assertion':fixture.token()}),404);
  // Disabling takes effect without a restart.
  removeRemoteAccess(directory);assert.equal((await remote('/api/health')).status,403);
 });
