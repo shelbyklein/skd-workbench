@@ -1311,3 +1311,48 @@ TT plan `local:F5660300-649C-4650-8AC3-2C96C0328BB9`, DB-01 through DB-07.
   closing fixture responses avoids mistaking that stale socket for a refused port.
 - Full Node suite passed 379/379. Restarted the idle local launchd server after
   checking active session records and confirming no server child processes.
+
+## Issue #14: Project owner mandates and Project Overview prototype — 2026-09-23
+
+- PA-01 contract record: `instructions/2026-09-23-project-agent-contracts.md`
+  (canonical sources, overlapping fields, execution constraints, additive schema).
+- PA-02 `project-mandates.json`: one versioned mandate per project that references
+  the project and an owner Agent profile by id/version. Disabled by default, input
+  is bounded, 50 revisions of history are kept, and a damaged store fails startup and is left in
+  place. Only the local UI route writes it. Controllers read it through
+  `get_project_mandate` and have no write tool. `tests/mandates.test.js` covers
+  these cases, including that saving an active mandate over HTTP spawns nothing.
+- PA-03 binding: `preview_run`/`start_run` accept `mandate {version, taskRef}`.
+  The version, active state, task, workflow, mode, attempt limit, owner Agent state and
+  unfinished same-task claims are checked at preview and again before persist.
+  The binding is part of the preview fingerprint. Runs keep `controllerOrigin.mandate`
+  and `deadlineAt`, and no attempt launches after the deadline. Pausing blocks
+  new launches only. `tests/mandate-execution.test.js` exercises real controller
+  HTTP entry points, including restart without replay and grant revocation.
+  Deliberately disabling the deadline check makes the restart test fail.
+- PA-04 prototype (visual design awaiting acceptance): Project Overview shows the owner
+  line, Needs your decision, Current work, Up next and Recent result, all
+  derived by `GET /api/projects/:id/agent` from mandate and workflow records. It also has a
+  project conversation panel (`project-threads.json`; coordinator tools
+  `list_messages`/`post_message`) and an owner mandate dialog. Sending and saving
+  start nothing. Drafts are kept per project across navigation and reload.
+  `tests/project-agent-browser.mjs` covers scope, keyboard send, pausing the mandate without
+  stopping the run, the run link, dark theme and a 390 px viewport, with zero
+  execution requests. Desktop, dialog, dark and mobile screenshots were inspected.
+- Final: full Node suite 390/390. Browser suites: 37 of 39 pass, each run individually. `project-tags-browser`
+  (dark project-card background) and `issues-browser` (waitForFunction timeout)
+  fail the same way on unmodified main 375d6f8 and are recorded as pre-existing.
+  `npm run test:browser` stops at the first of these.
+- The project view was accepted on 2026-09-23. Overlapping widgets were folded into the owner
+  view and the Project views grid was removed (the sidebar has every view link). Home
+  gained the project-owner summary and coordinator conversation. Coordinator tools require
+  a grant for every connected project. Screenshot `output/project-agent-home.png` inspected.
+- PA-05 fixture pilot (`tests/project-agent-pilot.test.js`): a real stdio MCP
+  client through `scripts/workbench-mcp.mjs` against a temporary store reads the mandate
+  and the user's direction and is refused over-limit and out-of-mode launches. It then launches
+  one mandate-bound task, reads the attempt output and posts an idempotent report
+  linking the run, operation and issue. After a server restart on the same port the run stays
+  waiting with one attempt (no replay) and the operation stays accepted. The one-attempt cap
+  stops the rerun after a change request. Real-provider inference was not run;
+  it needs a separately authorized pilot. Nothing was pushed. The live data store and server were not touched. All
+  checks used temporary stores in the `codex/project-agents` worktree.
