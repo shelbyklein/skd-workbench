@@ -3,7 +3,7 @@ const day=date=>new Date(date+'T12:00:00Z').toLocaleDateString(undefined,{weekda
 const time=value=>value?new Date(value).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}):'';
 const labels={absent:'Not generated','evidence-only':'Facts only',queued:'Waiting for agent',generating:'Generating',ready:'Ready',failed:'Failed',interrupted:'Interrupted',cancelled:'Cancelled',unavailable:'Agent unavailable'};
 const kindLabels={session:'Session',terminal:'Session',imported:'Imported chat',workflow:'Workflow',delegation:'Delegation',commit:'Commit',issue:'Issue'};
-const coverageLabels={session:'Sessions',terminal:'Terminal sessions',imported:'Imported chats',workflow:'Workflows',delegation:'Delegations',commits:'Commits',issues:'Open issues'},FACT_LIMIT=8;
+const coverageLabels={session:'Sessions',terminal:'Terminal sessions',imported:'Imported chats',workflow:'Workflows',delegation:'Delegations',commits:'Commits',issues:'Open issues'};
 const busy=status=>['queued','generating'].includes(status);
 const pref=(key,value)=>{try{if(value===undefined)return localStorage.getItem('skd-briefing-'+key);localStorage.setItem('skd-briefing-'+key,value);}catch{}return null;};
 export function localYesterday(now=new Date()){const d=new Date(now);d.setDate(d.getDate()-1);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
@@ -13,24 +13,20 @@ function sourceLinks(ids,index){
  return ids.map(id=>{const item=index.get(id);if(!item)return '';const label=item.kind==='commit'?`Commit ${esc(item.recordID.slice(0,7))}`:item.kind==='issue'?`#${esc(item.recordID)}`:esc(kindLabels[item.kind]||item.kind);
   return ['session','terminal','imported','issue'].includes(item.kind)?`<button type="button" class="briefing-source" data-source="${esc(id)}">${label}</button>`:`<span class="briefing-source">${label}</span>`;}).join('');
 }
-function factList(items,empty){
- if(!items.length)return `<p class="widget-empty">${esc(empty)}</p>`;
- const row=item=>`<li><span class="briefing-kind">${esc(kindLabels[item.kind]||item.kind)}</span><span>${esc(item.title)}${item.partial?' <small>(spans the day boundary)</small>':''}</span>${item.kind==='commit'?'':`<small>${esc(item.status)}</small>`}</li>`;
- const rest=items.slice(FACT_LIMIT);
- return `<ul class="briefing-list">${items.slice(0,FACT_LIMIT).map(row).join('')}</ul>${rest.length?`<details class="briefing-more"><summary>Show ${rest.length} more</summary><ul class="briefing-list">${rest.map(row).join('')}</ul></details>`:''}`;
-}
-function synthesisList(items,index,empty){
- if(!items.length)return `<p class="widget-empty">${esc(empty)}</p>`;
- return `<ul class="briefing-list">${items.map(item=>`<li><span>${esc(item.text)}</span><span class="briefing-sources">${sourceLinks(item.sourceIDs,index)}</span></li>`).join('')}</ul>`;
-}
 function coverage(report){
  const rows=Object.entries(report.evidence.coverage||{}),gaps=rows.filter(([,c])=>c.status!=='complete');
  return `<details class="briefing-coverage"><summary>Sources${gaps.length?` · ${gaps.length} incomplete`:''}</summary><ul>${rows.map(([name,c])=>`<li><span>${esc(coverageLabels[name]||name)}</span><span class="coverage-${esc(c.status)}">${esc(c.status)}${c.reason?` — ${esc(c.reason)}`:''}</span></li>`).join('')}</ul></details>`;
 }
-function reportBody(report){
- const index=sourceIndex(report),s=report.synthesis;
- const suggestions=s?(s.suggestions.length?`<ol class="briefing-suggestions">${s.suggestions.map(item=>`<li><strong>${esc(item.title)}</strong><span>${esc(item.reason)}</span><span class="briefing-sources">${sourceLinks(item.sourceIDs,index)}</span></li>`).join('')}</ol>`:'<p class="widget-empty">No suggestions.</p>'):`<p class="widget-empty">${report.status==='evidence-only'&&report.error?esc(report.error):'Generate with an agent to get suggestions.'}</p>`;
- return `<div class="briefing-grid"><section><h3>Yesterday</h3>${s?synthesisList(s.yesterday,index,'No observed work.'):factList(report.evidence.activity,'No observed work.')}</section><section><h3>Open loops</h3>${s?synthesisList(s.openLoops,index,'No open loops.'):factList(report.evidence.openLoops,'No open loops.')}</section><section class="briefing-today"><h3>Suggested today</h3>${suggestions}</section></div>${coverage(report)}`;
+function briefingRows(items,index,empty,prefix){
+ if(!items.length)return `<p class="widget-empty">${empty}</p>`;
+ const row=(item,i)=>{const text=item.text||item.title||'Untitled record',short=text.length>90?text.slice(0,87).replace(/\s+\S*$/,'')+'…':text,ids=item.sourceIDs||[item.id];
+  return `<details class="briefing-entry" data-disclosure="${prefix}-${i}"><summary><span>${esc(short)}</span><small>${ids.length} ${ids.length===1?'source':'sources'}</small></summary><div class="briefing-entry-body"><p>${esc(text)}</p>${item.partial?'<p class="field-help">Spans the day boundary; not all activity occurred during this briefing interval.</p>':''}${item.status?`<p class="field-help">Recorded status: ${esc(item.status)}</p>`:''}<div class="briefing-sources">${sourceLinks(ids,index)}</div></div></details>`;};
+ return items.slice(0,5).map(row).join('')+(items.length>5?`<details class="briefing-more" data-disclosure="${prefix}-more"><summary>Show ${items.length-5} more</summary>${items.slice(5).map((item,i)=>row(item,i+5)).join('')}</details>`:'');
+}
+function reportBody(report,projectName){
+ const index=sourceIndex(report),s=report.synthesis,updates=s?.yesterday||report.evidence.activity,loops=s?.openLoops||report.evidence.openLoops;
+ const suggestions=s?(s.suggestions.length?`<div class="briefing-suggestions briefing-project-suggestions">${s.suggestions.map((item,i)=>`<details class="briefing-suggestion" data-disclosure="suggestion-${i}"><summary><span class="briefing-card-project">${esc(projectName)}</span><strong>${esc(item.title)}</strong></summary><div class="briefing-entry-body"><p>${esc(item.reason)}</p><div class="briefing-sources">${sourceLinks(item.sourceIDs,index)}</div></div></details>`).join('')}</div>`:'<p class="widget-empty">No suggestions.</p>'):`<p class="widget-empty">${report.status==='evidence-only'&&report.error?esc(report.error):'Generate with an agent to get suggestions.'}</p>`;
+ return `<section class="briefing-project-next"><header><h3>Suggested next</h3><span>${s?.suggestions.length||0}</span></header>${suggestions}</section><div class="briefing-project-panels"><section><header><h3>Yesterday</h3><span>${updates.length} ${updates.length===1?'update':'updates'}</span></header>${briefingRows(updates,index,'No observed work.','yesterday')}</section><section><header><h3>Open loops</h3><span>${loops.length} unresolved</span></header>${briefingRows(loops,index,'No open loops.','loops')}</section></div>${coverage(report)}`;
 }
 
 // Project overview widget. Reading never starts inference; Generate is explicit.
@@ -45,9 +41,9 @@ export function mountProjectBriefing(host,{project,api,onSession,onIssue}){
  }
  async function models(){
   const select=host.querySelector('#briefing-model'),effort=host.querySelector('#briefing-effort');if(!select)return;
-  select.innerHTML='<option>Loading…</option>';select.disabled=true;effort.disabled=true;
+  select.innerHTML='<option>Loading…</option>';select.disabled=true;effort.disabled=true;host.querySelector('#briefing-generate').disabled=true;
   try{catalog=await api('terminal-agents/'+agent);if(!alive())return;const saved=pref('model:'+agent),chosen=catalog.models.find(m=>m.id===saved)||catalog.models.find(m=>m.isDefault)||catalog.models[0];
-   select.innerHTML=catalog.models.map(m=>`<option value="${esc(m.id)}" ${m.id===chosen?.id?'selected':''}>${esc(m.name||m.id)}</option>`).join('');select.disabled=false;efforts();}
+   select.innerHTML=catalog.models.map(m=>`<option value="${esc(m.id)}" ${m.id===chosen?.id?'selected':''}>${esc(m.name||m.id)}</option>`).join('');select.disabled=false;efforts();host.querySelector('#briefing-generate').disabled=busy(view.status)||!chosen;}
   catch(error){if(alive()){select.innerHTML='<option value="">Unavailable</option>';host.querySelector('#briefing-error').textContent=error.message;}}
  }
  function efforts(){
@@ -63,13 +59,16 @@ export function mountProjectBriefing(host,{project,api,onSession,onIssue}){
   catch(e){if(alive()){button.disabled=false;error.textContent=e.message;}}
  }
  function render(){
+  const expanded=new Set([...host.querySelectorAll('[data-disclosure][open]')].map(el=>el.dataset.disclosure));
+  const settingsOpen=host.querySelector('.briefing-generation-settings')?.open;
   const report=view.latest,shown=!report?null:report.synthesis||!view.lastSuccessful?.synthesis?report:view.lastSuccessful;
   const notice=view.lastSuccessful&&['failed','interrupted','cancelled','unavailable'].includes(view.status)?`<p class="briefing-notice" role="status">Revision ${view.latest.revision} ${esc(labels[view.status].toLowerCase())}: ${esc(view.latest.error||'')} Revision ${view.lastSuccessful.revision} is still available.</p>`:report?.error&&!report.synthesis&&report.status!=='evidence-only'?`<p class="briefing-notice" role="status">${esc(report.error)}</p>`:'';
-  host.innerHTML=`<header><div><span class="eyebrow">DAILY BRIEFING</span><h2>${esc(day(view.date))}</h2></div><span id="briefing-status" tabindex="-1" class="briefing-state briefing-state-${esc(view.status)}">${esc(labels[view.status]||view.status)}${report?` · rev ${report.revision} · ${esc(time(report.updatedAt))}`:''}</span></header>
-   ${notice}${shown?reportBody(shown):`<p class="widget-empty">No briefing for ${esc(day(view.date))}.</p>`}
-   <form class="briefing-controls" id="briefing-form"><label>Agent<select id="briefing-agent">${['codex','claude'].map(a=>`<option value="${a}" ${a===agent?'selected':''}>${a==='codex'?'Codex':'Claude'}</option>`).join('')}</select></label><label>Model<select id="briefing-model"></select></label><label>Effort<select id="briefing-effort"></select></label>
-   <div class="briefing-actions"><button type="button" class="text-button" id="briefing-facts" ${busy(view.status)?'disabled':''}>Collect facts</button><button type="submit" class="primary" id="briefing-generate" ${busy(view.status)?'disabled':''}>${report?'Regenerate':'Generate'}</button></div><p class="field-error" id="briefing-error" role="alert"></p></form>
-   <p class="field-help">Generate runs one tool-free agent task and uses provider usage. It waits while another agent task is running.</p>`;
+  host.innerHTML=`<header><div><h2>Daily briefing</h2><span class="briefing-report-date">${esc(day(view.date))}</span></div><span id="briefing-status" tabindex="-1" class="briefing-state briefing-state-${esc(view.status)}">${esc(view.status==='ready'?'Summary available':labels[view.status]||view.status)}${report?` · rev ${report.revision} · ${esc(time(report.updatedAt))}`:''}</span></header>
+   ${notice}${shown?reportBody(shown,project.name):`<p class="widget-empty">No briefing for ${esc(day(view.date))}.</p>`}
+   <form class="briefing-generation" id="briefing-form"><details class="briefing-generation-settings" ${settingsOpen?'open':''}><summary>Generation settings</summary><div class="briefing-controls"><label>Agent<select id="briefing-agent">${['codex','claude'].map(a=>`<option value="${a}" ${a===agent?'selected':''}>${a==='codex'?'Codex':'Claude'}</option>`).join('')}</select></label><label>Model<select id="briefing-model"></select></label><label>Effort<select id="briefing-effort"></select></label>
+   </div><p class="field-help">Generate uses provider usage and waits while another agent task is running.</p></details><div class="briefing-actions"><button type="button" class="text-button" id="briefing-facts" ${busy(view.status)?'disabled':''}>Collect facts</button><button type="submit" class="primary" id="briefing-generate" disabled>${report?'Regenerate':'Generate'}</button></div><p class="field-error" id="briefing-error" role="alert"></p></form>
+   `;
+  host.querySelectorAll('[data-disclosure]').forEach(el=>el.open=expanded.has(el.dataset.disclosure));
   host.querySelector('#briefing-agent').onchange=e=>{agent=e.target.value;models();};
   host.querySelector('#briefing-model').onchange=efforts;
   host.querySelector('#briefing-form').onsubmit=e=>{e.preventDefault();generate(true);};

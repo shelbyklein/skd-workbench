@@ -1258,3 +1258,22 @@ TT plan `local:F5660300-649C-4650-8AC3-2C96C0328BB9`, DB-01 through DB-07.
   The test's added gate response uses serviceWorkers:block so interception is reliable.
 - Cache version: skd-shell-0.5.0-99. Frontend-only change; no live inference, saved
   report mutation, provider launch or server restart was required for delivery.
+
+## Project briefing layout — 2026-09-22
+
+- Moved Suggested next above two bordered Yesterday/Open loops panels. Suggestion
+  cards and evidence rows use keyboard-accessible native disclosures. Five rows
+  appear initially; remaining rows expand without discarding evidence. Full text,
+  cited source navigation and day-boundary notices remain available inside rows.
+- Collapsed generation settings while retaining visible errors, Collect facts and
+  Generate/Regenerate. Generation is disabled during provider discovery or when
+  unavailable. Summary available replaces the ambiguous Ready label. Open
+  disclosures persist through polling/render updates; existing generation and
+  saved-report semantics remain unchanged.
+- Briefing browser suite passed with temporary data and fixture inference:
+  keyboard disclosure, source navigation, failed-generation fallback, scheduling,
+  Home grouping and desktop/mobile overflow. Rendered project layout inspected.
+  Cache bumped to skd-shell-0.5.0-103; no live inference or report mutations.
+- PWA Chrome suite also passed: installability, offline shell, uncached/unqueued
+  APIs, explicit update and retained drafts. Mobile header stacks its status under
+  the date to avoid squeezing the title beside the badge.

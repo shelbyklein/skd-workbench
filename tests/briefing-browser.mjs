@@ -34,8 +34,11 @@ try{
  await widget.locator('#briefing-generate').focus();await page.keyboard.press('Enter');
  await widget.locator('.briefing-state-ready').waitFor({timeout:15000});
  assert.deepEqual(await widget.locator('.briefing-suggestions strong').allTextContents(),['Fix the settings migration','Review the dashboard commit']);
- assert.match(await widget.locator('.briefing-grid').textContent(),/Added the dashboard layout\./);
+ assert.match(await widget.locator('.briefing-project-panels').textContent(),/Added the dashboard layout\./);
  assert.match(await widget.locator('.briefing-coverage summary').textContent(),/incomplete/);
+ assert.equal(await widget.locator('.briefing-generation-settings').getAttribute('open'),null);
+ await widget.locator('.briefing-entry summary').first().focus();await page.keyboard.press('Enter');
+ assert.equal(await widget.locator('.briefing-entry').first().getAttribute('open'),'');
  await page.screenshot({path:'output/briefing-project-ready.png',fullPage:false});
  // Failed regenerate keeps the last successful revision visible.
  respond('{"suggestions":[{"title":"Invent","reason":"x","sourceIDs":["session:nope"]}]}');
@@ -45,6 +48,7 @@ try{
  assert.equal(await widget.locator('.briefing-suggestions strong').first().textContent(),'Fix the settings migration');
  await page.screenshot({path:'output/briefing-project-failed.png'});
  // Source links open the cited session.
+ await widget.locator('.briefing-suggestion summary').first().click();
  await widget.locator('.briefing-suggestions [data-source="session:failed-session"]').first().click();
  await page.waitForURL(/#sessions\/.*failed-session|failed-session/);
  // Inject an explicit workflow gate into saved-read responses; no execution is started.
