@@ -1,0 +1,38 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtempSync,readFileSync,writeFileSync,rmSync,statSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+import {ProjectThreads} from '../lib/project-threads.js';
+import {projectAgentOverview} from '../lib/project-agent.js';
+const project={id:'p',name:'P',folderPath:'/tmp'},runs=[{id:'run-1',projectID:'p'},{id:'run-2',projectID:'q'}];
+test('project threads are idempotent per author, bounded and validate record links',t=>{
+ const dir=mkdtempSync(path.join(tmpdir(),'skd-threads-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));
+ const threads=new ProjectThreads(dir,{runs:()=>runs}),controller={id:'c1',name:'Coordinator'};
+ const first=threads.post(project,{author:'user',text:'  Finish the controls. ',requestKey:'k1'});assert.equal(first.text,'Finish the controls.');assert.equal(statSync(threads.file).mode&0o777,0o600);
+ assert.equal(threads.post(project,{author:'user',text:'Finish the controls.',requestKey:'k1'}).id,first.id,'Retried send returns the original message.');
+ assert.throws(()=>threads.post(project,{author:'user',text:'Different',requestKey:'k1'}),e=>e.status===409);
+ const reply=threads.post(project,{author:'agent',text:'Done.',requestKey:'k1',controller,refs:[{kind:'run',id:'run-1'},{kind:'issue',id:'owner/repo#14'}]});
+ assert.notEqual(reply.id,first.id,'Keys are scoped to their author.');assert.equal(reply.controllerName,'Coordinator');
+ assert.throws(()=>threads.post(project,{author:'agent',text:'x',requestKey:'k2',controller,refs:[{kind:'run',id:'run-2'}]}),/not in this project/);
+ assert.throws(()=>threads.post(project,{author:'agent',text:'x',requestKey:'k3',controller,refs:[{kind:'shell',id:'rm'}]}),/Invalid record link/);
+ assert.throws(()=>threads.post(project,{author:'user',text:'x'.repeat(8193),requestKey:'k4'}),/1–8 KiB/);
+ assert.throws(()=>threads.post(project,{author:'user',text:'x',requestKey:''}),/request key/);
+ assert.throws(()=>threads.post({id:'unassigned',folderPath:null},{author:'user',text:'x',requestKey:'k5'}),/Connect a project folder/);
+ assert.equal(threads.list('p').total,2);assert.equal(threads.list('q').total,0);
+ for(let i=0;i<1005;i++)threads.data.threads[0].messages.push({...first,id:'m'+i});threads.post(project,{author:'user',text:'Last',requestKey:'last'});
+ assert.equal(threads.list('p').total,1000);assert(threads.recent('p').trimmed>0);assert.equal(threads.recent('p').items.at(-1).text,'Last');
+ const reloaded=new ProjectThreads(dir,{runs:()=>runs});assert.equal(reloaded.recent('p').items.at(-1).text,'Last');
+ writeFileSync(threads.file,'{"schema":1,"threads":[{"projectID":"p"}]}');assert.throws(()=>new ProjectThreads(dir),/Damaged project conversations/);
+ assert.match(readFileSync(threads.file,'utf8'),/"projectID":"p"/);
+});
+test('overview derives decisions, current work, next tasks and results from records',()=>{
+ const flow={name:'Pilot',steps:[{id:'a',name:'Implement',type:'agent'},{id:'h',name:'Verify',type:'human'}]};
+ const base={projectID:'p',flow,task:'Task',attempts:[],maxAttempts:3,cursor:1,error:null};
+ const records=[{...base,id:'old',status:'completed',createdAt:'2026-09-20T00:00:00Z',cursor:2,attempts:[{kind:'agent'},{kind:'human',decision:'approve'}]},{...base,id:'live',status:'waiting',createdAt:'2026-09-22T00:00:00Z',controllerOrigin:{controllerName:'Coordinator',mandate:{taskRef:'local:a',version:1}}},{...base,id:'other',projectID:'q',status:'running',createdAt:'2026-09-23T00:00:00Z'}];
+ const mandate={version:1,enabled:true,tasks:[{ref:'local:a',title:'A'},{ref:'local:b',title:'B'}],history:[{}]};
+ const overview=projectAgentOverview({project,mandates:{view:()=>({mandate,profile:{status:'ready',name:'Owner'}})},threads:{recent:()=>({items:[],total:0,trimmed:0})},runs:records,executorOwner:'other'});
+ assert.equal(overview.current.id,'live');assert.deepEqual(overview.current.steps.map(s=>s.state),['done','current']);assert.equal(overview.current.taskRef,'local:a');
+ assert.deepEqual(overview.decisions.map(d=>[d.kind,d.runID]),[['review','live']]);assert.deepEqual(overview.next.map(t=>t.ref),['local:b']);
+ assert.equal(overview.recent.id,'old');assert.equal(overview.recent.approvals,1);assert.equal(overview.mandate.history,undefined);assert.equal(overview.working,false);
+});
