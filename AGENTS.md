@@ -52,7 +52,11 @@ read-only GitHub browsing with explicit agent proposal and apply actions.
   Corrupt data must fail visibly rather than being replaced with empty records.
 - Preserve project scope and captured source context. A folder, repository root,
   and common Git directory are different facts; distinct worktrees can be projects.
-- Sessions and workflows share execution ownership. Hiding/reopening a terminal
+- Sessions and workflows share execution ownership. The one exception is the coordinator
+  lane (`lib/coordinator-agent.js`): conversation replies run one at a time, outside the lock,
+  with no worktree, no built-in tools and only the Workbench MCP bridge under its internal
+  grant. Work it starts goes through mandate-checked controller tools, which take the lock.
+  Hiding/reopening a terminal
   must not spawn another process; restarting the server must not resume execution.
 - Normal execution worktrees remain for review. Do not add automatic merge or
   deletion. Benchmark cleanup requires a successful archive and ownership checks;
