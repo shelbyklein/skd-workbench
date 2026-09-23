@@ -56,7 +56,7 @@ async function body(req,limit=1024*1024) {
   try { const parsed=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks))); assert(parsed && typeof parsed==='object' && !Array.isArray(parsed),'Expected a JSON object.'); return parsed; }
   catch(e) { if(e instanceof Problem) throw e; throw new Problem('Invalid JSON.'); }
 }
-export function createServer({directory = process.env.FLOW_BENCH_DATA || path.join(root,'.data'), publicDirectory=path.join(root,'public'), codexOptions={},claudeOptions={},terminalOptions={},githubOptions={},skillsOptions={},connectionsOptions={},gitStatusOptions={},quickActionOptions={},briefingOptions={},folderPicker=createFolderPicker(),workspaceTerminal=createWorkspaceTerminal(root),remoteAccessOptions={}} = {}) {
+export function createServer({directory = process.env.FLOW_BENCH_DATA || path.join(root,'.data'), publicDirectory=path.join(root,'public'), codexOptions={},claudeOptions={},terminalOptions={},githubOptions={},skillsOptions={},connectionsOptions={},gitStatusOptions={},quickActionOptions={},briefingOptions={},folderPicker=createFolderPicker(),workspaceTerminal=createWorkspaceTerminal(root),remoteAccessOptions={},coordinatorOptions={}} = {}) {
   const store = new Store(directory);
   const remoteAccess=new RemoteAccess(directory,remoteAccessOptions);
   const imports=new ImportedSessions(directory);
@@ -96,7 +96,15 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
   const controllers=new Controllers(directory,{projects:()=>store.snapshot().projects});
   const mandates=new Mandates(directory,{playbooks,projects:()=>store.snapshot().projects,flows:()=>store.snapshot().flows});
   const threads=new ProjectThreads(directory,{runs:()=>workflows.runs,projects:()=>store.snapshot().projects});
-  const coordinator=new CoordinatorAgent(directory,{threads,controllers,projects:()=>store.snapshot().projects,executor:codex});
+  const coordinator=new CoordinatorAgent(directory,{threads,controllers,projects:()=>store.snapshot().projects,executor:codex,sessionOptions:coordinatorOptions});
+  // Posting is idempotent by requestKey; a retried send must not type the same message into the CLI twice.
+  const delivered=new Set();
+  const deliver=(key,message,scope)=>{
+   if(delivered.has(message.id))return {session:coordinator.sessions.current(key)};
+   delivered.add(message.id);if(delivered.size>500)delivered.delete(delivered.values().next().value);
+   try{return {session:coordinator.onMessage(key,message,scope)};}
+   catch(e){if(!(e instanceof Problem))console.error(e);return {session:null,deliveryError:e instanceof Problem?e.message:'The coordinator session could not start. The message is saved.'};}
+  };
   const controllerCommands=new ControllerCommands({controllers,store,workflows,playbooks,workspaceTasks,codex,lifecycle,mandates,threads});
   const server = http.createServer(async (req,res)=>{
     const json=(value,status=200)=>{res.writeHead(status,{'Content-Type':'application/json'});res.end(JSON.stringify(value));};
@@ -252,17 +260,25 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       }
       const mandate=pathname.match(/^\/api\/projects\/([\w-]+)\/mandate$/);
       if(mandate){const project=store.project(mandate[1]);if(req.method==='GET')return json(mandates.view(project));if(req.method==='PUT')return json(mandates.save(project,await body(req,64*1024)));}
-      const agentState=key=>{const v=coordinator.view();return {enabled:v.enabled,provider:v.provider,model:v.model,grant:!!v.grant,active:v.active?.threadKey===key?v.active:null,turns:coordinator.turnsFor(key)};};
-      if(pathname==='/api/agents/overview'&&req.method==='GET')return json({...portfolioOverview({projects:store.snapshot().projects,mandates,threads,runs:workflows.runs,executorOwner:codex.owner,coordinator:COORDINATOR}),coordinator:agentState(COORDINATOR)});
-      if(pathname==='/api/coordinator/messages'){if(req.method==='GET')return json(threads.list(COORDINATOR,{cursor:Math.max(0,Number(url.searchParams.get('cursor'))||0),limit:50}));if(req.method==='POST'){const input=await body(req,16*1024);assert(Object.keys(input).every(k=>['text','requestKey','refs'].includes(k)),'Unknown message field.');const message=threads.post({id:COORDINATOR},{...input,author:'user'});return json({...message,turn:coordinator.onMessage(COORDINATOR,message,{})},201);}}
+      // A coordinator session waiting on a CLI permission prompt is a decision like a review gate.
+      const waitingDecisions=key=>coordinator.view().waiting.filter(w=>key===undefined||w.threadKey===key).map(w=>{const project=w.threadKey===COORDINATOR?null:store.snapshot().projects.find(p=>p.id===w.threadKey);return {kind:'coordinator',sessionID:w.id,threadKey:w.threadKey,projectID:project?.id||null,projectName:project?.name||'Coordinator',title:'Waiting for you in the coordinator CLI',detail:'Answer the permission prompt in the CLI view.',status:'waiting'};});
+      const withWaiting=(overview,key)=>{const waiting=waitingDecisions(key);return {...overview,decisions:[...waiting,...overview.decisions],...(overview.counts?{counts:{...overview.counts,decisions:overview.counts.decisions+waiting.length}}:{})};};
+      if(pathname==='/api/agents/overview'&&req.method==='GET')return json({...withWaiting(portfolioOverview({projects:store.snapshot().projects,mandates,threads,runs:workflows.runs,executorOwner:codex.owner,coordinator:COORDINATOR})),coordinator:coordinator.state(COORDINATOR)});
+      if(pathname==='/api/coordinator/messages'){if(req.method==='GET')return json(threads.list(COORDINATOR,{cursor:Math.max(0,Number(url.searchParams.get('cursor'))||0),limit:50}));if(req.method==='POST'){const input=await body(req,16*1024);assert(Object.keys(input).every(k=>['text','requestKey','refs'].includes(k)),'Unknown message field.');const message=threads.post({id:COORDINATOR},{...input,author:'user'});return json({...message,...deliver(COORDINATOR,message,{})},201);}}
       if(pathname==='/api/coordinator'&&req.method==='GET')return json(coordinator.view());
       if(pathname==='/api/coordinator'&&req.method==='PUT')return json(await coordinator.save(await body(req,16*1024),`http://${host}/api/controller/call`));
-      const coordinatorStop=pathname.match(/^\/api\/coordinator\/turns\/([\w-]+)\/stop$/);
-      if(coordinatorStop&&req.method==='POST'){await body(req);return json(coordinator.stop(coordinatorStop[1]));}
+      const coordinatorSession=pathname.match(/^\/api\/coordinator\/sessions\/([\w-]+)\/(stop|signal)$/);
+      if(coordinatorSession&&req.method==='POST'){
+       const input=await body(req,4096);
+       if(coordinatorSession[2]==='stop')return json(coordinator.stop(coordinatorSession[1]));
+       // Only the hook inside the session, on this Mac, can report a waiting permission prompt.
+       assert(!remoteAccess.isRemote(req),'Local access only.',403);
+       return json(coordinator.sessions.signal(coordinatorSession[1],input.secret,input.kind));
+      }
       const agentOverview=pathname.match(/^\/api\/projects\/([\w-]+)\/agent$/);
-      if(agentOverview&&req.method==='GET')return json({...projectAgentOverview({project:store.project(agentOverview[1]),mandates,threads,runs:workflows.runs,executorOwner:codex.owner}),coordinator:agentState(agentOverview[1])});
+      if(agentOverview&&req.method==='GET')return json({...withWaiting(projectAgentOverview({project:store.project(agentOverview[1]),mandates,threads,runs:workflows.runs,executorOwner:codex.owner}),agentOverview[1]),coordinator:coordinator.state(agentOverview[1])});
       const messages=pathname.match(/^\/api\/projects\/([\w-]+)\/messages$/);
-      if(messages){const project=store.project(messages[1]);if(req.method==='GET')return json(threads.list(project.id,{cursor:Math.max(0,Number(url.searchParams.get('cursor'))||0),limit:50}));if(req.method==='POST'){const input=await body(req,16*1024);assert(Object.keys(input).every(k=>['text','requestKey','refs'].includes(k)),'Unknown message field.');const message=threads.post(project,{...input,author:'user'});return json({...message,turn:coordinator.onMessage(project.id,message,{projectID:project.id,projectName:project.name})},201);}}
+      if(messages){const project=store.project(messages[1]);if(req.method==='GET')return json(threads.list(project.id,{cursor:Math.max(0,Number(url.searchParams.get('cursor'))||0),limit:50}));if(req.method==='POST'){const input=await body(req,16*1024);assert(Object.keys(input).every(k=>['text','requestKey','refs'].includes(k)),'Unknown message field.');const message=threads.post(project,{...input,author:'user'});return json({...message,...deliver(project.id,message,{projectID:project.id,projectName:project.name})},201);}}
       const workSettings=pathname.match(/^\/api\/projects\/([\w-]+)\/issues\/(\d+)\/work-settings$/);
       if(workSettings){const project=store.project(workSettings[1]);
         if(req.method==='GET')return json(await issueWork.resolve(project,workSettings[2],{validate:true}));
@@ -389,7 +405,7 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
     } catch(e) { json({error:e instanceof Problem?e.message:'Could not save or load data. Your previous saved state is intact.'},e.status||500); if(!(e instanceof Problem)) console.error(e); }
   });
   server.on('close',()=>{controllerCommands.shutdown();mcpConnections.shutdown();terminals.shutdown();delegations.shutdown();workflows.shutdown();});
-  const terminalStreams=attachTerminalStreams(server,{workspace:workspaceTerminal,agents:terminals,remoteAccess});
+  const terminalStreams=attachTerminalStreams(server,{workspace:workspaceTerminal,agents:terminals,coordinator:coordinator.sessions,remoteAccess});
   server.shutdownCodex=()=>{coordinator.shutdown();controllerCommands.shutdown();terminalStreams.shutdown();workspaceTerminal.shutdown();mcpConnections.shutdown();terminals.shutdown();delegations.shutdown();workflows.shutdown();briefings.close();};
   server.on('listening',()=>{const address=server.address();if(address&&typeof address==='object')coordinator.endpoint=`http://127.0.0.1:${address.port}/api/controller/call`;});
   return server;
