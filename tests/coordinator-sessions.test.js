@@ -63,6 +63,8 @@ test('Stop, idle, settings change and shutdown end sessions without respawning; 
  s.deliver('e','x',start());const count=fake.spawned.length;s.shutdown();assert.equal(s.history('e')[0].endReason,'server');assert.equal(fake.spawned.length,count,'Nothing respawns.');
  assert.throws(()=>s.deliver('e','again',start()),/stopping/);
  const reloaded=new CoordinatorSessions(dir,{spawn:fake.spawn});assert.equal(reloaded.current('e'),null,'Restart never resumes.');assert.equal(reloaded.history('e')[0].endReason,'server');
+ const endedID=reloaded.history('e')[0].id;assert.throws(()=>reloaded.input(endedID,'y'),/ended/);assert.equal(reloaded.output(endedID,0).session.status,'ended');
+ const defaults=new CoordinatorSessions(temp(t));assert.equal(defaults.historyLimit,20);assert.equal(defaults.tailChars,256*1024);assert.equal(defaults.idleMs,30*60000);
  assert.equal(statSync(path.join(dir,'coordinator-sessions.json')).mode&0o777,0o600);
 });
 
