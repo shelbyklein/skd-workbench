@@ -1356,3 +1356,13 @@ TT plan `local:F5660300-649C-4650-8AC3-2C96C0328BB9`, DB-01 through DB-07.
   stops the rerun after a change request. Real-provider inference was not run;
   it needs a separately authorized pilot. Nothing was pushed. The live data store and server were not touched. All
   checks used temporary stores in the `codex/project-agents` worktree.
+
+## Dark-surface browser assertions — 2026-09-23
+
+- `issues-browser` and `project-tags-browser` timed out from bd8f6f4 onward (44816c8
+  passed): they waited for pre-primary neutral colors (`#0c0c0c`, `#181818`) that
+  primary-tinted `--paper`/`--white` intentionally replaced. The waits now compare
+  against the resolved theme tokens and require dark backgrounds / light text.
+- Test-only change; no shell assets changed. `issues-browser`, `issue-actions-browser`
+  and `project-tags-browser` passed with temporary stores; dark screenshots inspected.
+  This resolves the two pre-existing failures recorded in the issue #14 entry above.
