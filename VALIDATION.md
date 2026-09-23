@@ -1405,6 +1405,5 @@ Plan: `instructions/2026-09-23-remote-access.md` · Tracker Trapper `local:E017E
   Host without or with a fake token → 403; loopback with `cf-ray` → 403. Public URL, a bogus
   `CF_Authorization` cookie and a `wss` upgrade all 302 to the Access login; the in-app
   browser showed "Log in to workbench".
-- Open: the person reported the public site loading without a code but has not confirmed
-  the address or a private-window sign-in, so an end-to-end sign-in and remote terminal
-  are not yet verified (RA-09).
+- End to end: the person signed in at the public address in a private window with the
+  emailed code and reported the Workbench and a terminal working (RA-09).

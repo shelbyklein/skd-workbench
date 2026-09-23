@@ -132,8 +132,8 @@ None blocking. Access session length defaults to 24 hours in the Access applicat
 - Mode: `linear` (solo). Executor: this Claude Code session, Opus 5.5 (`claude-opus-5-5`) at the session's current
   effort setting; no subagents.
 - Recipient/handoff: none (solo).
-- Now/later: now (2026-09-23). Live: team `skdesign.cloudflareaccess.com`, tunnel `workbench`; RA-01–RA-08 done,
-  RA-09 sign-in check open, RA-10 pushed on the person's request.
+- Now/later: now (2026-09-23). Live: team `skdesign.cloudflareaccess.com`, tunnel `workbench`; RA-01–RA-10 done
+  (RA-09 confirmed by the person's private-window sign-in).
 - Readiness: pass · 2026-09-23 · R3 flow diagram above (no Workbench screen changes; login page is Cloudflare's) ·
   R7 local plan, no GitHub issue by design · R12 rollback above (external services and a new data file).
 - Remaining questions: none blocking.
