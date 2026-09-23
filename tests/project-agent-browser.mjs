@@ -72,12 +72,14 @@ try{
  assert.match(await page.locator('#home-decisions-body').textContent(),/Newton · Verify/);
  assert.match(await page.locator('.home-owner').first().textContent(),/Newton[\s\S]*Owner: Newton agent[\s\S]*Waiting for you[\s\S]*Plan, implement, verify/);
  assert.match(await page.locator('#home-recent-body').textContent(),/Newton · Plan, implement, verify[\s\S]*Stopped/);
- assert.match(await page.locator('.agent-message-agent').textContent(),/waiting for your verification[\s\S]*Project[\s\S]*Run /);
- assert.match(await page.locator('#agent-message-label').textContent(),/Message coordinator · all projects/);
- await page.locator('#agent-message').fill('Move Newton forward.');await page.screenshot({path:'output/project-agent-home.png',fullPage:true});
+ // The all-projects coordinator conversation is in the side panel on every page.
+ const dock=page.getByRole('complementary',{name:'Coordinator panel',exact:true});await page.getByRole('button',{name:'Toggle coordinator panel',exact:true}).click();await dock.waitFor();
+ await dock.locator('.agent-message-agent').waitFor();assert.match(await dock.locator('.agent-message-agent').textContent(),/waiting for your verification[\s\S]*Project[\s\S]*Run /);
+ assert.match(await page.locator('#dock-message-label').textContent(),/Message coordinator · all projects/);
+ await page.locator('#dock-message').fill('Move Newton forward.');await page.screenshot({path:'output/project-agent-home.png',fullPage:true});
  await page.locator(`.project-card[data-project="${a.id}"]`).click();await page.locator('#agent-decisions').waitFor();await page.waitForFunction(()=>document.querySelector('#project-owner')?.textContent.trim()&&document.querySelector('#agent-thread-title')?.textContent.trim());assert.equal(await page.locator('#agent-message').inputValue(),'','Project and coordinator drafts are separate.');
- await page.locator('#open-projects').click();await page.locator('#home-decisions').waitFor();assert.equal(await page.locator('#agent-message').inputValue(),'Move Newton forward.');
- await page.locator('#agent-send').click();await page.locator('.agent-message-user').waitFor();
+ await page.locator('#open-projects').click();await page.locator('#home-decisions').waitFor();assert.equal(await page.locator('#dock-message').inputValue(),'Move Newton forward.');
+ await page.locator('#dock-send').click();await dock.locator('.agent-message-user').waitFor();await dock.getByRole('button',{name:'Hide',exact:true}).click();
  const coordinator=await api('coordinator/messages');assert.deepEqual(coordinator.items.map(m=>m.author),['agent','user']);assert.equal((await api('projects/'+a.id+'/messages')).total,2);
  assert.equal((await call('list_coordinator_messages',{})).items.at(-1).text,'Move Newton forward.');
  const partial=await api('controllers',{name:'Newton only',projectIDs:[a.id],capabilities:['read','manage']}),partialToken=JSON.parse(readFileSync(partial.credentialPath)).token;

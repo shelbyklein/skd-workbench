@@ -438,15 +438,15 @@ Global and project **Connections → Add MCP server** saves a Workbench-owned lo
 
 Workflows, read-only sessions and issue proposals remain MCP-free. Existing Agent/run previews display that exclusion. Managed definitions are stored in connections schema 2 with a schema-1 backup on upgrade; inventory/history remain redacted.
 
-### Workspace terminal
+### Side panel and workspace terminal
 
-The header terminal icon opens a persistent shell column in the SKD Workbench folder. It stays open across views. Hide preserves the shell; reopening reconnects. End session stops it. Server restart ends the shell without automatically restarting it. On narrow screens the panel fills the screen. This plain shell is independent of Agents and selected projects.
+The header terminal icon toggles a side panel with three tabs: **Chat** and **CLI** for the all-projects coordinator (see below) and **Shell**, a persistent shell in the SKD Workbench folder. The panel stays open across views until you hide it; its open state, tab and width are remembered in this browser. The shell starts only when you choose Shell; a restored panel reconnects to a running shell and never starts one. Hide preserves the shell; End session stops it and **Start shell** starts a new one. Server restart ends the shell without automatically restarting it. On narrow screens the panel fills the screen. This plain shell is independent of Agents and selected projects.
 
 Both workspace and Agent terminals stream input/output over a same-origin WebSocket. Reconnecting attaches to the existing session and never resends input. A slow or suspended client may reconnect; retained output is bounded and any missing earlier output is marked. Very large pastes are rejected before sending, so split them into smaller parts.
 
 ## Coordinator conversation
 
-Home and each project have a conversation panel. With the coordinator off, messages are only saved. **Set up** chooses Claude Code or Codex, a model and an effort; turning it on creates the internal "Workbench coordinator" controller grant.
+The all-projects coordinator is in the side panel (header terminal icon), available on every page; each project overview has its own conversation card. With the coordinator off, messages are only saved. **Set up** chooses Claude Code or Codex, a model and an effort; turning it on creates the internal "Workbench coordinator" controller grant.
 
 Each conversation then has one live CLI session, started by your first message and seeded with the recent conversation. Messages you send are typed into it, and the agent posts its replies to the chat. Switch the panel between **Chat** and **CLI** to watch the session, type in it directly, or **Stop** it. The session has no file or shell tools, only Workbench's own tools: reading records and posting replies need no approval, while `start_run`, `stop_run`, `create_workflow` and `update_workflow` show the CLI's permission prompt. A waiting prompt shows "Waiting for you in the CLI" and appears under **Needs your decision**. Work it starts is still limited by the project mandate.
 

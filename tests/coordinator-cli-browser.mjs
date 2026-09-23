@@ -20,36 +20,39 @@ try{
  const screen=async()=>(await page.locator('.coordinator-terminal .xterm-rows').innerText()).replace(/\n/g,'');
  const waitScreen=re=>page.waitForFunction(source=>new RegExp(source).test((document.querySelector('.coordinator-terminal .xterm-rows')?.innerText||'').replace(/\n/g,'')),re.source);
  await page.goto(url);await page.locator('#home-decisions').waitFor();
- await page.waitForFunction(()=>/Coordinator agent off/.test(document.querySelector('#agent-coordinator')?.textContent));
- assert.equal(await page.locator('[data-coordinator-mode]').count(),0,'No CLI switch while the coordinator is off.');
- await page.locator('[data-coordinator-settings]').click();await page.getByRole('heading',{name:'Coordinator agent'}).waitFor();
+ assert.equal(await page.locator('#agent-composer').count(),0,'Home has no coordinator card; the side panel replaces it.');
+ const dock=page.getByRole('complementary',{name:'Coordinator panel',exact:true}),tab=name=>dock.getByRole('button',{name,exact:true});
+ await page.getByRole('button',{name:'Toggle coordinator panel',exact:true}).click();await dock.waitFor();
+ await page.waitForFunction(()=>/Coordinator agent off/.test(document.querySelector('#dock-coordinator')?.textContent));
+ await tab('CLI').click();await dock.getByText('The coordinator agent is off.').waitFor();await tab('Chat').click();
+ await dock.locator('#dock-coordinator [data-coordinator-settings]').click();await page.getByRole('heading',{name:'Coordinator agent'}).waitFor();
  assert.match(await page.locator('#dialog').textContent(),/asks in the CLI before it starts or changes work/);
  await page.locator('#dialog [name=enabled]').check();await page.locator('#dialog [name=provider]').selectOption('claude');await page.locator('#dialog [name=model]').selectOption('fixture');await page.locator('#dialog [name=effort]').selectOption('low');
  await page.getByRole('button',{name:'Save',exact:true}).click();
- await page.waitForFunction(()=>/Claude Code · fixture · No session/.test(document.querySelector('#agent-coordinator')?.textContent));
+ await page.waitForFunction(()=>/Claude Code · fixture · No session/.test(document.querySelector('#dock-coordinator')?.textContent));
  // Chat: the message goes into a new live session and the agent posts its reply.
- await page.locator('#agent-message').fill('hi from browser');await page.locator('#agent-send').click();
+ await page.locator('#dock-message').fill('hi from browser');await page.locator('#dock-send').click();
  await page.getByText('Echo: hi from browser (1 granted project)').waitFor();
- assert.match(await page.locator('.agent-message-agent').last().textContent(),/Workbench coordinator/);
- await page.waitForFunction(()=>/Session running/.test(document.querySelector('#agent-coordinator')?.textContent));
+ assert.match(await dock.locator('.agent-message-agent').last().textContent(),/Workbench coordinator/);
+ await page.waitForFunction(()=>/Session running/.test(document.querySelector('#dock-coordinator')?.textContent));
  // CLI: the same session, with the tool calls, live.
- await page.getByRole('button',{name:'CLI',exact:true}).click();await page.locator('.coordinator-terminal').waitFor();
- assert.equal(await page.locator('#agent-messages').isHidden(),true);assert.equal(await page.locator('#agent-composer').isHidden(),true,'CLI mode hides the message box.');
- assert.equal(await page.locator('.agent-thread>header [data-coordinator-mode]').count(),2,'The switch is at the top of the card.');assert.equal(await page.getByRole('button',{name:'CLI',exact:true}).getAttribute('aria-pressed'),'true');
+ await tab('CLI').click();await page.locator('.coordinator-terminal').waitFor();
+ assert.equal(await page.locator('#dock-messages').isHidden(),true);assert.equal(await page.locator('#dock-composer').isHidden(),true,'CLI mode hides the message box.');
+ assert.equal(await tab('CLI').getAttribute('aria-pressed'),'true');
  await waitScreen(/> hi from browser/);assert.match(await screen(),/workbench - list_projects \(MCP\)/);
  await page.screenshot({path:'output/coordinator-cli-live.png'});
  // Typing in the CLI reaches the session; the reply still lands in the chat.
  await page.locator('.coordinator-terminal .terminal-screen').click();await page.keyboard.type('typed in cli');await page.keyboard.press('Enter');
  await waitScreen(/> typed in cli/);
- await page.getByRole('button',{name:'Chat',exact:true}).click();await page.getByText('Echo: typed in cli (1 granted project)').waitFor();assert.equal(await page.locator('#agent-composer').isVisible(),true);
+ await tab('Chat').click();await page.getByText('Echo: typed in cli (1 granted project)').waitFor();assert.equal(await page.locator('#dock-composer').isVisible(),true);
  assert.equal(await page.locator('.coordinator-terminal').count(),0);
- await page.locator('#agent-message').fill('from chat again');await page.keyboard.press('Control+Enter');await page.getByText('Echo: from chat again (1 granted project)').waitFor();
+ await page.locator('#dock-message').fill('from chat again');await page.keyboard.press('Control+Enter');await page.getByText('Echo: from chat again (1 granted project)').waitFor();
  // Keyboard: the switch is reachable and reopening shows the same session without a respawn.
- await page.getByRole('button',{name:'CLI',exact:true}).focus();await page.keyboard.press('Enter');await waitScreen(/> from chat again/);
+ await tab('CLI').focus();await page.keyboard.press('Enter');await waitScreen(/> from chat again/);
  assert.equal(sessions(),1,'Switching views never starts another CLI.');
  // Stop: the session becomes a read-only transcript in the history.
  await page.getByRole('button',{name:'Stop session',exact:true}).click();
- await page.waitForFunction(()=>/No session/.test(document.querySelector('#agent-coordinator')?.textContent));
+ await page.waitForFunction(()=>/No session/.test(document.querySelector('#dock-coordinator')?.textContent));
  await page.locator('[data-coordinator-history]').first().waitFor();assert.match(await page.locator('.coordinator-terminal footer').textContent(),/Read-only transcript\. This session stopped\./);
  await waitScreen(/> from chat again/);
  assert.equal(await page.getByRole('button',{name:'Stop session',exact:true}).count(),0,'No Stop on a read-only transcript.');assert.equal(await page.getByText('Back to current session').count(),0);
@@ -57,18 +60,27 @@ try{
  // Start session from the CLI view without sending a message.
  const agentReplies=async()=>(await api('coordinator/messages')).items.filter(m=>m.author==='agent').length,before=await agentReplies();
  await page.getByRole('button',{name:'Start session',exact:true}).click();
- await page.waitForFunction(()=>/Session running/.test(document.querySelector('#agent-coordinator')?.textContent));await waitScreen(/Fixture Claude Code session/);
+ await page.waitForFunction(()=>/Session running/.test(document.querySelector('#dock-coordinator')?.textContent));await waitScreen(/Fixture Claude Code session/);
  assert.equal(await page.getByRole('button',{name:'Start session',exact:true}).count(),0);assert.equal(sessions(),2);
  await page.waitForTimeout(300);assert.equal(await agentReplies(),before,'Starting a session posts nothing.');
  await page.screenshot({path:'output/coordinator-cli-started.png'});
- await page.getByRole('button',{name:'Stop session',exact:true}).click();await page.waitForFunction(()=>/No session/.test(document.querySelector('#agent-coordinator')?.textContent));
+ await page.getByRole('button',{name:'Stop session',exact:true}).click();await page.waitForFunction(()=>/No session/.test(document.querySelector('#dock-coordinator')?.textContent));
  // A project session asks before starting work: waiting banner, Needs your decision, then approval in the CLI.
  const flow=await api('flows',{projectID:project.id,name:'Review',steps:[{id:'review',type:'agent',name:'Review',model:'fixture',effort:'low',instructions:'Review'},{id:'accept',type:'human',name:'Accept',instructions:'Check',maxRetries:1,retryFrom:'review'}]});
  const owner=await api('agent-profiles',{revision:0,name:'Newton owner',scope:{kind:'project',projectID:project.id},providers:['codex'],systemPrompt:'Own it.',skillIDs:[],connectionIDs:[]});
  await api('projects/'+project.id+'/mandate',{version:0,enabled:true,agentProfile:{id:owner.id},objective:'Pilot',tasks:[{ref:'local:pilot'}],workflowIDs:[flow.id],modes:['read-only'],limits:{maxAttempts:1,maxRuntimeMinutes:30}},'PUT');
+ // An all-projects prompt: Home's Open CLI opens the side panel on CLI; declining starts nothing.
+ await api('coordinator/messages',{text:'please launch the pilot',requestKey:'c1'});
+ await dock.getByRole('button',{name:'Hide',exact:true}).click();await page.goto(url+'#home');
+ await page.getByText('Coordinator · Waiting for you in the coordinator CLI').waitFor();
+ await page.locator('[data-home-open-cli=""]').click();await dock.waitFor();assert.equal(await tab('CLI').getAttribute('aria-pressed'),'true');
+ await waitScreen(/Do you want to allow workbench - start_run\?/);await page.screenshot({path:'output/coordinator-dock-prompt.png'});
+ await page.locator('.coordinator-terminal .terminal-screen').click();await page.keyboard.type('n');
+ await tab('Chat').click();await dock.getByText('Tool error: declined by the user').waitFor();assert.equal((await api('workflows?projectID='+project.id)).length,0);
+ await dock.getByRole('button',{name:'Hide',exact:true}).click();
  await api('projects/'+project.id+'/messages',{text:'please launch the pilot',requestKey:'b1'});
- await page.getByRole('button',{name:'Chat',exact:true}).click();await page.locator('#agent-refresh').click();
- await page.getByText('Waiting for you in the coordinator CLI').waitFor();
+ await page.goto(url+'#home');
+ await page.getByText('Newton · Waiting for you in the coordinator CLI').waitFor();await page.getByText('Coordinator · Waiting for you in the coordinator CLI').waitFor({state:'detached'});
  assert.match(await page.locator('#home-agent-summary').textContent(),/1 needs a decision/);
  await page.screenshot({path:'output/coordinator-home-waiting.png',fullPage:true});
  await page.locator('[data-home-open-cli]').click();await page.locator('#agent-decisions').waitFor();

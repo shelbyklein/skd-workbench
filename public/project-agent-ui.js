@@ -15,27 +15,27 @@ function refButton(ref){const label=ref.kind==='project'?'Project':ref.kind==='i
 function progress(steps){return `<ol class="agent-steps" aria-label="Workflow steps">${steps.map(s=>`<li class="agent-step-${s.state}"><span class="agent-step-dot" aria-hidden="true"></span><span>${esc(s.name)}</span><span class="visually-hidden">${s.state==='done'?'done':s.state==='current'?'current step':'pending'}</span></li>`).join('')}</ol>`;}
 
 // Shared conversation panel: one draft and request key per scope (project ID or coordinator).
-function threadAside(label,eyebrow,card){return `<aside class="agent-thread" aria-label="${label}"><header><div><div id="agent-view-switch"></div><span class="eyebrow">${eyebrow}</span><h2 id="agent-thread-title"></h2></div><button type="button" class="text-button" id="agent-refresh">Refresh</button></header>
- <p class="agent-thread-status" id="agent-thread-status"></p><ol class="agent-messages" id="agent-messages" aria-live="polite"></ol><div class="agent-cli" id="agent-cli" hidden><div id="agent-cli-screen"></div><p class="field-help" id="agent-cli-empty"></p><div class="agent-cli-history" id="agent-cli-history"></div></div>${card?'<button type="button" class="agent-mandate-card" id="agent-mandate-card"></button>':''}<div class="agent-coordinator" id="agent-coordinator"></div>
- <form class="agent-composer" id="agent-composer"><label for="agent-message" id="agent-message-label">Message</label><textarea id="agent-message" rows="3" maxlength="8000"></textarea><div class="agent-composer-actions"><span class="field-help" id="agent-message-help"></span><button type="submit" class="primary" id="agent-send">Send</button></div><p class="form-error" id="agent-send-error" role="alert"></p></form></aside>`;}
-function bindComposer(host,{key,send,sent}){
- const q=s=>host.querySelector(s),input=q('#agent-message');let sending=false;
+function threadAside(label,eyebrow,card,p='agent'){return `<aside class="agent-thread" aria-label="${label}"><header><div><div id="${p}-view-switch" class="agent-view-switch-slot"></div><span class="eyebrow">${eyebrow}</span><h2 id="${p}-thread-title"></h2></div><button type="button" class="text-button" id="${p}-refresh">Refresh</button></header>
+ <p class="agent-thread-status" id="${p}-thread-status"></p><ol class="agent-messages" id="${p}-messages" aria-live="polite"></ol><div class="agent-cli" id="${p}-cli" hidden><div id="${p}-cli-screen" class="agent-cli-screen"></div><p class="field-help agent-cli-empty" id="${p}-cli-empty"></p><div class="agent-cli-history" id="${p}-cli-history"></div></div>${card?'<button type="button" class="agent-mandate-card" id="'+p+'-mandate-card"></button>':''}<div class="agent-coordinator" id="${p}-coordinator"></div>
+ <form class="agent-composer" id="${p}-composer"><label for="${p}-message" id="${p}-message-label">Message</label><textarea id="${p}-message" rows="3" maxlength="8000"></textarea><div class="agent-composer-actions"><span class="field-help" id="${p}-message-help"></span><button type="submit" class="primary" id="${p}-send">Send</button></div><p class="form-error" id="${p}-send-error" role="alert"></p></form></aside>`;}
+function bindComposer(host,{key,send,sent,p='agent'}){
+ const q=s=>host.querySelector(s),input=q('#'+p+'-message');let sending=false;
  input.value=drafts.get(key)?.text||'';
  input.oninput=()=>{drafts.set(key,{text:input.value,key:null});saveDrafts();};
- input.onkeydown=e=>{if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)){e.preventDefault();q('#agent-composer').requestSubmit();}};
- q('#agent-composer').onsubmit=async e=>{
-  e.preventDefault();if(sending)return;const text=input.value.trim();if(!text){q('#agent-send-error').textContent='Write a message first.';return;}
+ input.onkeydown=e=>{if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)){e.preventDefault();q('#'+p+'-composer').requestSubmit();}};
+ q('#'+p+'-composer').onsubmit=async e=>{
+  e.preventDefault();if(sending)return;const text=input.value.trim();if(!text){q('#'+p+'-send-error').textContent='Write a message first.';return;}
   // Keep one request key per unsent draft so an ambiguous failure can be retried without a duplicate.
   const draft=drafts.get(key)||{text:input.value,key:null};draft.key??=crypto.randomUUID();drafts.set(key,draft);saveDrafts();
-  sending=true;q('#agent-send').disabled=true;q('#agent-send-error').textContent='';
+  sending=true;q('#'+p+'-send').disabled=true;q('#'+p+'-send-error').textContent='';
   try{await send({text,requestKey:draft.key});if(!host.isConnected)return;drafts.delete(key);saveDrafts();input.value='';await sent();}
-  catch(error){if(host.isConnected)q('#agent-send-error').textContent=error.message+' Your draft is kept.';}
-  finally{sending=false;if(host.isConnected)q('#agent-send').disabled=false;}
+  catch(error){if(host.isConnected)q('#'+p+'-send-error').textContent=error.message+' Your draft is kept.';}
+  finally{sending=false;if(host.isConnected)q('#'+p+'-send').disabled=false;}
  };
  return {sending:()=>sending};
 }
-function renderMessages(host,t,name){
- const list=host.querySelector('#agent-messages');
+function renderMessages(host,t,name,p='agent'){
+ const list=host.querySelector('#'+p+'-messages');
  list.innerHTML=(t.trimmed?`<li class="field-help">${t.trimmed} older message${t.trimmed===1?'':'s'} not shown.</li>`:'')+(t.items.length?t.items.map(msg=>`<li class="agent-message agent-message-${esc(msg.author)}"><div class="agent-message-meta"><strong>${msg.author==='user'?'You':esc(msg.controllerName||name)}</strong><time datetime="${esc(msg.createdAt)}">${esc(time(msg.createdAt))}</time></div><p>${esc(msg.text)}</p>${msg.refs.length?`<div class="agent-refs">${msg.refs.map(refButton).join('')}</div>`:''}</li>`).join(''):'<li class="widget-empty">No messages.</li>');
  list.scrollTop=list.scrollHeight;
 }
@@ -46,28 +46,29 @@ const cliModes=new Map();
 export const openCoordinatorCLI=key=>cliModes.set(key,'cli');
 // Coordinator state for one conversation: settings, the live session, the Chat / CLI switch and history.
 // The terminal is remounted only when the shown session changes, so refreshes never reset it.
-function coordinatorPanel(host,{key,api,modal,notify,refresh}){
+function coordinatorPanel(host,{key,api,modal,notify,refresh,p='agent'}){
  const q=s=>host.querySelector(s);let c=null,term=null,termID=null,termLive=false,viewing=null;
  const mode=()=>cliModes.get(key)||'chat';
  const clear=()=>{term?.dispose();term=null;termID=null;};
  function mount(session,live){
   if(termID===session.id&&termLive===live)return;clear();termID=session.id;termLive=live;
-  term=mountTerminal({session,api,onChange:s=>{if(s.status!=='running')refresh();},inline:{host:q('#agent-cli-screen'),endpoint:'coordinator-terminal/',stopPath:id=>'coordinator/sessions/'+encodeURIComponent(id)+'/stop',
+  term=mountTerminal({session,api,onChange:s=>{if(s.status!=='running')refresh();},inline:{host:q('#'+p+'-cli-screen'),endpoint:'coordinator-terminal/',stopPath:id=>'coordinator/sessions/'+encodeURIComponent(id)+'/stop',
    eyebrow:`${providerLabels[session.provider]} · ${session.model}`,title:live?'Coordinator session':'Previous session',endLabel:'Stop session',
    footer:live?'Messages sent from Chat are typed here. Answer permission prompts in this terminal.':`Read-only transcript. This session ${endReasons[session.endReason]||'ended'}.`}});
  }
  function apply(){
-  const cli=mode()==='cli'&&!!c?.enabled;
-  q('#agent-messages').hidden=cli;q('#agent-cli').hidden=!cli;q('#agent-composer').hidden=cli;q('.agent-thread').classList.toggle('agent-cli-mode',cli);
+  const cli=mode()==='cli'&&!!c;
+  q('#'+p+'-messages').hidden=cli;q('#'+p+'-cli').hidden=!cli;q('#'+p+'-composer').hidden=cli;q('.agent-thread').classList.toggle('agent-cli-mode',cli);
   host.querySelectorAll('[data-coordinator-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.coordinatorMode===mode())));
   if(!cli){clear();return;}
+  if(!c.enabled){clear();q('#'+p+'-cli-empty').innerHTML='The coordinator agent is off. <button type="button" class="primary" data-coordinator-settings>Set up</button>';q('#'+p+'-cli-history').innerHTML='';return;}
   const saved=viewing&&c.history.find(h=>h.id===viewing),target=saved||c.session||null;
   if(target)mount(target,!saved&&target===c.session);else clear();
-  q('#agent-cli-empty').innerHTML=c.session?'':`${target?'':'No session is running. '}<button type="button" class="primary" data-coordinator-start>Start session</button>`;
-  q('#agent-cli-history').innerHTML=c.history.length?`<h3>Previous sessions</h3><ul>${c.history.map(h=>`<li><button type="button" class="text-button" data-coordinator-history="${esc(h.id)}" aria-pressed="${h.id===termID}">${esc(when(h.startedAt))} · ${esc(providerLabels[h.provider])} · ${esc(endReasons[h.endReason]||'ended')}</button></li>`).join('')}</ul>${saved&&c.session?'<button type="button" class="text-button" data-coordinator-history="">Back to current session</button>':''}`:'';
+  q('#'+p+'-cli-empty').innerHTML=c.session?'':`${target?'':'No session is running. '}<button type="button" class="primary" data-coordinator-start>Start session</button>`;
+  q('#'+p+'-cli-history').innerHTML=c.history.length?`<h3>Previous sessions</h3><ul>${c.history.map(h=>`<li><button type="button" class="text-button" data-coordinator-history="${esc(h.id)}" aria-pressed="${h.id===termID}">${esc(when(h.startedAt))} · ${esc(providerLabels[h.provider])} · ${esc(endReasons[h.endReason]||'ended')}</button></li>`).join('')}</ul>${saved&&c.session?'<button type="button" class="text-button" data-coordinator-history="">Back to current session</button>':''}`:'';
  }
  host.addEventListener('click',e=>{
-  const m=e.target.closest('[data-coordinator-mode]');if(m){cliModes.set(key,m.dataset.coordinatorMode);viewing=null;apply();if(mode()==='cli')q('#agent-cli .xterm-helper-textarea')?.focus();return;}
+  const m=e.target.closest('[data-coordinator-mode]');if(m){cliModes.set(key,m.dataset.coordinatorMode);viewing=null;apply();if(mode()==='cli')q('#'+p+'-cli .xterm-helper-textarea')?.focus();return;}
   const h=e.target.closest('[data-coordinator-history]');if(h){viewing=h.dataset.coordinatorHistory||null;apply();return;}
   if(e.target.closest('[data-coordinator-open-cli]')){cliModes.set(key,'cli');viewing=null;apply();}
   const start=e.target.closest('[data-coordinator-start]');
@@ -76,14 +77,16 @@ function coordinatorPanel(host,{key,api,modal,notify,refresh}){
  });
  return {
   openCLI(){cliModes.set(key,'cli');viewing=null;apply();},
+  setMode(next){cliModes.set(key,next);viewing=null;apply();},
+  mode,
   update(next){
-   c=next;const s=c?.session,slot=q('#agent-coordinator');
+   c=next;const s=c?.session,slot=q('#'+p+'-coordinator');
    const status=s?(s.waiting?'Waiting for you in CLI':s.status==='running'?'Session running':'Session ending'):'No session';
-   q('#agent-view-switch').innerHTML=c?.enabled?'<span class="agent-view-switch" role="group" aria-label="Conversation view"><button type="button" data-coordinator-mode="chat" aria-pressed="false">Chat</button><button type="button" data-coordinator-mode="cli" aria-pressed="false">CLI</button></span>':'';
+   q('#'+p+'-view-switch').innerHTML=c?.enabled?'<span class="agent-view-switch" role="group" aria-label="Conversation view"><button type="button" data-coordinator-mode="chat" aria-pressed="false">Chat</button><button type="button" data-coordinator-mode="cli" aria-pressed="false">CLI</button></span>':'';
    slot.innerHTML=c?.enabled?`<span class="agent-coordinator-state agent-owner-${s?.waiting?'waiting':s?'active':'none'}">${esc(providerLabels[c.provider])} · ${esc(c.model)} · ${esc(status)}</span><button type="button" class="text-button" data-coordinator-settings>Settings</button>`
     :`<span class="agent-coordinator-state agent-owner-none">Coordinator agent off</span><button type="button" class="text-button" data-coordinator-settings>Set up</button>`;
    if(s?.waiting)slot.insertAdjacentHTML('beforeend',`<p class="agent-waiting" role="status"><strong>Waiting for you in the CLI.</strong> Answer the permission prompt to continue.${mode()==='cli'?'':' <button type="button" class="primary" data-coordinator-open-cli>Open CLI</button>'}</p>`);
-   q('#agent-message-help').textContent=c?.enabled?`Messages are typed into the ${providerLabels[c.provider]} session. It posts replies here and asks in the CLI before starting or changing work.`:'Messages are saved. Turn on the coordinator agent to get replies.';
+   q('#'+p+'-message-help').textContent=c?.enabled?`Messages are typed into the ${providerLabels[c.provider]} session. It posts replies here and asks in the CLI before starting or changing work.`:'Messages are saved. Turn on the coordinator agent to get replies.';
    if(viewing&&!c.history.some(h=>h.id===viewing))viewing=null;
    // A session that just ended stays on screen as its read-only transcript.
    if(termID&&!s&&c.history.some(h=>h.id===termID))viewing=termID;
@@ -202,15 +205,12 @@ export function mountHomeAgents(host,{api,modal,notify,onProject,onRun}){
  <section aria-labelledby="home-decisions"><h2 id="home-decisions">Needs your decision</h2><div id="home-decisions-body"></div></section>
  <section aria-labelledby="home-owners"><h2 id="home-owners">Project owners</h2><div id="home-owners-body"></div></section>
  <section aria-labelledby="home-recent"><h2 id="home-recent">Recent results</h2><div id="home-recent-body"></div></section></div>
- ${threadAside('Coordinator conversation','ALL PROJECTS',false)}`;
+ `;
  const q=s=>host.querySelector(s);
- const composer=bindComposer(host,{key:'coordinator',send:body=>api('coordinator/messages','POST',body).then(r=>{if(r.deliveryError)notify(r.deliveryError);return r;}),sent:()=>refresh()});
- const coordinator=coordinatorPanel(host,{key:'coordinator',api,modal,notify,refresh:()=>refresh()});
- q('#agent-refresh').onclick=()=>refresh(true);
  host.addEventListener('click',e=>{
   const ref=e.target.closest('[data-agent-ref]');if(ref){if(ref.dataset.agentRef==='project')onProject(ref.dataset.refId);else if(ref.dataset.agentRef==='run'){const owner=state?.projects.find(p=>p.current?.id===ref.dataset.refId||p.recent?.id===ref.dataset.refId)||state?.recent.find(r=>r.id===ref.dataset.refId);if(owner)onRun(owner.projectID,ref.dataset.refId);}return;}
   const run=e.target.closest('[data-home-run]');if(run){onRun(run.dataset.runProject,run.dataset.homeRun);return;}
-  const cli=e.target.closest('[data-home-open-cli]');if(cli){if(cli.dataset.homeOpenCli){openCoordinatorCLI(cli.dataset.homeOpenCli);onProject(cli.dataset.homeOpenCli);}else coordinator.openCLI();return;}
+  const cli=e.target.closest('[data-home-open-cli]');if(cli){if(cli.dataset.homeOpenCli){openCoordinatorCLI(cli.dataset.homeOpenCli);onProject(cli.dataset.homeOpenCli);}else document.dispatchEvent(new CustomEvent('coordinator-dock-open',{detail:{tab:'cli'}}));return;}
   const project=e.target.closest('[data-home-project]');if(project)onProject(project.dataset.homeProject);
  });
  function render(){
@@ -219,17 +219,38 @@ export function mountHomeAgents(host,{api,modal,notify,onProject,onRun}){
   q('#home-decisions-body').innerHTML=state.decisions.length?`<ul class="agent-list">${state.decisions.map(d=>`<li class="agent-decision"><span class="agent-dot agent-dot-${esc(d.kind)}" aria-hidden="true"></span><span class="agent-copy"><strong>${esc(d.projectName)} · ${esc(d.title)}</strong><small>${esc(d.detail)}</small></span>${d.runID?`<button type="button" class="primary" data-run-project="${esc(d.projectID)}" data-home-run="${esc(d.runID)}">${d.kind==='review'?'Review':'Inspect'}</button>`:d.kind==='coordinator'?`<button type="button" class="primary" data-home-open-cli="${esc(d.projectID||'')}">Open CLI</button>`:`<button type="button" data-home-project="${esc(d.projectID)}">Open project</button>`}</li>`).join('')}</ul>`:'<p class="widget-empty">No decisions waiting.</p>';
   q('#home-owners-body').innerHTML=state.projects.length?`<ul class="agent-list">${state.projects.map(p=>{const work=p.current||null,next=p.next;return `<li class="home-owner"><span class="agent-copy home-owner-name"><strong>${esc(p.name)}</strong><small>${p.owner?'Owner: '+esc(p.owner):'No owner mandate'}</small></span><span class="agent-owner-state agent-owner-${esc(p.status)}">${esc(ownerStates[p.status])}</span><span class="agent-copy home-owner-work"><strong>${esc(work?work.flowName:next?next.title||next.ref:'No active work')}</strong><small>${esc(work?(work.taskRef||work.task):next?'Next eligible task':'')}</small></span>${work?`<button type="button" class="text-button" data-run-project="${esc(p.projectID)}" data-home-run="${esc(work.id)}">View run</button>`:`<button type="button" class="text-button" data-home-project="${esc(p.projectID)}">View project</button>`}</li>`;}).join('')}</ul>`:'<p class="widget-empty">No project owners. Set a mandate from a project overview.</p>';
   q('#home-recent-body').innerHTML=state.recent.length?`<ul class="agent-list">${state.recent.map(r=>`<li class="agent-result"><span class="agent-copy"><strong>${esc(r.projectName)} · ${esc(r.flowName)}</strong><small>${esc(r.task)}</small></span><span class="agent-status agent-status-${esc(r.status)}">${esc(statusLabels[r.status]||r.status)}</span><span class="agent-result-facts">${r.approvals?`${r.approvals} review${r.approvals===1?'':'s'} approved`:'No review approval recorded'}</span><button type="button" class="text-button" data-run-project="${esc(r.projectID)}" data-home-run="${esc(r.id)}">View evidence</button></li>`).join('')}</ul>`:'<p class="widget-empty">No finished workflow runs.</p>';
-  q('#agent-thread-title').textContent='Coordinator';
-  q('#agent-thread-status').textContent=`${c.owners} project owner${c.owners===1?'':'s'}`;
-  q('#agent-message-label').textContent='Message coordinator · all projects';
-  renderMessages(host,state.thread,'Coordinator');
-  pace(coordinator.update(state.coordinator));
+  pace(state.decisions.some(d=>d.kind==='coordinator'));
  }
  async function refresh(announce=false){
   try{const next=await api('agents/overview');if(!host.isConnected)return;state=next;render();if(announce)notify('Project owners refreshed.');}
   catch(error){if(host.isConnected)q('#home-agent-summary').textContent=error.message;}
  }
  refresh();
+ timer=setInterval(()=>{if(!host.isConnected){clearInterval(timer);return;}if(document.visibilityState==='visible')refresh();},15000);
+ return {refresh,destroy(){clearInterval(timer);}};
+}
+
+// The all-projects coordinator conversation for the side panel: thread, composer and the live CLI.
+// It uses the "dock" ID prefix so it can sit beside a project conversation card on the same page.
+export function mountCoordinatorConversation(host,{api,modal,notify}){
+ let state=null,timer=null,fast=null;const p='dock';
+ const pace=pending=>{if(pending&&!fast)fast=setTimeout(()=>{fast=null;if(host.isConnected)refresh();},1500);};
+ host.innerHTML=threadAside('Coordinator conversation','ALL PROJECTS',false,p);
+ const q=s=>host.querySelector(s);
+ const composer=bindComposer(host,{key:'coordinator',p,send:body=>api('coordinator/messages','POST',body).then(r=>{if(r.deliveryError)notify(r.deliveryError);return r;}),sent:()=>refresh()});
+ const coordinator=coordinatorPanel(host,{key:'coordinator',api,modal,notify,refresh:()=>refresh(),p});
+ q('#dock-refresh').onclick=()=>refresh(true);
+ async function refresh(announce=false){
+  try{
+   const next=await api('agents/overview');if(!host.isConnected)return;state=next;const c=state.counts;
+   q('#dock-thread-title').textContent='Coordinator';
+   q('#dock-thread-status').textContent=`${c.owners} project owner${c.owners===1?'':'s'}`;
+   q('#dock-message-label').textContent='Message coordinator · all projects';
+   renderMessages(host,state.thread,'Coordinator',p);pace(coordinator.update(state.coordinator));
+   if(announce)notify('Coordinator refreshed.');
+  }catch(error){if(host.isConnected)q('#dock-thread-status').textContent=error.message;}
+ }
+ refresh();
  timer=setInterval(()=>{if(!host.isConnected){clearInterval(timer);return;}if(document.visibilityState==='visible'&&!composer.sending())refresh();},15000);
- return {refresh,destroy(){clearInterval(timer);coordinator.destroy();}};
+ return {refresh,setMode:m=>coordinator.setMode(m),mode:()=>coordinator.mode(),destroy(){clearInterval(timer);clearTimeout(fast);coordinator.destroy();}};
 }

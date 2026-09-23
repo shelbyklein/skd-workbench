@@ -1,0 +1,70 @@
+// Side panel on every page: the all-projects coordinator (Chat, CLI) and the workspace shell (Shell).
+// It lives on the body, so page navigation never rebuilds it; open state, tab and width are remembered.
+// The shell starts only when Shell is chosen; a restored panel reattaches to a running shell and never starts one.
+import {mountTerminal} from './terminal-ui.js';
+import {mountCoordinatorConversation} from './project-agent-ui.js';
+const read=(key,fallback)=>{try{return localStorage.getItem(key)??fallback;}catch{return fallback;}};
+const write=(key,value)=>{try{localStorage.setItem(key,value);}catch{}};
+const tabs=['chat','cli','shell'];
+
+export function createCoordinatorDock({api,modal,notify}){
+ let panel=null,conversation=null,shell=null,shellID=null,tab=tabs.includes(read('skd-dock-tab','chat'))?read('skd-dock-tab','chat'):'chat';
+ const q=s=>panel.querySelector(s);
+ function layout(open){document.body.classList.toggle('workspace-terminal-open',open);document.body.classList.toggle('coordinator-dock-open',open);document.querySelectorAll('[data-workspace-terminal]').forEach(b=>b.setAttribute('aria-expanded',String(open)));}
+ function resizer(edge){
+  let preferred=Number(read('workspace-terminal-width',''))||undefined,pointer=null;
+  const maximum=()=>Math.max(320,innerWidth-280);
+  const apply=(value,save=false)=>{const width=Math.round(Math.max(320,Math.min(maximum(),value)));document.body.style.setProperty('--workspace-terminal-width',width+'px');edge.setAttribute('aria-valuemin','320');edge.setAttribute('aria-valuemax',maximum());edge.setAttribute('aria-valuenow',width);if(save){preferred=width;write('workspace-terminal-width',String(width));}};
+  const viewport=()=>apply(preferred||Math.min(640,Math.max(400,innerWidth*.4)));
+  const finish=()=>{if(pointer===null)return;pointer=null;document.body.classList.remove('terminal-resizing');};
+  edge.onpointerdown=e=>{if(e.button!==0)return;e.preventDefault();pointer=e.pointerId;edge.setPointerCapture(pointer);edge.focus();document.body.classList.add('terminal-resizing');};
+  edge.onpointermove=e=>{if(e.pointerId===pointer)apply(innerWidth-e.clientX,true);};
+  edge.onpointerup=finish;edge.onpointercancel=finish;edge.onlostpointercapture=finish;
+  edge.onkeydown=e=>{const current=panel.getBoundingClientRect().width,values={ArrowLeft:current+32,ArrowRight:current-32,Home:320,End:maximum()};if(e.key in values){e.preventDefault();apply(values[e.key],true);}};
+  addEventListener('resize',viewport);viewport();
+ }
+ function build(){
+  panel=document.createElement('aside');panel.className='coordinator-dock';panel.setAttribute('aria-label','Coordinator panel');panel.hidden=true;
+  panel.innerHTML=`<div class="terminal-resize-edge" tabindex="0" role="separator" aria-label="Resize panel" aria-orientation="vertical"></div>
+   <header class="dock-header"><span class="agent-view-switch" role="group" aria-label="Panel view"><button type="button" data-dock-tab="chat">Chat</button><button type="button" data-dock-tab="cli">CLI</button><button type="button" data-dock-tab="shell">Shell</button></span><button type="button" class="text-button" data-dock-hide>Hide</button></header>
+   <div class="dock-conversation"></div>
+   <div class="dock-shell" hidden><div class="dock-shell-screen"></div><p class="field-help dock-shell-empty"></p></div>`;
+  document.body.append(panel);resizer(q('.terminal-resize-edge'));
+  conversation=mountCoordinatorConversation(q('.dock-conversation'),{api,modal,notify});
+  panel.addEventListener('click',e=>{
+   const t=e.target.closest('[data-dock-tab]');if(t){show(t.dataset.dockTab,{start:true});return;}
+   if(e.target.closest('[data-dock-hide]')){hide();return;}
+   if(e.target.closest('[data-coordinator-open-cli]')){show('cli');return;}
+   if(e.target.closest('[data-dock-start-shell]'))startShell();
+  });
+  // Agent session terminals use the same side of the screen; opening one hides this panel.
+  document.addEventListener('terminal-panel-open',()=>{if(!panel.hidden)hide();});
+ }
+ function mountShell(session){
+  if(shell&&shellID===session.id)return;shell?.dispose();shellID=session.id;q('.dock-shell-empty').innerHTML='';
+  shell=mountTerminal({session,api,onChange:s=>{if(s.status!=='running')q('.dock-shell-empty').innerHTML='<button type="button" class="primary" data-dock-start-shell>Start shell</button>';},inline:{host:q('.dock-shell-screen'),endpoint:'workspace-terminal/',stopPath:id=>'workspace-terminal/'+encodeURIComponent(id)+'/stop',eyebrow:session.cwd,title:'Workspace terminal',endLabel:'End session',footer:'Hiding this panel keeps the shell running. Commands run in the Workbench folder.'}});
+ }
+ async function startShell(){try{mountShell(await api('workspace-terminal','POST',{}));}catch(error){notify(error.message);}}
+ async function attachShell(start){
+  try{const {session}=await api('workspace-terminal');
+   if(session?.status==='running')mountShell(session);
+   else if(start)await startShell();
+   else if(!shell)q('.dock-shell-empty').innerHTML='No shell is running. <button type="button" class="primary" data-dock-start-shell>Start shell</button>';
+  }catch(error){notify(error.message);}
+ }
+ async function show(next=tab,{start=false}={}){
+  if(!panel)build();
+  tab=tabs.includes(next)?next:'chat';write('skd-dock-tab',tab);write('skd-dock-open','1');
+  if(panel.hidden){document.dispatchEvent(new Event('coordinator-dock-show'));panel.hidden=false;layout(true);}
+  panel.querySelectorAll('[data-dock-tab]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.dockTab===tab)));
+  const isShell=tab==='shell';q('.dock-conversation').hidden=isShell;q('.dock-shell').hidden=!isShell;
+  if(isShell)await attachShell(start);else{conversation.setMode(tab);conversation.refresh();}
+ }
+ function hide(){if(!panel)return;panel.hidden=true;layout(false);write('skd-dock-open','0');}
+ document.addEventListener('coordinator-dock-open',e=>show(e.detail?.tab||tab,{start:e.detail?.tab==='shell'}));
+ return {
+  toggle(){if(panel&&!panel.hidden)hide();else show(tab,{start:tab==='shell'});},
+  show,hide,isOpen:()=>!!panel&&!panel.hidden,
+  restore(){if(read('skd-dock-open','0')==='1')show(tab);}
+ };
+}

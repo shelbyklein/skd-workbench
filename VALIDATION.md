@@ -1451,3 +1451,21 @@ Plan: `instructions/2026-09-23-coordinator-cli-view.md` · Tracker Trapper `E57D
   suites passed (37 run individually after the chain stopped at `editor.mjs`).
 - Not verified: real Claude Code / Codex sessions (CC-08), including Codex hook config and the
   Claude permission hook firing, folder-trust prompts and Codex sign-in.
+
+## Coordinator side panel — 2026-09-23 (#17)
+
+Plan: `instructions/2026-09-23-coordinator-dock.md` · Tracker Trapper `CBE87726-0245-4A5A-89BD-C936C998AA3E`.
+
+- The header terminal icon toggles `public/coordinator-dock.js`: a body-level, resizable side panel with
+  Chat / CLI (all-projects coordinator via `mountCoordinatorConversation`, `dock-` ID prefix so it can sit beside a
+  project conversation card) and Shell (workspace terminal, inline). Open state, tab and width persist in
+  `localStorage` (try/catch). The Home coordinator card is removed; Home "Open CLI" for all-projects decisions opens
+  the panel on CLI; project overview cards are unchanged.
+- Shell starts only when Shell is chosen. New `GET /api/workspace-terminal` reports the current shell without
+  starting one, so a restored panel reattaches but never auto-starts. CLI tab with the coordinator off shows Set up.
+- Fixed while testing: the project mandate-card ID was not interpolated after the ID-prefix change (caught by
+  `project-agent-browser`); the panel's resize handle was clipped.
+- Tests: new `coordinator-dock-browser` (replaces `workspace-terminal-browser`); `coordinator-cli-browser` now uses the
+  panel for Home and adds the all-projects Open CLI + decline case; `project-agent-browser` checks the Home
+  conversation in the panel; `pwa-browser` asset count 44. Screenshots inspected (shell, dark chat, 390 px, prompt).
+  Shell cache `skd-shell-0.5.0-116`.
