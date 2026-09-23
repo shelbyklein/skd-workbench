@@ -34,13 +34,14 @@ try{
  await page.waitForFunction(()=>/Session running/.test(document.querySelector('#agent-coordinator')?.textContent));
  // CLI: the same session, with the tool calls, live.
  await page.getByRole('button',{name:'CLI',exact:true}).click();await page.locator('.coordinator-terminal').waitFor();
- assert.equal(await page.locator('#agent-messages').isHidden(),true);assert.equal(await page.getByRole('button',{name:'CLI',exact:true}).getAttribute('aria-pressed'),'true');
+ assert.equal(await page.locator('#agent-messages').isHidden(),true);assert.equal(await page.locator('#agent-composer').isHidden(),true,'CLI mode hides the message box.');
+ assert.equal(await page.locator('.agent-thread>header [data-coordinator-mode]').count(),2,'The switch is at the top of the card.');assert.equal(await page.getByRole('button',{name:'CLI',exact:true}).getAttribute('aria-pressed'),'true');
  await waitScreen(/> hi from browser/);assert.match(await screen(),/workbench - list_projects \(MCP\)/);
  await page.screenshot({path:'output/coordinator-cli-live.png'});
  // Typing in the CLI reaches the session; the reply still lands in the chat.
  await page.locator('.coordinator-terminal .terminal-screen').click();await page.keyboard.type('typed in cli');await page.keyboard.press('Enter');
  await waitScreen(/> typed in cli/);
- await page.getByRole('button',{name:'Chat',exact:true}).click();await page.getByText('Echo: typed in cli (1 granted project)').waitFor();
+ await page.getByRole('button',{name:'Chat',exact:true}).click();await page.getByText('Echo: typed in cli (1 granted project)').waitFor();assert.equal(await page.locator('#agent-composer').isVisible(),true);
  assert.equal(await page.locator('.coordinator-terminal').count(),0);
  await page.locator('#agent-message').fill('from chat again');await page.keyboard.press('Control+Enter');await page.getByText('Echo: from chat again (1 granted project)').waitFor();
  // Keyboard: the switch is reachable and reopening shows the same session without a respawn.

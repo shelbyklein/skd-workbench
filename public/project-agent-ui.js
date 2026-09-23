@@ -15,7 +15,7 @@ function refButton(ref){const label=ref.kind==='project'?'Project':ref.kind==='i
 function progress(steps){return `<ol class="agent-steps" aria-label="Workflow steps">${steps.map(s=>`<li class="agent-step-${s.state}"><span class="agent-step-dot" aria-hidden="true"></span><span>${esc(s.name)}</span><span class="visually-hidden">${s.state==='done'?'done':s.state==='current'?'current step':'pending'}</span></li>`).join('')}</ol>`;}
 
 // Shared conversation panel: one draft and request key per scope (project ID or coordinator).
-function threadAside(label,eyebrow,card){return `<aside class="agent-thread" aria-label="${label}"><header><div><span class="eyebrow">${eyebrow}</span><h2 id="agent-thread-title"></h2></div><button type="button" class="text-button" id="agent-refresh">Refresh</button></header>
+function threadAside(label,eyebrow,card){return `<aside class="agent-thread" aria-label="${label}"><header><div><div id="agent-view-switch"></div><span class="eyebrow">${eyebrow}</span><h2 id="agent-thread-title"></h2></div><button type="button" class="text-button" id="agent-refresh">Refresh</button></header>
  <p class="agent-thread-status" id="agent-thread-status"></p><ol class="agent-messages" id="agent-messages" aria-live="polite"></ol><div class="agent-cli" id="agent-cli" hidden><div id="agent-cli-screen"></div><p class="field-help" id="agent-cli-empty"></p><div class="agent-cli-history" id="agent-cli-history"></div></div>${card?'<button type="button" class="agent-mandate-card" id="agent-mandate-card"></button>':''}<div class="agent-coordinator" id="agent-coordinator"></div>
  <form class="agent-composer" id="agent-composer"><label for="agent-message" id="agent-message-label">Message</label><textarea id="agent-message" rows="3" maxlength="8000"></textarea><div class="agent-composer-actions"><span class="field-help" id="agent-message-help"></span><button type="submit" class="primary" id="agent-send">Send</button></div><p class="form-error" id="agent-send-error" role="alert"></p></form></aside>`;}
 function bindComposer(host,{key,send,sent}){
@@ -58,7 +58,7 @@ function coordinatorPanel(host,{key,api,modal,notify,refresh}){
  }
  function apply(){
   const cli=mode()==='cli'&&!!c?.enabled;
-  q('#agent-messages').hidden=cli;q('#agent-cli').hidden=!cli;q('.agent-thread').classList.toggle('agent-cli-mode',cli);
+  q('#agent-messages').hidden=cli;q('#agent-cli').hidden=!cli;q('#agent-composer').hidden=cli;q('.agent-thread').classList.toggle('agent-cli-mode',cli);
   host.querySelectorAll('[data-coordinator-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.coordinatorMode===mode())));
   if(!cli){clear();return;}
   const saved=viewing&&c.history.find(h=>h.id===viewing),target=saved||c.session||null;
@@ -77,7 +77,8 @@ function coordinatorPanel(host,{key,api,modal,notify,refresh}){
   update(next){
    c=next;const s=c?.session,slot=q('#agent-coordinator');
    const status=s?(s.waiting?'Waiting for you in CLI':s.status==='running'?'Session running':'Session ending'):'No session';
-   slot.innerHTML=c?.enabled?`<span class="agent-coordinator-state agent-owner-${s?.waiting?'waiting':s?'active':'none'}">${esc(providerLabels[c.provider])} · ${esc(c.model)} · ${esc(status)}</span><span class="agent-view-switch" role="group" aria-label="Conversation view"><button type="button" data-coordinator-mode="chat" aria-pressed="false">Chat</button><button type="button" data-coordinator-mode="cli" aria-pressed="false">CLI</button></span><button type="button" class="text-button" data-coordinator-settings>Settings</button>`
+   q('#agent-view-switch').innerHTML=c?.enabled?'<span class="agent-view-switch" role="group" aria-label="Conversation view"><button type="button" data-coordinator-mode="chat" aria-pressed="false">Chat</button><button type="button" data-coordinator-mode="cli" aria-pressed="false">CLI</button></span>':'';
+   slot.innerHTML=c?.enabled?`<span class="agent-coordinator-state agent-owner-${s?.waiting?'waiting':s?'active':'none'}">${esc(providerLabels[c.provider])} · ${esc(c.model)} · ${esc(status)}</span><button type="button" class="text-button" data-coordinator-settings>Settings</button>`
     :`<span class="agent-coordinator-state agent-owner-none">Coordinator agent off</span><button type="button" class="text-button" data-coordinator-settings>Set up</button>`;
    if(s?.waiting)slot.insertAdjacentHTML('beforeend',`<p class="agent-waiting" role="status"><strong>Waiting for you in the CLI.</strong> Answer the permission prompt to continue.${mode()==='cli'?'':' <button type="button" class="primary" data-coordinator-open-cli>Open CLI</button>'}</p>`);
    q('#agent-message-help').textContent=c?.enabled?`Messages are typed into the ${providerLabels[c.provider]} session. It posts replies here and asks in the CLI before starting or changing work.`:'Messages are saved. Turn on the coordinator agent to get replies.';
