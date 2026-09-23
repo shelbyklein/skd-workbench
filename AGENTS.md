@@ -61,6 +61,9 @@ read-only GitHub browsing with explicit agent proposal and apply actions.
   validated server-selected executables/arguments; do not interpolate shell commands.
 - Preserve loopback binding, Host/origin validation, bounded input/output, and the
   explicit public asset allowlist. Do not expose local records through static serving.
+  The only non-loopback Host accepted is the opt-in `remote-access.json` host, and only
+  with a verified Cloudflare Access token on every request and terminal WebSocket
+  (`lib/remote-access.js`). Never widen this without the same token check.
 - Usage not reported by a provider is unknown, not zero. Interactive terminal tails
   are not complete structured transcripts. Process completion is not acceptance proof.
 

@@ -43,6 +43,7 @@ import {Briefings,readCommits} from './lib/briefings.js';
 import {Mandates} from './lib/mandates.js';
 import {ProjectThreads,COORDINATOR} from './lib/project-threads.js';
 import {projectAgentOverview,portfolioOverview} from './lib/project-agent.js';
+import {RemoteAccess} from './lib/remote-access.js';
 const root = path.dirname(fileURLToPath(import.meta.url));
 const files = {'/project-agent-ui.js':'project-agent-ui.js','/sidebar-texture.png':'sidebar-texture.png','/briefing-ui.js':'briefing-ui.js','/controllers-ui.js':'controllers-ui.js','/connection-editor.js':'connection-editor.js','/agent-profile-picker.js':'agent-profile-picker.js','/issue-actions-ui.js':'issue-actions-ui.js','/lifecycle-operations-ui.js':'lifecycle-operations-ui.js','/lifecycle-ui.js':'lifecycle-ui.js','/workspace-tasks-ui.js':'workspace-tasks-ui.js','/delegations-ui.js':'delegations-ui.js','/quick-actions-ui.js':'quick-actions-ui.js','/session-import-ui.js':'session-import-ui.js','/git-status-ui.js':'git-status-ui.js','/agent-card.js':'agent-card.js','/planning-ui.js':'planning-ui.js','/knowledge-ui.js':'knowledge-ui.js','/skills-ui.js':'skills-ui.js','/connections-ui.js':'connections-ui.js','/playbooks-ui.js':'playbooks-ui.js','/settings-ui.js':'settings-ui.js','/markdown.js':'markdown.js','/theme.js':'theme.js','/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
   '/icons/icon-192.png':'icons/icon-192.png','/icons/icon-512.png':'icons/icon-512.png','/icons/maskable-512.png':'icons/maskable-512.png','/icons/apple-touch-icon.png':'icons/apple-touch-icon.png'};
@@ -54,8 +55,9 @@ async function body(req,limit=1024*1024) {
   try { const parsed=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks))); assert(parsed && typeof parsed==='object' && !Array.isArray(parsed),'Expected a JSON object.'); return parsed; }
   catch(e) { if(e instanceof Problem) throw e; throw new Problem('Invalid JSON.'); }
 }
-export function createServer({directory = process.env.FLOW_BENCH_DATA || path.join(root,'.data'), publicDirectory=path.join(root,'public'), codexOptions={},claudeOptions={},terminalOptions={},githubOptions={},skillsOptions={},connectionsOptions={},gitStatusOptions={},quickActionOptions={},briefingOptions={},folderPicker=createFolderPicker(),workspaceTerminal=createWorkspaceTerminal(root)} = {}) {
+export function createServer({directory = process.env.FLOW_BENCH_DATA || path.join(root,'.data'), publicDirectory=path.join(root,'public'), codexOptions={},claudeOptions={},terminalOptions={},githubOptions={},skillsOptions={},connectionsOptions={},gitStatusOptions={},quickActionOptions={},briefingOptions={},folderPicker=createFolderPicker(),workspaceTerminal=createWorkspaceTerminal(root),remoteAccessOptions={}} = {}) {
   const store = new Store(directory);
+  const remoteAccess=new RemoteAccess(directory,remoteAccessOptions);
   const imports=new ImportedSessions(directory);
   const gitStatus=new GitStatus(gitStatusOptions);
   const globalSettings=new Settings(directory);
@@ -101,9 +103,9 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
     res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
     try {
       const host=req.headers.host || '';
-      assert(/^(127\.0\.0\.1|localhost):\d+$/.test(host),'Local access only.',403);
-      const origin=req.headers.origin;
-      assert(!origin || origin===`http://${host}`,'Cross-origin requests are not allowed.',403);
+      // Loopback stays open; anything else must be the configured Cloudflare Access host.
+      if(remoteAccess.isRemote(req))await remoteAccess.admit(req);
+      else{const origin=req.headers.origin;assert(!origin || origin===`http://${host}`,'Cross-origin requests are not allowed.',403);}
       const url=new URL(req.url,`http://${host}`), pathname=url.pathname.replace(/^\/api\/agent-profiles(?=\/|$)/,'/api/playbooks').replace(/\/agent-profile-preview$/,'/playbook-preview').replace(/\/agent-profiles(?=\/|$)/,'/playbooks');
       if(pathname==='/api/controller/call'&&req.method==='POST'){
         const caller=controllers.authenticate(req.headers.authorization),input=await body(req,128*1024);
@@ -380,7 +382,7 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
     } catch(e) { json({error:e instanceof Problem?e.message:'Could not save or load data. Your previous saved state is intact.'},e.status||500); if(!(e instanceof Problem)) console.error(e); }
   });
   server.on('close',()=>{controllerCommands.shutdown();mcpConnections.shutdown();terminals.shutdown();delegations.shutdown();workflows.shutdown();});
-  const terminalStreams=attachTerminalStreams(server,{workspace:workspaceTerminal,agents:terminals});
+  const terminalStreams=attachTerminalStreams(server,{workspace:workspaceTerminal,agents:terminals,remoteAccess});
   server.shutdownCodex=()=>{controllerCommands.shutdown();terminalStreams.shutdown();workspaceTerminal.shutdown();mcpConnections.shutdown();terminals.shutdown();delegations.shutdown();workflows.shutdown();briefings.close();};
   return server;
 }

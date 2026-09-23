@@ -40,8 +40,14 @@ const reviewDrafts=new Map();
 function toast(message) { const el=$('#toast');if(!el)return;el.textContent=message;el.classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('visible'),4200); }
 async function api(route,method='GET',body) {
   let response;
-  try{response=await fetch('/api/'+route,{method,headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});}
+  try{response=await fetch('/api/'+route,{method,redirect:'manual',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});}
   catch{serverAvailable(false);throw new Error('Local server unavailable. Start SKD Workbench and reconnect. Check the saved state before retrying this action.');}
+  // Only Cloudflare Access redirects API calls: the remote sign-in expired. Reload once to sign in again.
+  if(response.type==='opaqueredirect'){
+   let recent=false;try{recent=Date.now()-Number(sessionStorage.getItem('skd-access-reload')||0)<30000;sessionStorage.setItem('skd-access-reload',String(Date.now()));}catch{}
+   if(!recent)location.reload();
+   throw new Error('Remote sign-in expired. Reload the page to sign in again. Check the saved state before retrying this action.');
+  }
   const result=await response.json(); serverAvailable(result.code!=='SERVER_UNAVAILABLE'); if(!response.ok) throw new Error(result.error||'Request failed.'); return result;
 }
 async function reload() { data=await api('state'); }
@@ -563,7 +569,8 @@ function applyRoute(hash=location.hash){
  if(!data.projects.some(p=>p.id===projectID))projectID='unassigned';draft=clone(data.flows.find(f=>f.id===route[1]&&f.projectID===projectID)||scopedFlows()[0]||null);
 }
 async function boot(){try{await reload();await loadSettings(api);try{primeAgentCache(await api('sessions'));}catch{}applyRoute();loaded=true;render();}
- catch(e){$('#app').innerHTML=`<section class="empty offline-startup"><img src="/icon.svg" alt=""><h1>Server unavailable</h1><p>The interface is ready. Your projects and workflows need the local server.</p><p>Start the local server with the installed Mac launcher.</p><button id="start-workbench" data-start-workbench class="primary">Start Workbench</button><button id="retry-load">Reconnect</button><details class="launcher-help"><summary>Launcher not installed?</summary><p>Open <strong>Launch SKD Workbench.command</strong> in the Workbench folder. To install the launcher, run <code>npm run launcher:install</code> there once.</p></details><p class="offline-note">${esc(e.message)}</p></section>`;$('#retry-load').onclick=boot;$('#start-workbench').onclick=startWorkbench;}}
+ catch(e){if(!/^(127\.0\.0\.1|localhost)$/.test(location.hostname)){$('#app').innerHTML=`<section class="empty offline-startup"><img src="/icon.svg" alt=""><h1>Workbench unavailable</h1><p>The Workbench on your Mac is not reachable, or your remote sign-in expired.</p><button id="retry-load" class="primary">Reload</button><p class="offline-note">${esc(e.message)}</p></section>`;$('#retry-load').onclick=()=>location.reload();return;}
+  $('#app').innerHTML=`<section class="empty offline-startup"><img src="/icon.svg" alt=""><h1>Server unavailable</h1><p>The interface is ready. Your projects and workflows need the local server.</p><p>Start the local server with the installed Mac launcher.</p><button id="start-workbench" data-start-workbench class="primary">Start Workbench</button><button id="retry-load">Reconnect</button><details class="launcher-help"><summary>Launcher not installed?</summary><p>Open <strong>Launch SKD Workbench.command</strong> in the Workbench folder. To install the launcher, run <code>npm run launcher:install</code> there once.</p></details><p class="offline-note">${esc(e.message)}</p></section>`;$('#retry-load').onclick=boot;$('#start-workbench').onclick=startWorkbench;}}
 let followingLocation=false;
 async function openLocation(target){if(followingLocation)return;followingLocation=true;try{await reload();applyRoute(target);render();}catch(error){history.replaceState(null,'',lastRenderedHash);toast(error.message);}finally{followingLocation=false;}}
 function followLocation(){if(!loaded||followingLocation||location.hash===lastRenderedHash)return;const target=location.hash;if(hasUnsaved()){history.replaceState(null,'',lastRenderedHash);confirmLeave(()=>{history.pushState(null,'',target);openLocation(target);});return;}openLocation(target);}

@@ -1366,3 +1366,31 @@ TT plan `local:F5660300-649C-4650-8AC3-2C96C0328BB9`, DB-01 through DB-07.
 - Test-only change; no shell assets changed. `issues-browser`, `issue-actions-browser`
   and `project-tags-browser` passed with temporary stores; dark screenshots inspected.
   This resolves the two pre-existing failures recorded in the issue #14 entry above.
+
+## Remote access through Cloudflare Zero Trust — 2026-09-23
+
+Plan: `instructions/2026-09-23-remote-access.md` · Tracker Trapper `local:E017EE98-50B5-4280-A964-E4C6B608C143`.
+
+- RA-01 `lib/remote-access.js`: opt-in `remote-access.json` (host, team domain, AUD, allowed
+  emails; strict validation, 0600 atomic write, re-read on change, corrupt file → 503 for
+  remote requests only). Access JWTs are verified with RS256 against the team's certs:
+  signature, `aud`, `iss`, `exp`, `nbf`, allowed email; other algorithms refused. Unknown key
+  IDs refetch at most once a minute, also after a failed fetch (503).
+- RA-02/03: `server.js` and terminal WebSocket upgrades treat any non-loopback Host or any
+  `cf-*` header as remote and require the configured host, an `https://` origin and a valid
+  token. Loopback behaviour is unchanged. Tests prove the real server wires the same gate to
+  terminal streams (no token 403; valid token reaches the session lookup, 404).
+- RA-04: `api()` uses `redirect:'manual'`; an Access redirect reloads once (guarded) instead
+  of reporting the server as down. On non-loopback hosts the service worker checks
+  navigations against the network with `redirect:'manual'` and passes the Access redirect
+  through, otherwise serving the cached shell (explicit updates preserved). Local
+  navigations stay cache-first. Remote startup failure shows a Reload action without
+  launcher steps. Cache `skd-shell-0.5.0-111`.
+- RA-05: `npm run remote-access -- --host … --team … --aud … --email …`, `--status`, `--disable`.
+- Tests (fixture RSA key/JWKS, temporary stores, no Cloudflare traffic): `remote-access`,
+  `remote-access-server`, `remote-access-script`, `sw-access` Node tests; `remote-access-browser`
+  (local and `https://` remote host via routed fixture; screenshot
+  `output/remote-access-expired.png` inspected); `pwa-browser` passed. Full Node suite 400/400;
+  `npm run test:browser` passed all 40 suites in one run.
+- Pending: Access application (person), tunnel/DNS/launchd, live activation and end-to-end
+  sign-in check (RA-06…RA-10).

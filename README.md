@@ -199,6 +199,16 @@ Projects, flows and simulation snapshots are stored in `.data/store.json` on thi
 
 The server binds only to `127.0.0.1`, rejects cross-origin writes and unrecognized Host headers, and serves an explicit list of UI assets. This is a local single-user app, not a hosted service. The workbench adds no telemetry or external fonts. Real Codex execution communicates with its provider and may use network capabilities permitted by Codex.
 
+### Remote access (optional)
+
+Remote access is off unless `.data/remote-access.json` exists. It is meant for a Cloudflare Tunnel to `127.0.0.1:4390` behind a Cloudflare Access application that admits only your email. Anyone admitted can open terminals and start agents on this Mac.
+
+1. In Cloudflare Zero Trust, create a self-hosted Access application for the hostname with an Allow policy for your email only, and copy its Application Audience (AUD) tag.
+2. Point a Cloudflare Tunnel at `http://127.0.0.1:4390` for that hostname.
+3. Enable it: `npm run remote-access -- --host workbench.example.com --team <team>.cloudflareaccess.com --aud <AUD tag> --email you@example.com`
+
+Requests to that host must carry a valid Cloudflare Access token (`Cf-Access-Jwt-Assertion`: RS256 signature from the team's keys, matching audience and issuer, unexpired, allowed email), including terminal WebSockets over `wss://`. Other hosts are refused and requests on `127.0.0.1` work as before. Changes apply without a restart; `--status` shows the setting and `--disable` removes it. When the Access sign-in expires, the app reloads once to reach the sign-in page.
+
 ## Development and verification
 
 ```sh
