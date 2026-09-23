@@ -1392,5 +1392,19 @@ Plan: `instructions/2026-09-23-remote-access.md` · Tracker Trapper `local:E017E
   (local and `https://` remote host via routed fixture; screenshot
   `output/remote-access-expired.png` inspected); `pwa-browser` passed. Full Node suite 400/400;
   `npm run test:browser` passed all 40 suites in one run.
-- Pending: Access application (person), tunnel/DNS/launchd, live activation and end-to-end
-  sign-in check (RA-06…RA-10).
+- Live (2026-09-23): Access app on team `skdesign.cloudflareaccess.com` (AUD `496b473a…ac7a`,
+  read from the Access login redirect; `shelbykleindesign.cloudflareaccess.com` shown on the
+  login page returns 404 and is not the issuer). Tunnel `workbench` (`0dc0bb65…`) with
+  `~/.cloudflared/workbench.yml` and launchd `com.shelbyklein.workbench.tunnel`, 4 edge
+  connections. `cloudflared tunnel route dns` first attached the CNAME to `agentos` because
+  the default `config.yml` names that tunnel; corrected with `--config workbench.yml
+  --overwrite-dns` (agentos answered 404 for the host meanwhile). Pass `--config` for any
+  per-tunnel command.
+- Activation: no active execution; main checkout fast-forwarded; live `remote-access.json`
+  written; launchd server restarted (PID 70115 → 19939). Loopback health 200. Forged remote
+  Host without or with a fake token → 403; loopback with `cf-ray` → 403. Public URL, a bogus
+  `CF_Authorization` cookie and a `wss` upgrade all 302 to the Access login; the in-app
+  browser showed "Log in to workbench".
+- Open: the person reported the public site loading without a code but has not confirmed
+  the address or a private-window sign-in, so an end-to-end sign-in and remote terminal
+  are not yet verified (RA-09).
