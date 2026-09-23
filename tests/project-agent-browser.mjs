@@ -64,6 +64,7 @@ try{
  assert.equal((await api('projects/'+a.id+'/mandate')).mandate.version,2);assert.equal((await call('get_run',{projectID:a.id,runID:run.id})).status,'waiting');
  await page.locator('.agent-decision [data-agent-run]').click();await page.locator('.workflow-summary').waitFor();assert.match(page.url(),new RegExp(run.id));
  await page.goBack();await page.locator(`[data-project="${a.id}"],#agent-decisions`).first().waitFor();
+ await page.emulateMedia({colorScheme:'dark'});await page.goto(url);await page.locator(`[data-project="${a.id}"]`).click();await page.locator('#agent-decisions').waitFor();assert.equal(await page.evaluate(()=>document.documentElement.dataset.theme),'dark');await page.screenshot({path:'output/project-agent-dark.png'});await page.emulateMedia({colorScheme:'light'});
  await page.setViewportSize({width:390,height:844});await page.goto(url);await page.locator(`[data-project="${a.id}"]`).click();await page.locator('#agent-decisions').waitFor();
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:'output/project-agent-mobile.png',fullPage:true});
  assert.equal((await api('workflows?projectID='+a.id)).length,runsBefore,'Viewing, messaging and saving started no run.');assert.equal(launches,0);assert.deepEqual(errors,[]);

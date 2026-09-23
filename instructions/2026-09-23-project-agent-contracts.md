@@ -79,3 +79,13 @@ Source inspection on 2026-09-23 at `main` 375d6f8 (worktree `codex/project-agent
 - no unfinished run already claims the same mandate task (duplicate claim → 409; inspect the existing run).
 
 The accepted run stores `controllerOrigin.mandate` and `deadlineAt`. After the deadline, no further agent attempt launches and the run fails with a runtime-limit error; a running attempt is not killed (stopping remains explicit). Controller calls without `mandate` keep today's behavior, and user-started workflows are unchanged.
+
+## Project conversation (PA-04)
+
+User decision 2026-09-23: the project agent conversation is a saved thread, answered by the external coordinator; Workbench runs no inference for it.
+
+- `project-threads.json` (schema 1): one thread per project, append-only messages `{id, author: user|agent, text ≤ 8 KiB, refs[], createdAt, requestKey, controllerID?}`, newest 1000 kept with a `trimmed` count. Atomic 0600 writes with `.bak`; a damaged file fails startup.
+- Posts are idempotent per author and request key; a reused key with different content returns 409. Run links must name a run in the same project; other links (`issue`, `workflow`, `session`, `operation`) are opaque references.
+- Controller tools: `list_messages` (read) and `post_message` (manage). Messages are context, not authority: they cannot change a mandate or start work.
+- `GET /api/projects/:id/agent` derives the owner line, decisions (runs waiting for review, failed or interrupted runs, owner Agent drift), current work, unclaimed mandate tasks and the latest finished run from canonical records. Nothing is stored separately.
+- The UI keeps one unsent draft per project in memory and `sessionStorage`, with a stable request key until it is sent.
