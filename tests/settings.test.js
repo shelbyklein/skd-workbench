@@ -55,3 +55,11 @@ test('tag colors persist, validate and survive clients that omit color',t=>{
  settings.save({...settings.data,projectTags:[tag]});assert.equal(settings.data.projectTags[0].color,'#ffe066');
  for(const color of ['red','#fff','#ffffff;display:none',null,42])assert.throws(()=>settings.save({...settings.data,projectTags:[{...tag,color}]}),/tag color/);
 });
+
+test('primary color persists and older clients preserve it',t=>{
+ const dir=mkdtempSync(path.join(tmpdir(),'skd-primary-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));
+ const settings=new Settings(dir);settings.save({...settings.data,primaryColor:'#125678'});
+ const old=structuredClone(settings.data);delete old.primaryColor;settings.save(old);
+ assert.equal(new Settings(dir).data.primaryColor,'#125678');
+ assert.throws(()=>settings.save({...settings.data,primaryColor:'red'}),/valid primary/);
+});

@@ -1294,3 +1294,20 @@ TT plan `local:F5660300-649C-4650-8AC3-2C96C0328BB9`, DB-01 through DB-07.
 - Launcher uses the installation checkout and Node paths and fixed port 4390.
   Reinstall after moving either; existing loaded jobs need a later login to adopt
   changed paths. The manual command remains available.
+
+## Primary color and supplied branding — 2026-09-23
+
+- `img/logo.png` is cropped by alpha bounds (1114 × 682 at 81,293), preserving
+  the supplied artwork. `npm run icons` reproduces the cropped SVG wrapper and
+  square install icons, and copies `img/bg-blue.png` for the sidebar texture.
+- Global Settings → Appearance adds a persisted primary color, separate from
+  existing light/dark accent colors. Derived surface, text, border and hover
+  tokens adapt to both themes; older settings/clients retain a default/current
+  primary color. Saved preferences load before paint from the local shell cache.
+- Settings, sidebar, accessibility and PWA browser suites passed with temporary
+  stores. Inspected light/dark home screenshots; desktop/mobile settings and
+  keyboard checks passed. The texture is explicitly served and precached.
+- An existing launcher fixture used a pooled HTTP connection after server close;
+  closing fixture responses avoids mistaking that stale socket for a refused port.
+- Full Node suite passed 379/379. Restarted the idle local launchd server after
+  checking active session records and confirming no server child processes.

@@ -18,7 +18,7 @@ try{
  const bounds=await dialog.boundingBox();assert(bounds.width>=1100&&bounds.width>bounds.height);
  const navBounds=await page.locator('.settings-menu').boundingBox(),contentBounds=await page.locator('.settings-content').boundingBox();assert(navBounds.x+navBounds.width<=contentBounds.x+1);
  await page.screenshot({path:'output/settings-landscape-appearance.png'});
- await dialog.getByLabel('Light mode',{exact:true}).fill('#2266cc');await dialog.getByLabel('Dark mode',{exact:true}).fill('#bb77ff');
+ await dialog.getByLabel('Primary color',{exact:true}).fill('#386f82');await dialog.getByLabel('Light mode',{exact:true}).fill('#2266cc');await dialog.getByLabel('Dark mode',{exact:true}).fill('#bb77ff');
  await choose('Codex');
  const one=dialog.getByRole('button',{name:'Model One',exact:true}).first();await one.click();assert.equal(await one.getAttribute('aria-pressed'),'false');
  assert.equal(await one.locator('.model-visibility-state').innerText(),'Hidden');
@@ -31,8 +31,11 @@ try{
  const footerAfter=await dialog.getByRole('button',{name:'Save settings',exact:true}).boundingBox();assert.equal(footerBefore.y,footerAfter.y);assert(footerAfter.y+footerAfter.height<1000);
  // Hidden preference panels still contribute their draft values when saving from a document.
  await dialog.getByRole('button',{name:'Save settings',exact:true}).click();await dialog.waitFor({state:'hidden'});
+ assert.equal(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--primary').trim()),'#386f82');
  assert.equal(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()),'#2266cc');
+ await page.screenshot({path:'output/brand-home-light.png'});
  await page.getByLabel('Appearance',{exact:true}).selectOption('dark');
+ await page.waitForTimeout(300);await page.screenshot({path:'output/brand-home-dark.png'});
  assert.equal(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()),'#bb77ff');
  await page.reload();await page.getByRole('button',{name:'Global settings',exact:true}).first().click();assert.equal(await page.getByLabel('Dark mode',{exact:true}).inputValue(),'#bb77ff');
  const codexButton=dialog.getByRole('navigation').getByRole('button',{name:'Codex',exact:true});await codexButton.focus();await page.keyboard.press('Enter');assert.equal(await codexButton.getAttribute('aria-current'),'page');

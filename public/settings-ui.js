@@ -20,7 +20,7 @@ export function visibleModels(models,agent,selected){
  return models.filter(m=>m.id===selected||!m.legacyAlias&&!settings.hiddenModels.includes(agent+':'+m.id));
 }
 export async function loadSettings(api){
- settings=await api('settings');window.workbenchTheme?.setAccents(settings.accents);return settings;
+ settings=await api('settings');window.workbenchTheme?.setAccents(settings.accents);window.workbenchTheme?.setPrimary(settings.primaryColor);return settings;
 }
 export const settingsButton='<button type="button" class="refresh-button" data-global-settings aria-label="Global settings" title="Global settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="m9 3 1-2h4l1 2 1 2 3 1 2 3-1 3 1 3-2 3-3 1-1 2h-5l-1-2-3-1-2-3 1-3-1-3 2-3 3-1Z" transform="translate(1 1) scale(.9)"/><circle cx="12" cy="12" r="3.5"/></svg></button>';
 export async function showInstructions(host,api,route){
@@ -39,7 +39,7 @@ export async function openSettings({api,modal,onSaved,projects=[],section='appea
   <nav class="settings-menu" aria-label="Settings sections">${groups.map(([label,items])=>`<div class="settings-menu-group"><p>${label}</p>${items.map(([id,name])=>`<button type="button" data-settings-section="${id}" aria-controls="settings-panel-${id}" ${id==='appearance'?'aria-current="page"':''}>${name}</button>`).join('')}</div>`).join('')}</nav>
   <label class="settings-mobile-menu">Settings section<select id="settings-section" aria-label="Settings section">${groups.map(([label,items])=>`<optgroup label="${label}">${items.map(([id,name])=>`<option value="${id}">${name}</option>`).join('')}</optgroup>`).join('')}</select></label>
   <div class="settings-content" tabindex="0" role="region" aria-label="Settings content">
-   <section data-settings-panel="appearance"><h3>Appearance</h3><p class="field-help">Accent colors apply across all projects.</p><h4>Accent colors</h4><div class="accent-settings"><label>Light mode<input type="color" name="light" value="${draft.accents.light}"></label><label>Dark mode<input type="color" name="dark" value="${draft.accents.dark}"></label></div></section>
+   <section data-settings-panel="appearance"><h3>Appearance</h3><p class="field-help">Colors apply across all projects.</p><label>Primary color<input type="color" name="primaryColor" value="${draft.primaryColor||'#315b74'}"></label><p class="field-help">Tints surfaces, borders, and the sidebar. Light and dark shades keep text readable.</p><h4>Accent colors</h4><div class="accent-settings"><label>Light mode<input type="color" name="light" value="${draft.accents.light}"></label><label>Dark mode<input type="color" name="dark" value="${draft.accents.dark}"></label></div></section>
    <section data-settings-panel="startup" hidden><h3>Startup</h3><div id="settings-startup">Loading…</div></section>
    <section data-settings-panel="controllers" hidden><div id="settings-controllers">Loading controllers…</div></section>
    <section data-settings-panel="tags" hidden><h3>Project tags</h3><p class="field-help">Projects can have multiple tags. Deleting a tag removes it from all projects when you save.</p><div id="settings-tags"></div><button type="button" id="add-project-tag">Add tag</button></section>
@@ -48,8 +48,9 @@ export async function openSettings({api,modal,onSaved,projects=[],section='appea
    ${guidance('references','Reference documents','Feature plans and historical notes for Workbench. Repository rules may direct agents to consult relevant documents; a plan alone does not authorize new work.')}
   </div>
  </section>`,[{label:'Cancel',close:true},{label:'Save settings',submit:true,primary:true}],async form=>{
+  draft.primaryColor=form.get('primaryColor');
   draft.accents={light:form.get('light'),dark:form.get('dark')};
-  settings=await api('settings','PUT',draft);window.workbenchTheme?.setAccents(settings.accents);onSaved();
+  settings=await api('settings','PUT',draft);window.workbenchTheme?.setAccents(settings.accents);window.workbenchTheme?.setPrimary(settings.primaryColor);onSaved();
  });
  const root=document.querySelector('.global-settings'),content=root.querySelector('.settings-content'),select=root.querySelector('#settings-section');
  root.querySelectorAll('[data-settings-panel]').forEach(panel=>panel.id='settings-panel-'+panel.dataset.settingsPanel);

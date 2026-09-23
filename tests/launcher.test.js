@@ -2,7 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';
 import {mkdtempSync,writeFileSync,rmSync,readFileSync} from 'node:fs';import {tmpdir} from 'node:os';import path from 'node:path';import http from 'node:http';
 import {serverStatus} from '../scripts/launcher-service.mjs';import {launcherStatus,saveLauncher} from '../lib/launcher.js';
 test('launcher distinguishes healthy Workbench from occupied and stopped ports',async()=>{
- const server=http.createServer((req,res)=>{res.setHeader('Content-Type','application/json');res.end(JSON.stringify(req.url==='/health'?{app:'skd-workbench',ok:true}:{app:'other'}));});await new Promise(r=>server.listen(0,'127.0.0.1',r));const url='http://127.0.0.1:'+server.address().port;
+ const server=http.createServer((req,res)=>{res.setHeader('Content-Type','application/json');res.setHeader('Connection','close');res.end(JSON.stringify(req.url==='/health'?{app:'skd-workbench',ok:true}:{app:'other'}));});await new Promise(r=>server.listen(0,'127.0.0.1',r));const url='http://127.0.0.1:'+server.address().port;
  try{assert.equal(await serverStatus(url+'/health'),'running');assert.equal(await serverStatus(url+'/other'),'occupied');}finally{await new Promise(r=>server.close(r));}
  assert.equal(await serverStatus(url+'/health'),'stopped');
 });
