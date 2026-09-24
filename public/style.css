@@ -590,7 +590,7 @@ body.terminal-open .issue-detail-layout{grid-template-columns:minmax(0,1fr)}
 /* Side panel split on project pages: coordinator on top, the project's agent below */
 .dock-project[hidden]{display:none}
 .coordinator-dock.dock-split .dock-conversation,.coordinator-dock.dock-split .dock-project{flex:1 1 0;min-height:0;overflow:auto}
-.coordinator-dock.dock-split .dock-project{border-top:1px solid var(--line);padding-top:12px}
+.coordinator-dock.dock-split .dock-project{border-top:1px solid var(--line);margin:6px -16px 0;padding:16px 16px 0}
 .coordinator-dock .dock-project .agent-view-switch-slot:not(:empty){display:block}
 .coordinator-dock .dock-project .agent-view-switch{margin:0 0 8px}
 .coordinator-dock.dock-split .agent-thread>.agent-messages{min-height:80px}
@@ -606,11 +606,14 @@ body.dock-project-split .project-agent>.agent-thread{display:none}
 .thread-refresh{width:30px;height:30px;padding:0;display:grid;place-items:center;border-radius:8px}.thread-refresh svg{width:16px;height:16px}
 .agent-cli-history{display:flex;gap:10px;flex-wrap:wrap;max-height:none}
 .session-history-list{list-style:none;margin:0 0 8px;padding:0;display:grid;gap:2px}.session-history-list button[aria-pressed="true"]{font-weight:600}
-/* Shell and Hide sit as tabs on the panel's top-right edge */
-.coordinator-dock{padding-top:26px}
-.dock-edge-tabs{position:absolute;top:0;right:16px;display:flex;z-index:2}
-.dock-edge-tabs button{border:1px solid var(--line);border-top:0;border-radius:0 0 8px 8px;padding:3px 12px;font-size:12px;background:var(--surface);color:var(--muted);margin-left:-1px}
-.dock-edge-tabs button[aria-pressed="true"]{background:var(--white);color:var(--ink);font-weight:600}
+/* Shell and Hide: icon tabs hanging from the panel's top-right edge, shaped like folder tabs */
+.coordinator-dock{padding-top:30px}
+.dock-edge-tabs{position:absolute;top:0;right:18px;display:flex;gap:2px;z-index:2}
+.dock-edge-tabs button{position:relative;width:40px;height:26px;padding:0;border:0;background:transparent;color:var(--muted);display:grid;place-items:center;isolation:isolate}
+.dock-edge-tabs button::before{content:"";position:absolute;inset:0;z-index:-1;border:1px solid var(--line);border-top:0;border-radius:0 0 7px 7px;background:var(--surface);transform:perspective(24px) rotateX(-7deg);transform-origin:top}
+.dock-edge-tabs button svg{width:16px;height:16px}
+.dock-edge-tabs button[aria-pressed="true"]{color:var(--ink)}.dock-edge-tabs button[aria-pressed="true"]::before{background:var(--white);border-color:var(--muted)}
+@media(hover:hover) and (pointer:fine){.dock-edge-tabs button:hover{color:var(--ink);background:transparent}}
 /* Split panes are half height: give the terminal the room, keep the message box compact until used */
 .coordinator-dock.dock-split .coordinator-terminal footer{display:none}
 .coordinator-dock.dock-split .coordinator-terminal .terminal-header{padding:6px 10px}
@@ -626,3 +629,4 @@ body.dock-project-split .project-agent>.agent-thread{display:none}
 .agent-start{padding:6px 14px;border-radius:999px;font-size:13px;font-weight:600;background:var(--ink);color:var(--white);border:0}
 [data-theme="dark"] .agent-start,[data-theme="dark"] .agent-start:hover:not(:disabled){background:#f2f2f2;color:#111;border:0}
 .agent-cli-idle .agent-cli-history .text-button{font-size:13px;color:var(--muted)}
+[data-theme] .dock-edge-tabs button:hover:not(:disabled){background:transparent;border:0;color:var(--ink)}

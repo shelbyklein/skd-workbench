@@ -26,7 +26,7 @@ export function createCoordinatorDock({api,modal,notify}){
  function build(){
   panel=document.createElement('aside');panel.className='coordinator-dock';panel.setAttribute('aria-label','Coordinator panel');panel.hidden=true;
   panel.innerHTML=`<div class="terminal-resize-edge" tabindex="0" role="separator" aria-label="Resize panel" aria-orientation="vertical"></div>
-   <div class="dock-edge-tabs" role="group" aria-label="Panel"><button type="button" data-dock-tab="shell" aria-pressed="false">Shell</button><button type="button" data-dock-hide>Hide</button></div>
+   <div class="dock-edge-tabs" role="group" aria-label="Panel"><button type="button" data-dock-tab="shell" aria-pressed="false" aria-label="Shell" title="Workspace shell"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M12 15h5"/></svg></button><button type="button" data-dock-hide aria-label="Hide" title="Hide panel"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16M8 10l2 2-2 2"/></svg></button></div>
    <div class="dock-conversation"></div>
    <div class="dock-project" hidden></div>
    <div class="dock-shell" hidden><div class="dock-shell-screen"></div><p class="field-help dock-shell-empty"></p></div>`;
