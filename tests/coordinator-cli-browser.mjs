@@ -47,7 +47,8 @@ try{
  // Typing in the CLI reaches the session; the reply still lands in the chat.
  await page.locator('.coordinator-terminal .terminal-screen').click();await page.keyboard.type('typed in cli');await page.keyboard.press('Enter');
  await waitScreen(/> typed in cli/);
- await tab('Chat').click();await page.getByText('Echo: typed in cli (1 granted project)').waitFor();assert.equal(await page.locator('#dock-composer').isVisible(),true);
+ await tab('Chat').click();await page.getByText('Echo: typed in cli (1 granted project)').waitFor();
+ assert.match(await dock.locator('.agent-message-user').filter({hasText:'typed in cli'}).last().textContent(),/You · in CLI/,'Lines typed in the CLI are copied to the conversation.');assert.equal(await page.locator('#dock-composer').isVisible(),true);
  assert.equal(await page.locator('.coordinator-terminal').count(),0);
  await page.locator('#dock-message').fill('from chat again');await page.keyboard.press('Control+Enter');await page.getByText('Echo: from chat again (1 granted project)').waitFor();
  // Keyboard: the switch is reachable and reopening shows the same session without a respawn.

@@ -36,7 +36,7 @@ function bindComposer(host,{key,send,sent,p='agent'}){
 }
 function renderMessages(host,t,name,p='agent'){
  const list=host.querySelector('#'+p+'-messages');
- list.innerHTML=(t.trimmed?`<li class="field-help">${t.trimmed} older message${t.trimmed===1?'':'s'} not shown.</li>`:'')+(t.items.length?t.items.map(msg=>`<li class="agent-message agent-message-${esc(msg.author)}"><div class="agent-message-meta"><strong>${msg.author==='user'?'You':esc(msg.controllerName==='Workbench coordinator'?'Orchestrator':msg.controllerName||name)}</strong><time datetime="${esc(msg.createdAt)}">${esc(time(msg.createdAt))}</time></div><p>${esc(msg.text)}</p>${msg.refs.length?`<div class="agent-refs">${msg.refs.map(refButton).join('')}</div>`:''}</li>`).join(''):'<li class="widget-empty">No messages.</li>');
+ list.innerHTML=(t.trimmed?`<li class="field-help">${t.trimmed} older message${t.trimmed===1?'':'s'} not shown.</li>`:'')+(t.items.length?t.items.map(msg=>`<li class="agent-message agent-message-${esc(msg.author)}"><div class="agent-message-meta"><strong>${msg.author==='user'?(msg.source==='cli'?'You · in CLI':'You'):esc(msg.controllerName==='Workbench coordinator'?'Orchestrator':msg.controllerName||name)}</strong><time datetime="${esc(msg.createdAt)}">${esc(time(msg.createdAt))}</time></div><p>${esc(msg.text)}</p>${msg.refs.length?`<div class="agent-refs">${msg.refs.map(refButton).join('')}</div>`:''}</li>`).join(''):'<li class="widget-empty">No messages.</li>');
  list.scrollTop=list.scrollHeight;
 }
 
@@ -54,7 +54,7 @@ function coordinatorPanel(host,{key,api,modal,notify,refresh,p='agent'}){
   if(termID===session.id&&termLive===live)return;clear();termID=session.id;termLive=live;
   term=mountTerminal({session,api,onChange:s=>{if(s.status!=='running')refresh();},inline:{host:q('#'+p+'-cli-screen'),endpoint:'coordinator-terminal/',stopPath:id=>'coordinator/sessions/'+encodeURIComponent(id)+'/stop',
    eyebrow:`${providerLabels[session.provider]} · ${session.model}`,title:live?(key==='coordinator'?'Orchestrator session':'Project agent session'):'Previous session',endLabel:'Stop session',
-   footer:live?'Messages from the message box are typed here. Answer permission prompts in this terminal.':`Read-only transcript. This session ${endReasons[session.endReason]||'ended'}.`}});
+   footer:live?'Messages from the message box are typed here, and lines typed here are copied to Chat. Answer permission prompts in this terminal.':`Read-only transcript. This session ${endReasons[session.endReason]||'ended'}.`}});
  }
  function apply(){
   const cli=mode()==='cli'&&!!c;
