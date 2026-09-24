@@ -1553,3 +1553,22 @@ Plan: `instructions/2026-09-23-hub-orchestrator.md` · Tracker Trapper `EAAFEE50
 - Settings behavior and Appearance controls are preserved. Shell cache bumped
   to `skd-shell-0.5.0-140`; installed PWAs use the existing explicit Update app action.
 - No live server restart, provider execution, or remote push performed.
+
+## Project-first Home — 2026-09-24 (#21)
+
+- Home starts with all project cards in two columns (one on narrow screens), each
+  showing three priority-sorted open issue previews, total issue count, and All
+  issues. Issue links retain their project's scope. Folder/repository detail and
+  the layout switcher were removed from Home; tags remain editable/filterable.
+- Agent summaries, briefings, and global tools remain under a collapsed More
+  disclosure. No stored records, project detail pages or execution controls changed.
+- Previews use the existing bounded first page of recent issues; partial coverage
+  is labeled. Three workers bound GitHub reads; detached cards ignore late results.
+- Passed browser suites: home-project-overview, overview, project-tags,
+  project-counts, sidebar, briefing, hub-orchestrator, and tools. Temporary stores
+  and fixture CLIs only. New coverage checks 2x2 geometry, three sorted previews,
+  keyboard issue navigation, empty/error/partial results and mobile overflow.
+- Desktop/mobile screenshots inspected in `instructions/assets/home-project-overview/`.
+  `node --check public/app.js` and `git diff --check` passed; Graft refreshed.
+- Shell cache `skd-shell-0.5.0-141`. No live server restart or remote push performed;
+  installed PWA activation and user acceptance remain pending.

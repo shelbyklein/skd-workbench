@@ -9,6 +9,7 @@ const root=mkdtempSync(path.join(tmpdir(),'skd-counts-')),directory=path.join(ro
 const store=new Store(directory);
 for(const name of ['Many','One','Zero','Unavailable']){const folderPath=path.join(root,name);mkdirSync(folderPath);store.createProject({name,folderPath});}
 const server=createServer({directory,githubOptions:{inspect:async folder=>({git:{remotes:[{name:'origin',webURL:'https://github.com/fixture/'+path.basename(folder)}]}}),request:async(endpoint,method,payload)=>{
+ if(endpoint!=='graphql')return [];
  assert.equal(endpoint,'graphql');await new Promise(r=>setTimeout(r,150));
  if(payload.variables.name==='Unavailable')throw Error('GitHub sign-in unavailable');
  return {data:{repository:{issues:{totalCount:{Many:125,One:1,Zero:0}[payload.variables.name]}}}};
@@ -27,6 +28,6 @@ try{
  mkdirSync('output',{recursive:true});await page.screenshot({path:'output/project-issue-counts-desktop.png',fullPage:true});
  await page.setViewportSize({width:390,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  await page.screenshot({path:'output/project-issue-counts-mobile.png',fullPage:true});
- await page.getByRole('button',{name:/LOCAL PROJECT One /}).click();await page.locator('[data-project-overview]').waitFor();
+ await page.locator('.home-project-card').getByRole('button',{name:'One',exact:true}).click();await page.locator('[data-project-overview]').waitFor();
  console.log('Project issue counts passed: totals, singular, zero, unavailable, navigation and mobile.');
 }finally{await browser.close();server.closeAllConnections();await new Promise(r=>server.close(r));rmSync(root,{recursive:true,force:true});}

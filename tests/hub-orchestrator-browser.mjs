@@ -18,7 +18,7 @@ const browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL||'ch
 try{
  const page=await browser.newPage({viewport:{width:1440,height:1000},serviceWorkers:'block'});page.setDefaultTimeout(15000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
  const dock=page.getByRole('complementary',{name:'Coordinator panel',exact:true}),tab=name=>dock.getByRole('button',{name,exact:true});
- await page.goto(url);await page.locator('#home-decisions').waitFor();
+ await page.goto(url);await page.locator('.home-secondary>summary').click();await page.locator('#home-decisions').waitFor();
  // Main path: no Workflows card, no Project owners, no owner counts.
  assert.equal(await page.locator('[data-global-workflows]').count(),0);assert.equal(await page.getByRole('heading',{name:'Project owners'}).count(),0);
  await page.waitForFunction(()=>/need/.test(document.querySelector('#home-agent-summary')?.textContent||''));assert.doesNotMatch(await page.locator('#home-agent-summary').textContent(),/owner/);

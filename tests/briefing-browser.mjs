@@ -54,7 +54,7 @@ try{
  // Inject an explicit workflow gate into saved-read responses; no execution is started.
  await page.route('**/api/briefings',async route=>{const response=await route.fetch(),rows=await response.json();for(const row of rows)for(const report of [row.briefing?.latest,row.briefing?.lastSuccessful].filter(Boolean)){report.evidence.openLoops.push({id:'workflow:review-gate',kind:'workflow',recordID:'review-gate',title:'Review results',status:'waiting'});if(report.synthesis)report.synthesis.suggestions.push({title:'Inspect workflow gate',reason:'The workflow awaits a human decision.',sourceIDs:['workflow:review-gate']});}await route.fulfill({response,json:rows});});
  // Home aggregates the last successful suggestions and reports status.
- await page.goto(url+'/#home');const home=page.locator('#home-briefings');await home.getByText('Fix the settings migration').waitFor();
+ await page.goto(url+'/#home');await page.locator('.home-secondary>summary').click();const home=page.locator('#home-briefings');await home.getByText('Fix the settings migration').waitFor();
  assert.match(await home.locator('.briefing-project-list').textContent(),/Briefing fixture.*Failed/);
  assert.equal(await home.locator('.briefing-action-attention .briefing-action-card').count(),1);
  assert.equal(await home.locator('.briefing-action-next .briefing-action-card').count(),1);
@@ -76,7 +76,7 @@ try{
  await page.setViewportSize({width:390,height:900});await page.goto(url+'/#project/'+project.id);await page.locator('.briefing-widget .briefing-state-failed').waitFor();
  assert.equal(await noHorizontalScroll(page),true,'project page scrolls horizontally at 390px');
  await page.locator('.briefing-widget').screenshot({path:'output/briefing-project-mobile.png'});
- await page.goto(url+'/#home');await page.locator('#home-briefings .briefing-action-board').waitFor();
+ await page.goto(url+'/#home');await page.locator('.home-secondary>summary').click();await page.locator('#home-briefings .briefing-action-board').waitFor();
  assert.equal(await noHorizontalScroll(page),true,'home scrolls horizontally at 390px');
  await page.screenshot({path:'output/briefing-home-mobile.png',fullPage:true});
  assert.deepEqual(errors,[]);

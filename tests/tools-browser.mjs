@@ -19,7 +19,7 @@ const browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL||'ch
 try{
  const project=await api('projects',{name:'App',folderPath:folder});
  const page=await browser.newPage({viewport:{width:1280,height:900}});page.setDefaultTimeout(15000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
- await page.goto(url);await page.locator('[data-global-tools]').click();await page.getByRole('heading',{name:'Tools',exact:true}).waitFor();
+ await page.goto(url);await page.locator('.home-secondary>summary').click();await page.locator('[data-global-tools]').click();await page.getByRole('heading',{name:'Tools',exact:true}).waitFor();
  const codex=page.locator('.tools-column').filter({has:page.getByRole('heading',{name:'Codex',exact:true})}),claude=page.locator('.tools-column').filter({has:page.getByRole('heading',{name:'Claude Code',exact:true})});
  await codex.getByText('node_repl').waitFor();assert.match(await codex.textContent(),/vispix.*http · off/s);assert.match(await claude.textContent(),/tracker-trapper/);assert.match(await claude.textContent(),/handoff/);assert.match(await claude.locator('li',{hasText:'Mobbin'}).textContent(),/claude\.ai connector/);
  assert.match(await codex.locator('li',{hasText:'dev-plan'}).textContent(),/both/);assert(!(await page.locator('#tools-view').textContent()).includes('tt-secret-value-9'),'Secret values never shown.');
