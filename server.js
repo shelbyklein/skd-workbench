@@ -42,6 +42,7 @@ import {AgentProfiles} from './lib/playbooks.js';
 import {Briefings,readCommits} from './lib/briefings.js';
 import {Mandates} from './lib/mandates.js';
 import {ProjectThreads,COORDINATOR} from './lib/project-threads.js';
+import {toolsInventory} from './lib/tools.js';
 import {projectAgentOverview,portfolioOverview} from './lib/project-agent.js';
 import {RemoteAccess} from './lib/remote-access.js';
 import {CoordinatorAgent} from './lib/coordinator-agent.js';
@@ -56,7 +57,8 @@ async function body(req,limit=1024*1024) {
   try { const parsed=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks))); assert(parsed && typeof parsed==='object' && !Array.isArray(parsed),'Expected a JSON object.'); return parsed; }
   catch(e) { if(e instanceof Problem) throw e; throw new Problem('Invalid JSON.'); }
 }
-export function createServer({directory = process.env.FLOW_BENCH_DATA || path.join(root,'.data'), publicDirectory=path.join(root,'public'), codexOptions={},claudeOptions={},terminalOptions={},githubOptions={},skillsOptions={},connectionsOptions={},gitStatusOptions={},quickActionOptions={},briefingOptions={},folderPicker=createFolderPicker(),workspaceTerminal=createWorkspaceTerminal(root),remoteAccessOptions={},coordinatorOptions={}} = {}) {
+export function createServer({directory = process.env.FLOW_BENCH_DATA || path.join(root,'.data'), publicDirectory=path.join(root,'public'), codexOptions={},claudeOptions={},terminalOptions={},githubOptions={},skillsOptions={},connectionsOptions={},gitStatusOptions={},quickActionOptions={},briefingOptions={},folderPicker=createFolderPicker(),workspaceTerminal=createWorkspaceTerminal(root),remoteAccessOptions={},coordinatorOptions={},toolsOptions={}} = {}) {
+  const toolsHome=toolsOptions.home||connectionsOptions.home||undefined;
   const store = new Store(directory);
   const remoteAccess=new RemoteAccess(directory,remoteAccessOptions);
   const imports=new ImportedSessions(directory);
@@ -320,6 +322,7 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
         if(req.method==='GET'&&!proposal[3])return json(proposals.get(proposal[2],project));
         if(req.method==='POST'&&proposal[3]){await body(req);return json(await proposals[proposal[3]](proposal[2],project));}
       }
+      if(req.method==='GET'&&pathname==='/api/tools'){const id=url.searchParams.get('projectID'),projects=store.snapshot().projects;return json(await toolsInventory({connections:mcpConnections,projects,project:id?store.project(id):null,home:toolsHome}));}
       if(req.method==='GET' && pathname==='/api/state') return json(store.snapshot());
       if(req.method==='POST' && pathname==='/api/projects'){
         const input=await body(req);input.folderPath=await canonicalFolder(input.folderPath);
