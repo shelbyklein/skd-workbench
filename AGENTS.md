@@ -37,6 +37,10 @@ read-only GitHub browsing with explicit agent proposal and apply actions.
 - `lib/terminals.js`: interactive PTY sessions, reconnect and process lifecycle.
 - `lib/coordinator-sessions.js`, `lib/session-host.js`, `scripts/session-host.mjs`: agent CLI sessions and the
   host process that keeps them alive across restarts.
+- `lib/attachments.js`: files pasted, dropped or attached in a conversation's message box, saved under
+  `.data/attachments/`; the sent message lists their absolute paths for the agent CLI to read.
+- `lib/branch-work.js`: the project page's Current work — local branches not merged into the default branch,
+  summarized by their own commit subjects, worktree and last activity (read-only Git).
 - `lib/benchmarks.js`: pinned baselines, workspace archives and guarded cleanup.
 - `lib/reconcile-limits.js`: per-project limits for Home's "Needs reconciling" warning (set on the project page;
   Workbench only warns, the person asks an agent to reconcile). The lifecycle backend (`lib/lifecycle-*.js`) has no UI.

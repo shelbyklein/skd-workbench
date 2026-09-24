@@ -16,23 +16,50 @@ function progress(steps){return `<ol class="agent-steps" aria-label="Workflow st
 
 // Shared conversation panel: one draft and request key per scope (project ID or coordinator).
 // One compact header row: the title on the left; the Chat / CLI switch and a refresh icon on the right.
-function threadAside(label,eyebrow,card,p='agent'){return `<aside class="agent-thread" aria-label="${label}"><header class="agent-thread-head"><h2 id="${p}-thread-title"></h2><div class="agent-thread-tools"><div id="${p}-view-switch" class="agent-view-switch-slot"></div><button type="button" class="icon-button thread-refresh" id="${p}-refresh" aria-label="Refresh" title="Refresh"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 6.1A8 8 0 0 1 19.5 10M4.5 14a8 8 0 0 0 13.4 3.9"/></svg></button></div></header>
- <p class="agent-thread-status" id="${p}-thread-status"></p><ol class="agent-messages" id="${p}-messages" aria-live="polite"></ol><div class="agent-cli" id="${p}-cli" hidden><div id="${p}-cli-screen" class="agent-cli-screen"></div><p class="field-help agent-cli-empty" id="${p}-cli-empty"></p><div class="agent-cli-history" id="${p}-cli-history"></div></div>${card?'<button type="button" class="agent-mandate-card" id="'+p+'-mandate-card"></button>':''}<div class="agent-coordinator" id="${p}-coordinator"></div>
- <form class="agent-composer" id="${p}-composer"><label for="${p}-message" id="${p}-message-label" class="visually-hidden">Message</label><div class="agent-composer-box"><textarea id="${p}-message" rows="2" maxlength="8000"></textarea><div class="agent-composer-bar"><span class="agent-composer-agent" id="${p}-composer-agent"></span><button type="submit" class="agent-send" id="${p}-send" aria-label="Send" title="Send (⌘↵)"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button></div></div><p class="field-help agent-composer-help" id="${p}-message-help"></p><p class="form-error" id="${p}-send-error" role="alert"></p></form></aside>`;}
+function threadAside(label,eyebrow,card,p='agent'){return `<aside class="agent-thread" aria-label="${label}"><header class="agent-thread-head"><div class="agent-thread-heading"><h2 id="${p}-thread-title"></h2><div class="agent-coordinator" id="${p}-coordinator"></div></div><div class="agent-thread-tools"><div id="${p}-view-switch" class="agent-view-switch-slot"></div><button type="button" class="icon-button thread-history" id="${p}-history" data-coordinator-history-open hidden><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg></button><button type="button" class="icon-button thread-refresh" id="${p}-refresh" aria-label="Refresh" title="Refresh"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 6.1A8 8 0 0 1 19.5 10M4.5 14a8 8 0 0 0 13.4 3.9"/></svg></button><span class="agent-settings-slot" id="${p}-settings"></span></div></header>
+ <p class="agent-thread-status" id="${p}-thread-status"></p><ol class="agent-messages" id="${p}-messages" aria-live="polite"></ol><div class="agent-cli" id="${p}-cli" hidden><div id="${p}-cli-screen" class="agent-cli-screen"></div><p class="field-help agent-cli-empty" id="${p}-cli-empty"></p><div class="agent-cli-history" id="${p}-cli-history"></div></div>${card?'<button type="button" class="agent-mandate-card" id="'+p+'-mandate-card"></button>':''}<div class="agent-waiting-slot" id="${p}-waiting"></div>
+ <form class="agent-composer" id="${p}-composer"><label for="${p}-message" id="${p}-message-label" class="visually-hidden">Message</label><div class="agent-composer-box" id="${p}-composer-box"><ul class="agent-attachments" id="${p}-attachments" aria-label="Attachments"></ul><textarea id="${p}-message" rows="2" maxlength="8000"></textarea><div class="agent-composer-bar"><button type="button" class="agent-attach" id="${p}-attach" aria-label="Attach files" title="Attach files (or paste / drop them)"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m21 11-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.9-8.9a3.7 3.7 0 0 1 5.2 5.2l-8.9 8.9a1.8 1.8 0 0 1-2.6-2.6L15 6.6"/></svg></button><input type="file" id="${p}-attach-input" multiple hidden><span class="agent-composer-agent" id="${p}-composer-agent"></span><button type="submit" class="agent-send" id="${p}-send" aria-label="Send" title="Send (⌘↵)"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button></div></div><p class="field-help agent-composer-help" id="${p}-message-help"></p><p class="form-error" id="${p}-send-error" role="alert"></p></form></aside>`;}
+// Attached files per conversation, kept with the draft until the message is sent.
+const attachedFiles=new Map();
+const fileSize=n=>n<1024?n+' B':n<1048576?Math.round(n/1024)+' KB':(n/1048576).toFixed(1)+' MB';
+async function uploadAttachment(file){
+ const name=file.name&&file.name!=='image.png'?file.name:`pasted-${new Date().toISOString().replace(/[:.]/g,'-')}.${(file.type.split('/')[1]||'bin').replace(/[^a-z0-9]/g,'')}`;
+ const response=await fetch('/api/attachments',{method:'POST',headers:{'Content-Type':'application/octet-stream','X-File-Name':encodeURIComponent(name)},body:file});
+ const result=await response.json().catch(()=>({error:'Upload failed.'}));if(!response.ok)throw new Error(result.error||'Upload failed.');return result;
+}
 function bindComposer(host,{key,send,sent,p='agent'}){
- const q=s=>host.querySelector(s),input=q('#'+p+'-message');let sending=false;
+ const q=s=>host.querySelector(s),input=q('#'+p+'-message');let sending=false,uploading=0;
  input.value=drafts.get(key)?.text||'';
+ const files=()=>attachedFiles.get(key)||[];
+ const renderFiles=()=>{q('#'+p+'-attachments').innerHTML=files().map((f,i)=>`<li class="agent-attachment"><span title="${esc(f.path)}">${esc(f.name)}</span><small>${esc(fileSize(f.size))}</small><button type="button" class="icon-button" data-remove-attachment="${i}" aria-label="Remove ${esc(f.name)}">×</button></li>`).join('')+(uploading?`<li class="agent-attachment agent-attachment-pending">Uploading ${uploading} file${uploading>1?'s':''}…</li>`:'');};
+ async function attach(list){
+  const picked=[...list];if(!picked.length)return;uploading+=picked.length;renderFiles();q('#'+p+'-send-error').textContent='';
+  for(const file of picked){try{const saved=await uploadAttachment(file);attachedFiles.set(key,[...files(),saved]);}catch(error){q('#'+p+'-send-error').textContent=`${file.name||'File'}: ${error.message}`;}finally{uploading--;if(host.isConnected)renderFiles();}}
+ }
+ renderFiles();
+ q('#'+p+'-attach').onclick=()=>q('#'+p+'-attach-input').click();
+ q('#'+p+'-attach-input').onchange=e=>{attach(e.target.files);e.target.value='';};
+ q('#'+p+'-attachments').onclick=e=>{const b=e.target.closest('[data-remove-attachment]');if(!b)return;const next=files().slice();next.splice(Number(b.dataset.removeAttachment),1);attachedFiles.set(key,next);renderFiles();input.focus();};
+ // Pasted files (screenshots included) attach; pasted text goes into the box as usual.
+ input.addEventListener('paste',e=>{const list=[...(e.clipboardData?.files||[])];if(!list.length)return;if(!e.clipboardData.getData('text/plain'))e.preventDefault();attach(list);});
+ const box=q('#'+p+'-composer-box');
+ box.addEventListener('dragover',e=>{if([...(e.dataTransfer?.types||[])].includes('Files')){e.preventDefault();box.classList.add('agent-drop');}});
+ box.addEventListener('dragleave',e=>{if(!box.contains(e.relatedTarget))box.classList.remove('agent-drop');});
+ box.addEventListener('drop',e=>{box.classList.remove('agent-drop');if(!e.dataTransfer?.files?.length)return;e.preventDefault();attach(e.dataTransfer.files);});
  // The label stays for screen readers; its text is the placeholder, and the box grows with the draft.
  const label=q('#'+p+'-message-label'),grow=()=>{input.style.height='auto';input.style.height=Math.min(input.scrollHeight,220)+'px';};
  new MutationObserver(()=>{input.placeholder=label.textContent;}).observe(label,{childList:true,characterData:true,subtree:true});input.placeholder=label.textContent;
  input.oninput=()=>{drafts.set(key,{text:input.value,key:null});saveDrafts();grow();};requestAnimationFrame(grow);
  input.onkeydown=e=>{if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)){e.preventDefault();q('#'+p+'-composer').requestSubmit();}};
  q('#'+p+'-composer').onsubmit=async e=>{
-  e.preventDefault();if(sending)return;const text=input.value.trim();if(!text){q('#'+p+'-send-error').textContent='Write a message first.';return;}
+  e.preventDefault();if(sending)return;
+  if(uploading){q('#'+p+'-send-error').textContent='Wait for the attachments to finish uploading.';return;}
+  const typed=input.value.trim(),list=files();if(!typed&&!list.length){q('#'+p+'-send-error').textContent='Write a message first.';return;}
+  const text=list.length?`${typed}${typed?'\n\n':''}Attached file${list.length>1?'s':''}:\n${list.map(f=>f.path).join('\n')}`:typed;
   // Keep one request key per unsent draft so an ambiguous failure can be retried without a duplicate.
   const draft=drafts.get(key)||{text:input.value,key:null};draft.key??=crypto.randomUUID();drafts.set(key,draft);saveDrafts();
   sending=true;q('#'+p+'-send').disabled=true;q('#'+p+'-send-error').textContent='';
-  try{await send({text,requestKey:draft.key});if(!host.isConnected)return;drafts.delete(key);saveDrafts();input.value='';grow();await sent();}
+  try{await send({text,requestKey:draft.key});attachedFiles.delete(key);if(!host.isConnected)return;drafts.delete(key);saveDrafts();input.value='';grow();renderFiles();await sent();}
   catch(error){if(host.isConnected)q('#'+p+'-send-error').textContent=error.message+' Your draft is kept.';}
   finally{sending=false;if(host.isConnected)q('#'+p+'-send').disabled=false;}
  };
@@ -74,14 +101,15 @@ function coordinatorPanel(host,{key,api,modal,notify,refresh,p='agent'}){
   q('#'+p+'-messages').hidden=cli;q('#'+p+'-composer').hidden=cli;q('#'+p+'-cli').hidden=!cli;q('.agent-thread').classList.toggle('agent-cli-mode',cli);
   host.querySelectorAll('[data-coordinator-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.coordinatorMode===mode())));
   if(!cli){clear();return;}
-  if(!c.enabled){clear();q('#'+p+'-cli-empty').innerHTML='<span>The coordinator agent is off</span><button type="button" class="agent-start" data-coordinator-settings>Set up</button>';q('#'+p+'-cli-history').innerHTML='';q('#'+p+'-cli').classList.add('agent-cli-idle');return;}
+  if(!c.enabled){clear();q('#'+p+'-history').hidden=true;q('#'+p+'-cli-empty').innerHTML='<span>The coordinator agent is off</span><button type="button" class="agent-start" data-coordinator-settings>Set up</button>';q('#'+p+'-cli-history').innerHTML='';q('#'+p+'-cli').classList.add('agent-cli-idle');return;}
   const saved=viewing&&c.history.find(h=>h.id===viewing),target=saved||c.session||null;
   if(target)mount(target,!saved&&target===c.session);else clear();
   q('#'+p+'-cli-empty').innerHTML=c.session?'':`${target?'':'<span>No session running</span>'}<button type="button" class="agent-start" data-coordinator-start>Start session</button>`;
   // With no terminal on screen, the start controls and history sit centered on one line.
   q('#'+p+'-cli').classList.toggle('agent-cli-idle',!target);
-  // Previous sessions open in a dialog; the pane keeps one button (and a way back while viewing one).
-  q('#'+p+'-cli-history').innerHTML=c.history.length?`<button type="button" class="text-button" data-coordinator-history-open>Previous sessions (${c.history.length})</button>${saved&&c.session?'<button type="button" class="text-button" data-coordinator-history="">Back to current session</button>':''}`:'';
+  // Previous sessions sit behind a history icon in the header; the pane keeps the way back while viewing one.
+  const history=q('#'+p+'-history'),label=`Previous sessions (${c.history.length})`;history.hidden=!c.history.length;history.setAttribute('aria-label',label);history.title=label;
+  q('#'+p+'-cli-history').innerHTML=c.history.length&&saved&&c.session?'<button type="button" class="text-button" data-coordinator-history="">Back to current session</button>':'';
  }
  host.addEventListener('click',e=>{
   if(e.target.closest('[data-effort-menu]')){effortMenu.toggle(e.target.closest('[data-effort-menu]'));return;}
@@ -107,9 +135,12 @@ function coordinatorPanel(host,{key,api,modal,notify,refresh,p='agent'}){
    const status=s?(s.waiting?'Waiting for you in CLI':s.status==='running'?'Session running':'Session ending'):'No session';
    q('#'+p+'-view-switch').innerHTML=c?.enabled?'<span class="agent-view-switch" role="group" aria-label="Conversation view"><button type="button" data-coordinator-mode="chat" aria-pressed="false">Chat</button><button type="button" data-coordinator-mode="cli" aria-pressed="false">CLI</button></span>':'';
    const who=c?.agent?`${providerLabels[c.agent.provider]} · ${c.agent.model} · ${c.agent.workspace==='worktree'?'dedicated worktree':'project folder'}`:`${providerLabels[c?.provider]} · ${c?.model}`;
-   slot.innerHTML=c?.enabled?`<span class="agent-coordinator-state agent-owner-${s?.waiting?'waiting':s?'active':'none'}">${esc(who)} · ${esc(status)}</span><button type="button" class="text-button" data-coordinator-settings>Settings</button>`
-    :`<span class="agent-coordinator-state agent-owner-none">Coordinator agent off</span><button type="button" class="text-button" data-coordinator-settings>Set up</button>`;
-   if(s?.waiting)slot.insertAdjacentHTML('beforeend',`<p class="agent-waiting" role="status"><strong>Waiting for you in the CLI.</strong> Answer the permission prompt to continue.${mode()==='cli'?'':' <button type="button" class="primary" data-coordinator-open-cli>Open CLI</button>'}</p>`);
+   // Agent and session status sit beside the title; Settings sits right of the refresh icon.
+   slot.innerHTML=c?.enabled?`<span class="agent-coordinator-state agent-owner-${s?.waiting?'waiting':s?'active':'none'}">${esc(who)} · ${esc(status)}</span>`
+    :'<span class="agent-coordinator-state agent-owner-none">Coordinator agent off</span>';
+   q('#'+p+'-settings').innerHTML=`<button type="button" class="text-button" data-coordinator-settings>${c?.enabled?'Settings':'Set up'}</button>`;
+   q('#'+p+'-waiting').innerHTML='';
+   if(s?.waiting)q('#'+p+'-waiting').insertAdjacentHTML('beforeend',`<p class="agent-waiting" role="status"><strong>Waiting for you in the CLI.</strong> Answer the permission prompt to continue.${mode()==='cli'?'':' <button type="button" class="primary" data-coordinator-open-cli>Open CLI</button>'}</p>`);
    // Model and effort sit in the message box, like a model menu; choosing them opens the agent's settings.
    const pick=c?.agent||c;q('#'+p+'-composer-agent').innerHTML=c?.enabled&&pick?.model?`<button type="button" class="agent-model-button" data-effort-menu aria-haspopup="dialog" aria-expanded="false" title="Effort">${esc(pick.model)} <span>${esc(effortLabel(pick.effort))}</span><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg></button>`:'';
    q('#'+p+'-message-help').textContent=!c?.enabled?'Messages are saved. Turn on the coordinator agent to get replies.':c.agent?`Messages go to this project's agent. It works with the project's own instructions and tools, reports to the orchestrator, and asks in its CLI before edits and commands.`:'Messages go to the orchestrator. It hands work to project agents and relays their questions here.';
@@ -212,13 +243,23 @@ export async function openCoordinatorSettings({api,modal,notify,onSaved}){
  model.onchange=efforts;efforts();
 }
 
+// Current work: each branch not yet merged, summarized by its own commits (newest first).
+function branchWorkMarkup(w){
+ if(w.status!=='connected')return `<li class="widget-empty">${esc(w.message)}</li>`;
+ if(!w.branches.length)return `<li class="widget-empty">No branches ahead of ${esc(w.target)}.</li>`;
+ const ago=value=>{if(!value)return '';const m=Math.round((Date.now()-Date.parse(value))/60000);return m<60?`${Math.max(m,1)} min ago`:m<1440?`${Math.round(m/60)} h ago`:`${Math.round(m/1440)} d ago`;};
+ return w.branches.map(b=>{const [first,...rest]=b.subjects,more=b.ahead-b.subjects.length;
+  const where=b.worktree?(b.worktree.current?'project folder':'worktree')+(b.worktree.changes?` · ${b.worktree.changes} uncommitted`:''):'no worktree';
+  return `<li class="branch-work-row"><div class="branch-work-head"><code>${esc(b.name)}</code><small>${b.ahead} ahead${b.behind?` · ${b.behind} behind`:''} · ${esc(where)}${b.lastCommitAt?` · ${esc(ago(b.lastCommitAt))}`:''}</small></div>
+   ${first?`<p>${esc(first)}</p>`:''}${rest.length?`<ul>${rest.map(t=>`<li>${esc(t)}</li>`).join('')}${more>0?`<li class="branch-work-more">${more} more commit${more>1?'s':''}</li>`:''}</ul>`:''}</li>`;}).join('')+(w.total>w.branches.length?`<li class="widget-empty">${w.total-w.branches.length} more branches</li>`:'');
+}
 export function mountProjectAgent(host,{project,api,modal,notify,flows,owner,onRun,onIssue,onIssues}){
  let state=null,timer=null,fast=null;
  // Check often only while a reply is pending.
  const pace=pending=>{if(pending&&!fast)fast=setTimeout(()=>{fast=null;if(host.isConnected)refresh();},1500);};
  host.className='project-agent';host.setAttribute('aria-label','Project agent');
  host.innerHTML=`<div class="agent-main" id="agent-main"><section aria-labelledby="agent-decisions"><h2 id="agent-decisions">Needs your decision</h2><div id="agent-decisions-body" aria-live="polite"><p class="widget-empty">Loading…</p></div></section>
- <section aria-labelledby="agent-current"><h2 id="agent-current">Current work</h2><div id="agent-current-body" aria-live="polite"></div></section>
+ <section aria-labelledby="agent-current"><h2 id="agent-current">Current work</h2><div id="agent-current-body" aria-live="polite"><div id="agent-current-run"></div><ul class="branch-work" id="agent-branches"><li class="widget-empty">Loading branches…</li></ul></div></section>
  <section aria-labelledby="agent-next"><div class="agent-section-head"><h2 id="agent-next">Issues</h2><button type="button" class="text-button" data-agent-issues>All issues</button></div><div id="agent-next-body" hidden></div>
   <div class="agent-subsection"><div class="agent-subhead"><h3>Priority issues</h3><span id="priority-issues-meta">Loading…</span></div><ol id="priority-issues-list" class="priority-issue-list" aria-live="polite"><li class="widget-empty">Loading issues…</li></ol><p class="field-help" id="priority-issues-note"></p></div></section>
  <section aria-labelledby="agent-timeline"><h2 id="agent-timeline">Timeline</h2><ol class="project-timeline" id="agent-timeline-list" aria-live="polite"><li class="widget-empty">Loading…</li></ol></section>
@@ -250,9 +291,9 @@ export function mountProjectAgent(host,{project,api,modal,notify,flows,owner,onR
   const c=state.current;
   const current=c?`<article class="agent-card"><div class="agent-card-head"><span class="eyebrow">${esc(c.taskRef||'WORKFLOW RUN')}</span><span class="agent-status agent-status-${esc(c.status)}">${esc(statusLabels[c.status]||c.status)}</span></div><h3>${esc(c.flowName)}</h3><p>${esc(c.task)}</p>${progress(c.steps)}
    <dl class="agent-facts"><div><dt>Attempts</dt><dd>${c.agentAttempts} of ${c.maxAttempts}</dd></div>${c.workspace?.branch?`<div><dt>Workspace</dt><dd>${esc(c.workspace.branch)}</dd></div>`:''}${c.deadlineAt?`<div><dt>Runtime limit</dt><dd>${esc(when(c.deadlineAt))}</dd></div>`:''}${c.controllerName?`<div><dt>Started by</dt><dd>${esc(c.controllerName)}${c.mandateVersion?` · mandate v${c.mandateVersion}`:''}</dd></div>`:''}</dl>
-   ${c.error?`<p class="agent-error">${esc(c.error)}</p>`:''}<div class="agent-card-actions"><button type="button" class="text-button" data-agent-run="${esc(c.id)}">View run</button></div></article>`:'<p class="widget-empty">No active run.</p>';
+   ${c.error?`<p class="agent-error">${esc(c.error)}</p>`:''}<div class="agent-card-actions"><button type="button" class="text-button" data-agent-run="${esc(c.id)}">View run</button></div></article>`:'';
   const next=m?(state.next.length?`<ul class="agent-list">${state.next.map(t=>{const n=t.ref.startsWith('github:')?issueNumber(t.ref):null;return `<li class="agent-next"><span class="agent-copy"><strong>${esc(t.title||t.ref)}</strong><small>${esc(t.ref)}</small></span>${n?`<button type="button" class="text-button" data-agent-issue="${n}">Open issue</button>`:''}</li>`;}).join('')}</ul>${state.nextTotal>state.next.length?`<p class="field-help">${state.nextTotal-state.next.length} more eligible task${state.nextTotal-state.next.length===1?'':'s'} in the mandate.</p>`:''}`:'<p class="widget-empty">All eligible tasks are claimed by a run.</p>'):'<p class="widget-empty">No owner mandate. <button type="button" class="text-button" data-agent-mandate>Set mandate</button></p>';
-  q('#agent-decisions-body').innerHTML=decisions;q('#agent-current-body').innerHTML=current;q('#agent-next-body').innerHTML=next;
+  q('#agent-decisions-body').innerHTML=decisions;q('#agent-current-run').innerHTML=current;q('#agent-next-body').innerHTML=next;
  }
  function renderThread(){
   const name=`${project.name} agent`;
@@ -264,6 +305,7 @@ export function mountProjectAgent(host,{project,api,modal,notify,flows,owner,onR
   // Mandates are off the main path (#18); the conversation card is the project's live agent.
  }
  async function refresh(announce=false){
+  api('projects/'+encodeURIComponent(project.id)+'/branch-work').then(w=>{if(host.isConnected)q('#agent-branches').innerHTML=branchWorkMarkup(w);},error=>{if(host.isConnected)q('#agent-branches').innerHTML=`<li class="widget-empty">${esc(error.message)}</li>`;});
   api('projects/'+encodeURIComponent(project.id)+'/timeline').then(t=>{if(host.isConnected)q('#agent-timeline-list').innerHTML=timelineMarkup(t.entries,'No agent activity yet. Reports from this project\'s agent appear here.');},error=>{if(host.isConnected)q('#agent-timeline-list').innerHTML=`<li class="widget-empty">${esc(error.message)}</li>`;});
   try{const next=await api('projects/'+encodeURIComponent(project.id)+'/agent');if(!host.isConnected)return;state=next;renderOwner();renderMain();renderThread();if(announce)notify('Project agent refreshed.');}
   catch(error){if(host.isConnected)q('#agent-decisions-body').innerHTML=`<p class="widget-empty">${esc(error.message)}</p>`;}

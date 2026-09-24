@@ -46,7 +46,7 @@ try{
  await page.locator('.dock-project').getByRole('button',{name:'CLI',exact:true}).click();await page.waitForFunction(()=>/\[from orchestrator\] I got an email/.test((document.querySelector('.dock-project .coordinator-terminal .xterm-rows')?.innerText||'').replace(/\n/g,'')));
  await page.screenshot({path:'output/hub-project-agent.png'});
  // Project agent settings: model and workspace; saving ends the running session.
- await page.locator('.dock-project').getByRole('button',{name:'Chat',exact:true}).click();await page.locator('#dockp-coordinator [data-coordinator-settings]').click();
+ await page.locator('.dock-project').getByRole('button',{name:'Chat',exact:true}).click();await page.locator('#dockp-settings [data-coordinator-settings]').click();
  await page.getByRole('heading',{name:'Project agent'}).waitFor();await page.locator('#dialog [name=model]').selectOption('other');await page.locator('#dialog [name=effort]').selectOption('low');
  await page.getByLabel('Project folder').check();await page.screenshot({path:'output/hub-project-agent-settings.png'});
  await page.getByRole('button',{name:'Save',exact:true}).click();

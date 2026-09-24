@@ -25,7 +25,7 @@ try{
  await dock.waitFor();
  await page.waitForFunction(()=>/Coordinator agent off/.test(document.querySelector('#dock-coordinator')?.textContent));
  assert.equal(await dock.locator('.dock-conversation [data-coordinator-mode]').count(),0,'No Chat / CLI switch until the coordinator is on.');
- await dock.locator('#dock-coordinator [data-coordinator-settings]').click();await page.getByRole('heading',{name:'Coordinator agent'}).waitFor();
+ await dock.locator('#dock-settings [data-coordinator-settings]').click();await page.getByRole('heading',{name:'Coordinator agent'}).waitFor();
  assert.match(await page.locator('#dialog').textContent(),/asks in the CLI before it starts or changes work/);
  await page.locator('#dialog [name=enabled]').check();await page.locator('#dialog [name=provider]').selectOption('claude');await page.locator('#dialog [name=model]').selectOption('fixture');await page.locator('#dialog [name=effort]').selectOption('low');
  await page.getByRole('button',{name:'Save',exact:true}).click();
@@ -66,9 +66,9 @@ try{
  // Stop: the session becomes a read-only transcript in the history.
  await page.getByRole('button',{name:'Stop session',exact:true}).click();
  await page.waitForFunction(()=>/No session/.test(document.querySelector('#dock-coordinator')?.textContent));
- await page.locator('[data-coordinator-history-open]').waitFor();assert.match(await page.locator('[data-coordinator-history-open]').textContent(),/Previous sessions \(1\)/);
+ await page.locator('[data-coordinator-history-open]:visible').waitFor();assert.equal(await page.locator('[data-coordinator-history-open]:visible').getAttribute('aria-label'),'Previous sessions (1)');
  // Previous sessions open in a dialog; choosing one shows its read-only transcript.
- await page.locator('[data-coordinator-history-open]').click();await page.getByRole('heading',{name:'Previous sessions'}).waitFor();await page.locator('#dialog [data-history-pick]').first().click();assert.match(await page.locator('.coordinator-terminal footer').textContent(),/Read-only transcript\. This session stopped\./);
+ await page.locator('[data-coordinator-history-open]:visible').click();await page.getByRole('heading',{name:'Previous sessions'}).waitFor();await page.locator('#dialog [data-history-pick]').first().click();assert.match(await page.locator('.coordinator-terminal footer').textContent(),/Read-only transcript\. This session stopped\./);
  await waitScreen(/> from chat again/);
  assert.equal(await page.getByRole('button',{name:'Stop session',exact:true}).count(),0,'No Stop on a read-only transcript.');assert.equal(await page.getByText('Back to current session').count(),0);
  await page.screenshot({path:'output/coordinator-cli-history.png'});
@@ -110,7 +110,8 @@ try{
  assert.equal(await dock.locator('.dock-conversation').isVisible(),true,'The coordinator stays on top.');assert.equal(await dock.locator('.dock-project').isVisible(),true);
  assert.equal(await row.getAttribute('aria-pressed'),'true');await page.screenshot({path:'output/coordinator-dock-split.png'});
  await row.click();await page.waitForFunction(()=>document.querySelector('.dock-project')?.hidden);assert.equal(await row.getAttribute('aria-pressed'),'false');
- await page.evaluate(id=>location.hash='#project/'+id,project.id);await page.locator('#agent-decisions').waitFor();assert.equal(await dock.locator('[data-dock-agent]').count(),0,'Inside a project the panel is that agent; no rows.');
+ // Double-clicking the pill opens the project page.
+ await row.dblclick();await page.locator('#agent-decisions').waitFor();assert.equal(await page.evaluate(()=>location.hash),'#project/'+project.id);assert.equal(await dock.locator('[data-dock-agent]').count(),0,'Inside a project the panel is that agent; no rows.');
  // Dark theme and a phone-width CLI view.
  await page.locator('.dock-project').getByRole('button',{name:'CLI',exact:true}).click();await page.locator('.dock-project .coordinator-terminal').waitFor();
  await page.emulateMedia({colorScheme:'dark'});await page.waitForFunction(()=>document.documentElement.dataset.theme==='dark');await page.screenshot({path:'output/coordinator-cli-dark.png'});

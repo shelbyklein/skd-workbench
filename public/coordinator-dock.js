@@ -36,6 +36,8 @@ export function createCoordinatorDock({api,modal,notify}){
    if(e.target.closest('[data-coordinator-open-cli]')){show('cli');return;}
    const row=e.target.closest('[data-dock-agent]');if(row){splitProject=splitProject===row.dataset.dockAgent?null:row.dataset.dockAgent;write('skd-dock-split',splitProject||'');syncProject();return;}
   });
+  // Double-clicking a pill opens that project's page (the two clicks before it open and close the split).
+  panel.addEventListener('dblclick',e=>{const row=e.target.closest('[data-dock-agent]');if(row)location.hash='#project/'+encodeURIComponent(row.dataset.dockAgent);});
   // Often enough that Working shows while an agent is producing output.
   poll=setInterval(()=>{if(!panel.hidden&&document.visibilityState==='visible')loadRunning();},4000);
   // Always open, except that an agent session terminal (body.terminal-open) takes this side while it is shown;
@@ -55,7 +57,10 @@ export function createCoordinatorDock({api,modal,notify}){
  function renderAgents(){
   const nav=q('.dock-agents'),rows=currentProject?[]:running;nav.hidden=!rows.length;
   const labels={on:'Session on',working:'Working',waiting:'Needs you',off:'Off'};
-  nav.innerHTML=rows.map(r=>{const open=r.projectID===splitProject,state=r.state||'on',label=labels[state]||state;return `<button type="button" class="dock-agent-pill" data-state="${esc(state)}" data-dock-agent="${esc(r.projectID)}" aria-pressed="${open}" title="${esc(r.name)} agent · ${esc(label)}${open?' · click to close':' · click to open'}"><span class="dock-agent-dot" aria-hidden="true"></span>${esc(r.name)}<span class="visually-hidden">, ${esc(label)}</span></button>`;}).join('');
+  const html=rows.map(r=>{const state=r.state||'on',label=labels[state]||state;return `<button type="button" class="dock-agent-pill" data-state="${esc(state)}" data-dock-agent="${esc(r.projectID)}" data-label="${esc(r.name)} agent · ${esc(label)}"><span class="dock-agent-dot" aria-hidden="true"></span>${esc(r.name)}<span class="visually-hidden">, ${esc(label)}</span></button>`;}).join('');
+  // Pills are replaced only when an agent or its state changes, so a double-click lands on the same button.
+  if(nav.dataset.html!==html){nav.innerHTML=html;nav.dataset.html=html;}
+  nav.querySelectorAll('[data-dock-agent]').forEach(b=>{const open=b.dataset.dockAgent===splitProject;b.setAttribute('aria-pressed',String(open));b.title=`${b.dataset.label}${open?' · click to close':' · click to open'} · double-click for the project`;});
  }
  // On a project page the panel splits: the coordinator on top, that project's agent below (Chat and CLI only).
  function syncProject(){
