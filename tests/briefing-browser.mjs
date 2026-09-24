@@ -21,7 +21,7 @@ const busy=store.createProject({name:'Busy app',folderPath:repo('busy',[['Add da
 const quiet=store.createProject({name:'Quiet app',folderPath:repo('quiet',[['Start the settings page',hoursAgo(24*5)]])});
 writeFileSync(path.join(directory,'codex-runs.json'),JSON.stringify([{id:'failed-session',agent:'codex',projectID:busy.id,projectSnapshot:busy,sourceContext:{folderPath:busy.folderPath,git:null},task:'Migrate settings store',model:'fixture',effort:'low',mode:'read-only',status:'failed',createdAt:hoursAgo(2),startedAt:hoursAgo(2),finishedAt:hoursAgo(2),output:'',activity:[],usage:null,cost:null,error:'Tests failed.',workflowID:null,purpose:null}]));
 const respond=(which,value)=>writeFileSync(path.join(bin,which+'.txt'),typeof value==='string'?value:JSON.stringify(value));
-respond('busy',{summary:'Added the dashboard layout. A settings migration session failed its tests and still needs a fix.',suggestions:[]});
+respond('busy',{summary:'Added the dashboard layout. A settings migration session failed its tests and still needs a fix.',headline:'Good momentum: the new dashboard layout is in. The settings migration still needs a fix. Extra sentence dropped.',suggestions:[]});
 respond('quiet',{summary:'',suggestions:[{title:'Finish the settings page',reason:'It was started five days ago and has not moved since.',sourceIDs:['COMMIT']}]});
 // Quiet packets have no activity; the fixture answers each kind from its own file and fills in the real commit ID.
 writeFileSync(path.join(bin,'codex'),`#!/usr/bin/env node
@@ -53,6 +53,12 @@ try{
  await page.waitForFunction(()=>!document.querySelector('.briefing-working'),null,{timeout:15000});
  assert.match(await busyCard.locator('.briefing-summary').textContent(),/settings migration session failed/);
  await page.screenshot({path:'output/briefing-page.png'});
+ // Home: each card carries the headline (two sentences at most); a quiet project without one names its next step.
+ await page.goto(url+'/#home');const line=id=>page.locator(`[data-home-briefing="${id}"]`);await line(busy.id).waitFor();
+ assert.equal(await line(busy.id).textContent(),'Good momentum: the new dashboard layout is in. The settings migration still needs a fix.');
+ assert.equal(await line(quiet.id).textContent(),'Quiet day. Next up: Finish the settings page.');
+ await page.locator(`[data-home-project="${busy.id}"]`).screenshot({path:'output/briefing-home-card.png'});
+ await page.goto(url+'/#briefing');await busyCard.locator('.briefing-summary').waitFor();
  // A failed update keeps the last summary and says so.
  respond('busy','{"summary":"x","suggestions":[{"title":"Invent","reason":"x","sourceIDs":["session:nope"]}]}');
  await busyCard.getByRole('button',{name:'Update'}).click();

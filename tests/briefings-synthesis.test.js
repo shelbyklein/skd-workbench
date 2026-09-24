@@ -81,10 +81,10 @@ test('restart marks queued and generating briefings interrupted without relaunch
 
 test('briefing parser keeps a summary and suggestions only',()=>{
  const ids=new Set(['commit:a']);
- assert.throws(()=>parseBriefing(JSON.stringify({...valid,extra:1}),ids),/only a summary and suggestions/);
- assert.throws(()=>parseBriefing(JSON.stringify({summary:3}),ids),/must be text/);
- assert.deepEqual(parseBriefing('```json\n{"summary":"","suggestions":[{"title":"t","reason":"r","sourceIDs":["commit:a","commit:a"]}]}\n```',ids),{summary:'',suggestions:[{title:'t',reason:'r',sourceIDs:['commit:a']}]});
- assert.deepEqual(parseBriefing(JSON.stringify({summary:' Did things. ',suggestions:[{title:'t',reason:'r'}]}),ids),{summary:'Did things.',suggestions:[{title:'t',reason:'r',sourceIDs:[]}]});
+ assert.throws(()=>parseBriefing(JSON.stringify({...valid,extra:1}),ids),/only a summary, headline and suggestions/);
+ assert.throws(()=>parseBriefing(JSON.stringify({summary:3}),ids),/must be text/);assert.throws(()=>parseBriefing(JSON.stringify({headline:[]}),ids),/must be text/);
+ assert.deepEqual(parseBriefing('```json\n{"summary":"","suggestions":[{"title":"t","reason":"r","sourceIDs":["commit:a","commit:a"]}]}\n```',ids),{summary:'',headline:'',suggestions:[{title:'t',reason:'r',sourceIDs:['commit:a']}]});
+ assert.deepEqual(parseBriefing(JSON.stringify({summary:' Did things. ',headline:' Good momentum. ',suggestions:[{title:'t',reason:'r'}]}),ids),{summary:'Did things.',headline:'Good momentum.',suggestions:[{title:'t',reason:'r',sourceIDs:[]}]});
 });
 
 test('a quiet day asks for suggestions from earlier work; an empty project needs no agent',async t=>{
@@ -96,8 +96,8 @@ test('a quiet day asks for suggestions from earlier work; an empty project needs
  const view=await briefings.generate({id:'p1',name:'App'},agent);
  assert.equal(view.status,'generating');assert.deepEqual(view.latest.evidence.activity,[]);
  assert.deepEqual(view.latest.evidence.recent.map(c=>c.title),['Start the settings page'],'Earlier commits are context when the last 24 hours were quiet.');
- assert.match(starts[0].task,/"openIssues":\[\{"id":"issue:7"/);assert.match(starts[0].task,/"recentCommits":\[\{"id":"commit:a{40}"/);assert.match(starts[0].task,/when activity is empty, up to 3 items/);assert.match(starts[0].task,/Write for a person skimming a morning update/);
+ assert.match(starts[0].task,/"openIssues":\[\{"id":"issue:7"/);assert.match(starts[0].task,/"recentCommits":\[\{"id":"commit:a{40}"/);assert.match(starts[0].task,/when activity is empty, up to 3 items/);assert.match(starts[0].task,/Write for a person skimming a morning update/);assert.match(starts[0].task,/"headline": at most two short sentences/);
  quiet=false;const empty=await briefings.generate({id:'p2',name:'Empty'},agent);
- assert.equal(empty.status,'ready');assert.deepEqual(empty.latest.synthesis,{summary:'',suggestions:[]});assert.equal(starts.length,1,'Nothing to summarize or suggest from starts no agent.');
+ assert.equal(empty.status,'ready');assert.deepEqual(empty.latest.synthesis,{summary:'',headline:'',suggestions:[]});assert.equal(starts.length,1,'Nothing to summarize or suggest from starts no agent.');
  briefings.close();
 });

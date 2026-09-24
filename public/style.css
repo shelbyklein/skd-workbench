@@ -703,3 +703,4 @@ main.no-topbar .projects-section>.overview-section-heading{margin-top:0}
 .home-git-reconcile strong{color:#b7791f}
 .home-git .home-git-stats{flex-direction:row}.home-git .home-git-stat{display:inline-flex;align-items:baseline;gap:4px;flex:none;width:auto}
 .home-git{grid-template-columns:minmax(0,1fr);width:100%}.home-git>*{width:100%}
+.home-briefing{margin:0 0 12px;font-size:13px;line-height:1.5;color:var(--ink,inherit)}
