@@ -18,7 +18,9 @@ if(args[0]==='exec'||args.includes('--print')){
  process.exit(0);
 }
 const codex=!args.includes('--mcp-config'),prompt=args.includes('--')?args[args.indexOf('--')+1]:'';
-const projectMode=args.includes('--append-system-prompt')||(codex&&args.some(a=>a.startsWith('mcp_servers.workbench.command=')));
+// Since #20 both roles use the normal setup plus Workbench overrides; only the orchestrator restricts tools
+// (Claude --tools, Codex --sandbox read-only).
+const projectMode=codex?!args.includes('--sandbox'):!args.includes('--tools');
 let server,system,hook,needsPrompt;
 if(projectMode){
  // Project agent: the person's normal CLI in the project folder plus the Workbench MCP server.
@@ -28,13 +30,12 @@ if(projectMode){
  needsPrompt=()=>false;
  log({mode:'session',role:'project',provider:codex?'codex':'claude',args,cwd:process.cwd(),codexHome:process.env.CODEX_HOME||null});
 }else if(codex){
- const config=readFileSync(path.join(process.env.CODEX_HOME,'config.toml'),'utf8'),field=(block,key)=>JSON.parse(new RegExp(`\\[${block}\\][^\\[]*?\\n${key} = (.*)`).exec(config)[1]);
- server={command:field('mcp_servers\\.workbench','command'),args:field('mcp_servers\\.workbench','args')};hook=JSON.parse(/\[\[hooks\.PermissionRequest\.hooks\]\][^[]*?command = (.*)/.exec(config)[1]);
- const configs=args.filter((a,i)=>args[i-1]==='-c');system=JSON.parse(configs.find(c=>c.startsWith('developer_instructions=')).slice(23));
- needsPrompt=tool=>new RegExp(`\\[mcp_servers\\.workbench\\.tools\\.${tool}\\]\\napproval_mode = "prompt"`).test(config);
- log({mode:'session',provider:'codex',args,config,codexHome:process.env.CODEX_HOME});
+ const configs=args.filter((a,i)=>args[i-1]==='-c'),get=key=>configs.find(c=>c.startsWith(key+'='))?.slice(key.length+1);
+ server={command:JSON.parse(get('mcp_servers.workbench.command')),args:JSON.parse(get('mcp_servers.workbench.args'))};hook=JSON.parse(/command=("(?:[^"\\]|\\.)*")/.exec(get('hooks.PermissionRequest'))[1]);
+ system=JSON.parse(get('developer_instructions'));needsPrompt=tool=>configs.includes(`mcp_servers.workbench.tools.${tool}.approval_mode="prompt"`);
+ log({mode:'session',provider:'codex',args,codexHome:process.env.CODEX_HOME||null});
 }else{
- server=JSON.parse(value('--mcp-config')).mcpServers.workbench;system=value('--system-prompt');
+ server=JSON.parse(value('--mcp-config')).mcpServers.workbench;system=value('--append-system-prompt');
  hook=JSON.parse(value('--settings')).hooks.Notification[0].hooks[0].command;
  const allowed=args.slice(args.indexOf('--allowedTools')+1,args.indexOf('--model'));needsPrompt=tool=>!allowed.includes('mcp__workbench__'+tool);
  log({mode:'session',provider:'claude',args});

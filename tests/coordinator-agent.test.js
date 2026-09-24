@@ -49,7 +49,7 @@ test('Claude Code session: messages go into one live CLI and the agent posts rep
  const retry=await f.api('coordinator/messages',{text:'and again',requestKey:'m2'});assert.equal(retry.body.id,second.body.id);await delay(300);
  assert.equal((await f.thread('coordinator')).filter(m=>m.author==='agent').length,2,'A retried send is not typed twice.');
  assert.equal(f.sessions().length,1,'No second CLI was started.');
- const args=f.sessions()[0].args;assert.equal(args[args.indexOf('--tools')+1],'');assert.equal(args[args.indexOf('--permission-mode')+1],'manual');assert(!args.some(a=>/dontAsk|bypass/.test(a)));
+ const args=f.sessions()[0].args;assert.equal(args[args.indexOf('--tools')+1],'Skill');assert.equal(args[args.indexOf('--permission-mode')+1],'manual');assert(!args.some(a=>/dontAsk|bypass/.test(a)));
  const state=(await f.state('coordinator')).coordinator;assert.equal(state.session.id,sent.body.session.id);
  const output=await new Promise((resolve,reject)=>{const ws=new WebSocket(f.url.replace('http','ws')+`/api/coordinator-terminal/${state.session.id}/stream`,{origin:f.url});ws.once('message',m=>{resolve(JSON.parse(m));ws.close();});ws.once('error',reject);});
  assert.match(output.data,/⏺ workbench - list_projects \(MCP\)/);assert.match(output.data,/> and again/);assert.equal(output.session.status,'running');
@@ -69,8 +69,8 @@ test('Codex orchestrator prompts before start_run, surfaces it as a decision and
  const runs=(await f.api('workflows?projectID='+f.p.id)).body;assert.equal(runs.length,1);
  let run;for(let i=0;i<150;i++){run=(await f.api('workflows/'+runs[0].id)).body;if(run.status==='waiting')break;await delay(20);}
  assert.equal(run.status,'waiting');assert.equal(run.controllerOrigin.mandate.taskRef,'local:pilot');assert.equal(run.controllerOrigin.controllerName,'Workbench coordinator');
- const session=f.sessions()[0];assert.equal(session.provider,'codex');assert.equal(session.codexHome,path.join(f.root,'data','coordinator-codex'));
- assert.deepEqual([...session.config.matchAll(/^\[mcp_servers\.(\w+)\]$/gm)].map(m=>m[1]),['workbench'],'Only the Workbench MCP server is configured.');
+ const session=f.sessions()[0];assert.equal(session.provider,'codex');assert.equal(session.codexHome,process.env.CODEX_HOME||null,'The orchestrator uses the person\'s own Codex home (#20).');
+ assert(session.args.includes('mcp_servers.workbench.default_tools_approval_mode="approve"'),'The Workbench server is added on top of the person\'s own MCP servers.');
  // The waiting workflow holds the execution lock; the orchestrator session still answers.
  await f.api('coordinator/messages',{text:'status please',requestKey:'p2'});
  assert.match((await f.replies('coordinator',2)).at(-1).text,/Echo: status please/);

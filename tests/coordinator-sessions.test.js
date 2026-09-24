@@ -21,34 +21,34 @@ test('tool split: reading and posting replies are free, managing or running work
  assert(!freeTools.includes('report_to_orchestrator')&&!promptTools.includes('report_to_orchestrator'),'Report tools are for project agents only.');
 });
 
-test('Claude Code args: no built-in tools, only Workbench MCP, prompts for action tools, no bypass',()=>{
+test('Claude Code args: the person\'s normal setup plus Workbench MCP, only the Skill tool, prompts for action tools, no bypass (#20)',()=>{
  const args=sessionArgs('claude',{model:'opus',effort:'high',system:'S',prompt:'P',server:{command:'node',args:['bridge.mjs','cred.json']},workspace:'/w'});
- assert.equal(args[args.indexOf('--tools')+1],'');assert(args.includes('--strict-mcp-config'));assert.equal(args[args.indexOf('--permission-mode')+1],'manual');
- assert(!args.some(a=>/dontAsk|bypassPermissions|dangerously/.test(a)));assert.equal(args[args.indexOf('--setting-sources')+1],'project');
+ assert.equal(args[args.indexOf('--tools')+1],'Skill','No file, shell or web tools; skills can load.');for(const flag of ['--strict-mcp-config','--setting-sources','--disable-slash-commands','--system-prompt'])assert(!args.includes(flag),flag);assert.equal(args[args.indexOf('--append-system-prompt')+1],'S');assert.equal(args[args.indexOf('--permission-mode')+1],'manual');
+ assert(!args.some(a=>/dontAsk|bypassPermissions|dangerously/.test(a)));
  assert.deepEqual(Object.keys(JSON.parse(args[args.indexOf('--mcp-config')+1]).mcpServers),['workbench']);
  const allowed=args.slice(args.indexOf('--allowedTools')+1,args.indexOf('--model'));assert.deepEqual(allowed,freeTools.map(t=>'mcp__workbench__'+t));assert(!allowed.some(a=>/start_run|stop_run|create_workflow|update_workflow/.test(a)));
  const hooks=JSON.parse(args[args.indexOf('--settings')+1]).hooks;assert.equal(hooks.Notification[0].matcher,'permission_prompt');assert.match(hooks.Notification[0].hooks[0].command,/coordinator-signal\.mjs" waiting$/);
  assert.deepEqual(args.slice(-2),['--','P']);assert.equal(args[args.indexOf('--effort')+1],'high');
 });
 
-test('Codex args and private home: read-only sandbox, no shell, only Workbench MCP, action tools prompt',()=>{
+test('Codex args: the person\'s normal home plus Workbench MCP overrides, read-only sandbox, no shell, action tools prompt (#20)',()=>{
  const args=sessionArgs('codex',{model:'gpt',effort:'default',system:'S',prompt:'P',server:{command:'node',args:['b','c']},workspace:'/w'});
  assert.equal(args[args.indexOf('--sandbox')+1],'read-only');assert(args.includes('shell_tool')&&args.includes('unified_exec'));assert(!args.some(a=>/dangerously|approval_policy="never"/.test(a)));assert.deepEqual(args.slice(-2),['--','P']);
- const config=codexConfig({server:{command:'node',args:['b','c']},workspace:'/w'});
- assert.deepEqual([...config.matchAll(/^\[mcp_servers\.([\w]+)\]$/gm)].map(m=>m[1]),['workbench']);assert.match(config,/default_tools_approval_mode = "approve"/);
- for(const t of promptTools)assert.match(config,new RegExp(`\\[mcp_servers\\.workbench\\.tools\\.${t}\\]\\napproval_mode = "prompt"`));
- assert.match(config,/\[\[hooks\.PermissionRequest\.hooks\]\]/);assert.match(config,/\[projects\."\/w"\]\ntrust_level = "trusted"/);
+ assert(args.includes('mcp_servers.workbench.command="node"')&&args.includes('mcp_servers.workbench.default_tools_approval_mode="approve"'));
+ for(const t of promptTools)assert(args.includes(`mcp_servers.workbench.tools.${t}.approval_mode="prompt"`),t);
+ assert(args.some(a=>a.startsWith('hooks.PermissionRequest=')));assert(args.includes('projects."/w".trust_level="trusted"'));
+ assert(!args.some(a=>/mcp_servers\.(?!workbench)/.test(a)),'Other MCP servers come from the person\'s own config, untouched.');
 });
 
-test('one PTY per conversation; later messages are pasted into it; Codex gets its own home',async t=>{
+
+test('one PTY per conversation; later messages are pasted into it; Codex uses the person\'s own home (#20)',async t=>{
  const dir=temp(t),fake=fakePty(),s=new CoordinatorSessions(dir,{spawn:fake.spawn});
  const first=s.deliver('coordinator','hi',start());assert.equal(fake.spawned.length,1);assert.equal(first.status,'running');
  assert.equal(fake.spawned[0].options.cwd,path.join(dir,'coordinator-workspace'));assert.equal(fake.spawned[0].options.env.GH_TOKEN,undefined);
  const again=s.deliver('coordinator','second \x1b[201~ line',start());assert.equal(again.id,first.id);assert.equal(fake.spawned.length,1);
  await tick(80);assert.deepEqual(fake.spawned[0].writes,['\x1b[200~second  line\x1b[201~','\r']);
  s.deliver('project-1','hello',start({provider:'codex',binary:'codex'}));assert.equal(fake.spawned.length,2);
- const env=fake.spawned[1].options.env;assert.equal(env.CODEX_HOME,path.join(dir,'coordinator-codex'));
- assert.equal(statSync(env.CODEX_HOME).mode&0o777,0o700);assert.match(readFileSync(path.join(env.CODEX_HOME,'config.toml'),'utf8'),/\[mcp_servers\.workbench\]/);
+ const env=fake.spawned[1].options.env;assert.equal(env.CODEX_HOME,process.env.CODEX_HOME,'No private Codex home.');
  assert.equal(fake.spawned[0].options.env.CODEX_HOME,undefined,'Claude sessions do not get the Codex home.');
 });
 
