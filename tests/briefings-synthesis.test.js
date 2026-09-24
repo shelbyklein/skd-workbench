@@ -19,7 +19,7 @@ const fake=`const fs=require('node:fs'),p=require('node:path'),dir=p.dirname(pro
 async function fixture(t,{data}={}){
  const base=realpathSync(mkdtempSync(path.join(tmpdir(),'skd-brief-syn-'))),root=path.join(base,'repo'),bin=path.join(base,'bin');mkdirSync(root);mkdirSync(bin);data??=path.join(base,'data');
  git(root,{},'init','-q','-b','main');git(root,{},'config','user.name','Fixture');git(root,{},'config','user.email','fixture@example.invalid');
- writeFileSync(path.join(root,'a.txt'),'a');git(root,{},'add','.');git(root,{GIT_AUTHOR_DATE:'2026-09-21T10:00:00Z',GIT_COMMITTER_DATE:'2026-09-21T10:00:00Z'},'commit','-q','-m','Yesterday work');
+ writeFileSync(path.join(root,'a.txt'),'a');git(root,{},'add','.');git(root,{GIT_AUTHOR_DATE:'2026-09-22T10:00:00Z',GIT_COMMITTER_DATE:'2026-09-22T10:00:00Z'},'commit','-q','-m','Recent work');
  writeFileSync(path.join(bin,'codex'),'#!/usr/bin/env node\n'+fake,{mode:0o755});
  const server=createServer({directory:data,codexOptions:{binary:path.join(bin,'codex'),discover:async()=>provider},githubOptions:{binary:path.join(base,'missing-gh')},briefingOptions:{now:()=>now,timezone:()=>'UTC',retryMs:50}});
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
@@ -29,13 +29,13 @@ async function fixture(t,{data}={}){
  const settle=async()=>{for(let i=0;i<200;i++){const v=await(await request(route)).json();if(!['queued','generating'].includes(v.status))return v;await new Promise(r=>setTimeout(r,25));}throw new Error('Briefing did not settle.');};
  return {base,bin,data,request,project,route,settle,respond:value=>writeFileSync(path.join(bin,'response.txt'),typeof value==='string'?value:JSON.stringify(value))};
 }
-const valid={yesterday:[{text:'Committed yesterday work.',sourceIDs:['COMMIT']}],openLoops:[],suggestions:[{title:'Review the commit',reason:'It has not been reviewed.',sourceIDs:['COMMIT']}]};
+const valid={summary:'Committed recent work.',suggestions:[{title:'Review the commit',reason:'It has not been reviewed.',sourceIDs:['COMMIT']}]};
 
 test('HTTP synthesis produces a ready briefing through a tool-free internal run',async t=>{
  const f=await fixture(t);f.respond(valid);
  const started=await(await f.request(f.route,'POST',agent)).json();assert.ok(['queued','generating','ready'].includes(started.status));
  const done=await f.settle();
- assert.equal(done.status,'ready');assert.equal(done.latest.synthesis.suggestions[0].title,'Review the commit');
+ assert.equal(done.status,'ready');assert.equal(done.latest.synthesis.summary,'Committed recent work.');assert.equal(done.latest.synthesis.suggestions[0].title,'Review the commit');
  assert.match(done.latest.synthesis.suggestions[0].sourceIDs[0],/^commit:[0-9a-f]{40}$/);
  assert.equal(done.latest.generation.usage.inputTokens,10);assert.equal(done.latest.generation.usage.outputTokens,5);
  const args=JSON.parse(readFileSync(path.join(f.bin,'args.json'),'utf8'));
@@ -79,9 +79,25 @@ test('restart marks queued and generating briefings interrupted without relaunch
  await briefings.dispatch();assert.equal(starts,0);briefings.close();
 });
 
-test('briefing parser rejects extra fields and uncited suggestions',()=>{
+test('briefing parser keeps a summary and suggestions only',()=>{
  const ids=new Set(['commit:a']);
- assert.throws(()=>parseBriefing(JSON.stringify({...valid,extra:1}),ids),/only yesterday/);
- assert.throws(()=>parseBriefing(JSON.stringify({suggestions:[{title:'t',reason:'r',sourceIDs:[]}]}),ids),/must cite/);
- assert.deepEqual(parseBriefing('```json\n{"suggestions":[{"title":"t","reason":"r","sourceIDs":["commit:a","commit:a"]}]}\n```',ids),{yesterday:[],openLoops:[],suggestions:[{title:'t',reason:'r',sourceIDs:['commit:a']}]});
+ assert.throws(()=>parseBriefing(JSON.stringify({...valid,extra:1}),ids),/only a summary and suggestions/);
+ assert.throws(()=>parseBriefing(JSON.stringify({summary:3}),ids),/must be text/);
+ assert.deepEqual(parseBriefing('```json\n{"summary":"","suggestions":[{"title":"t","reason":"r","sourceIDs":["commit:a","commit:a"]}]}\n```',ids),{summary:'',suggestions:[{title:'t',reason:'r',sourceIDs:['commit:a']}]});
+ assert.deepEqual(parseBriefing(JSON.stringify({summary:' Did things. ',suggestions:[{title:'t',reason:'r'}]}),ids),{summary:'Did things.',suggestions:[{title:'t',reason:'r',sourceIDs:[]}]});
+});
+
+test('a quiet day asks for suggestions from earlier work; an empty project needs no agent',async t=>{
+ const dir=mkdtempSync(path.join(tmpdir(),'skd-brief-quiet-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));
+ const starts=[],executor={onFinish:()=>{},start:async input=>{starts.push(input);return {id:'run-'+starts.length};},get:()=>({status:'running'})};
+ let quiet=true;const earlier={hash:'a'.repeat(40),committedAt:'2026-09-15T10:00:00.000Z',subject:'Start the settings page'};
+ const sources=()=>({sessions:()=>[],commits:interval=>quiet&&Date.parse(interval.end)<=Date.parse('2026-09-21T15:00:00Z')?[earlier]:[],issues:()=>quiet?[{number:7,title:'Finish settings',state:'open'}]:[]});
+ const briefings=new Briefings(dir,{executor,sources,now:()=>now,timezone:()=>'UTC'});
+ const view=await briefings.generate({id:'p1',name:'App'},agent);
+ assert.equal(view.status,'generating');assert.deepEqual(view.latest.evidence.activity,[]);
+ assert.deepEqual(view.latest.evidence.recent.map(c=>c.title),['Start the settings page'],'Earlier commits are context when the last 24 hours were quiet.');
+ assert.match(starts[0].task,/"openIssues":\[\{"id":"issue:7"/);assert.match(starts[0].task,/"recentCommits":\[\{"id":"commit:a{40}"/);assert.match(starts[0].task,/when activity is empty, up to 3 items/);
+ quiet=false;const empty=await briefings.generate({id:'p2',name:'Empty'},agent);
+ assert.equal(empty.status,'ready');assert.deepEqual(empty.latest.synthesis,{summary:'',suggestions:[]});assert.equal(starts.length,1,'Nothing to summarize or suggest from starts no agent.');
+ briefings.close();
 });
