@@ -12,7 +12,7 @@ const now=Date.parse('2026-09-22T15:00:00Z');
 async function fixture(t,{before}={}){
  const base=realpathSync(mkdtempSync(path.join(tmpdir(),'skd-brief-api-'))),root=path.join(base,'repo'),data=path.join(base,'data');mkdirSync(root);mkdirSync(data);
  git(root,{},'init','-q','-b','main');git(root,{},'config','user.name','Fixture');git(root,{},'config','user.email','fixture@example.invalid');
- writeFileSync(path.join(root,'a.txt'),'a');git(root,{},'add','.');git(root,{GIT_AUTHOR_DATE:'2026-09-21T10:00:00Z',GIT_COMMITTER_DATE:'2026-09-21T10:00:00Z'},'commit','-q','-m','Yesterday work');
+ writeFileSync(path.join(root,'a.txt'),'a');git(root,{},'add','.');git(root,{GIT_AUTHOR_DATE:'2026-09-22T10:00:00Z',GIT_COMMITTER_DATE:'2026-09-22T10:00:00Z'},'commit','-q','-m','Recent work');
  before?.(data);
  const server=createServer({directory:data,githubOptions:{binary:path.join(base,'missing-gh')},briefingOptions:{now:()=>now,timezone:()=>'UTC'}});
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
@@ -25,15 +25,16 @@ async function fixture(t,{before}={}){
 test('HTTP briefing goes from absent to an evidence-only revision without inference',async t=>{
  const f=await fixture(t);
  const absent=await(await f.request(f.route)).json();
- assert.deepEqual([absent.status,absent.date,absent.timezone,absent.latest],['absent','2026-09-21','UTC',null]);
+ assert.deepEqual([absent.status,absent.date,absent.timezone,absent.latest],['absent','2026-09-22','UTC',null]);
  const response=await f.request(f.route,'POST',{});assert.equal(response.status,201);
  const made=await response.json();
  assert.equal(made.status,'evidence-only');assert.equal(made.latest.revision,1);
- assert.deepEqual(made.latest.evidence.activity.map(a=>[a.kind,a.title]),[['commit','Yesterday work']]);
+ assert.deepEqual(made.latest.evidence.activity.map(a=>[a.kind,a.title]),[['commit','Recent work']]);
+ assert.deepEqual(made.latest.evidence.interval,{date:'2026-09-22',timezone:'UTC',start:'2026-09-21T15:00:00.000Z',end:'2026-09-22T15:00:00.000Z'},'Covers the 24 hours before now.');
  assert.equal(made.latest.evidence.coverage.issues.status,'unavailable');
  assert.equal((await(await f.request('/api/sessions?projectID='+f.project.id)).json()).length,0);
  const home=await(await f.request('/api/briefings')).json();
- const row=home.find(r=>r.projectID===f.project.id);assert.equal(row.briefing.latest.revision,1);assert.equal(row.briefing.date,'2026-09-21');
+ const row=home.find(r=>r.projectID===f.project.id);assert.equal(row.briefing.latest.revision,1);assert.equal(row.briefing.date,'2026-09-22');
 });
 
 test('HTTP regenerate adds a revision; invalid input keeps the prior revision',async t=>{
@@ -59,7 +60,7 @@ test('Concurrent generate calls for one scope deduplicate to a single revision',
  const dir=mkdtempSync(path.join(tmpdir(),'skd-brief-dedupe-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));
  let release,calls=0;const gate=new Promise(r=>{release=r;});
  const briefings=new Briefings(dir,{now:()=>now,timezone:()=>'UTC',sources:()=>({sessions:async()=>{calls++;await gate;return [];}})});
- const project={id:'p1'},jobs=[briefings.generate(project),briefings.generate(project),briefings.generate(project,{date:'2026-09-21',timezone:'UTC'})];
+ const project={id:'p1'},jobs=[briefings.generate(project),briefings.generate(project),briefings.generate(project,{timezone:'UTC'})];
  release();const views=await Promise.all(jobs);
  assert.equal(calls,1);assert.ok(views.every(v=>v.latest.revision===1));
  assert.equal((await briefings.generate(project)).latest.revision,2);

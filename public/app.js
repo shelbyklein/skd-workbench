@@ -332,7 +332,7 @@ function mountProjectWidgets(project){
  const gitStrip=document.createElement('section');gitStrip.className='project-git-strip';gitStrip.setAttribute('aria-label','Git');agentHost.before(gitStrip);const gitWidget=document.createElement('article');gitWidget.className='project-widget git-status-widget';gitStrip.append(gitWidget);
  gitStatusView=mountGitStatus(gitWidget,project,api,{onLifecycle:id=>{if(projectID===project.id)lifecycleView?.openRecord(id);},onSession:id=>{if(projectID!==project.id)return;openProjectSession(id);}});
  const lifecycleHost=document.createElement('article');lifecycleHost.className='project-widget';dashboard.append(lifecycleHost);lifecycleView=mountLifecycle(lifecycleHost,{project,api,onSession:openProjectSession,onContinue:id=>{if(projectID===project.id)gitStatusView?.openTask(id);}});
- const briefingHost=document.createElement('article');briefingHost.className='project-widget';dashboard.prepend(briefingHost);briefingView=mountProjectBriefing(briefingHost,{project,api,onSession:id=>{if(projectID===project.id)openProjectSession(id);},onIssue:number=>{if(projectID===project.id)openProjectIssue(number);}});
+ const briefingHost=document.createElement('article');briefingHost.className='project-widget';dashboard.prepend(briefingHost);briefingView=mountProjectBriefing(briefingHost,{project,api,onIssue:number=>{if(projectID===project.id)openProjectIssue(number);}});
  const quickHost=document.createElement('section');dashboard.prepend(quickHost);quickActionsView=mountQuickActions(quickHost,{project,api,confirmLeave,onOpen:openProjectSession});
  // The widgets share the left column with the agent sections so the conversation card stays pinned beside the whole page.
  agentHost.querySelector('#agent-main')?.append(dashboard);
@@ -869,8 +869,8 @@ async function fillFolderRepositories(){
 
 // The cross-project daily briefing and its schedule (moved off Home).
 function renderBriefing(){
- shell('<section class="page-heading"><div><h1>Briefing</h1><p>Daily briefing across projects and its schedule.</p></div></section><section class="workflow-overview briefing-home-section" id="home-briefings" aria-label="Daily briefing"></section>');
- mountHomeBriefings($('#home-briefings'),{projects:data.projects.filter(p=>p.id!=='unassigned'),api,onProject:id=>confirmLeave(()=>switchProject(id))});
+ shell('<section class="page-heading"><div><h1>Briefing</h1><p>What happened in each project over the last 24 hours, and what to work on next where nothing did.</p></div></section><section class="workflow-overview briefing-page" id="home-briefings" aria-label="Briefing"></section>');
+ mountHomeBriefings($('#home-briefings'),{projects:data.projects.filter(p=>p.id!=='unassigned'),api,onProject:id=>confirmLeave(()=>switchProject(id)),onIssue:(id,number)=>confirmLeave(()=>{location.hash='#issues/'+id+'/'+number;})});
 }
 function renderTools(){
  shell('<section class="page-heading"><div><h1>Tools</h1><p>Skills and MCP servers Codex and Claude Code use in every session.</p></div></section><section class="workflow-overview tools-page" id="tools-view"></section>');

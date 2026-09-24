@@ -7,18 +7,25 @@ import {execFileSync} from 'node:child_process';
 import {Store} from '../lib/store.js';
 import {createServer} from '../server.js';
 
-const root=realpathSync(mkdtempSync(path.join(tmpdir(),'skd-briefing-browser-'))),directory=path.join(root,'data'),folder=path.join(root,'project'),bin=path.join(root,'bin');
-mkdirSync(folder);mkdirSync(bin);
-const git=(env,...args)=>execFileSync('git',['-C',folder,...args],{encoding:'utf8',env:{...process.env,...env},stdio:['ignore','pipe','pipe']});
-const yesterday=new Date();yesterday.setDate(yesterday.getDate()-1);yesterday.setHours(12,0,0,0);const at=yesterday.toISOString();
-git({},'init','-q','-b','main');git({},'config','user.name','Fixture');git({},'config','user.email','fixture@example.invalid');
-writeFileSync(path.join(folder,'a.txt'),'a');git({},'add','.');git({GIT_AUTHOR_DATE:at,GIT_COMMITTER_DATE:at},'commit','-q','-m','Add dashboard layout');
-const store=new Store(directory),project=store.createProject({name:'Briefing fixture',folderPath:folder});
-writeFileSync(path.join(directory,'codex-runs.json'),JSON.stringify([{id:'failed-session',agent:'codex',projectID:project.id,projectSnapshot:project,sourceContext:{folderPath:folder,git:null},task:'Migrate settings store',model:'fixture',effort:'low',mode:'read-only',status:'failed',createdAt:at,startedAt:at,finishedAt:at,output:'',activity:[],usage:null,cost:null,error:'Tests failed.',workflowID:null,purpose:null}]));
-const respond=value=>writeFileSync(path.join(bin,'response.txt'),value);
-respond(JSON.stringify({yesterday:[{text:'Added the dashboard layout.',sourceIDs:['COMMIT']}],openLoops:[{text:'Settings migration failed its tests.',sourceIDs:['session:failed-session']}],suggestions:[{title:'Fix the settings migration',reason:'The session failed with test errors yesterday.',sourceIDs:['session:failed-session']},{title:'Review the dashboard commit',reason:'It has no review yet.',sourceIDs:['COMMIT']}]}));
+// Briefing: a written summary of each project's last 24 hours, or what to work on next when nothing happened.
+const root=realpathSync(mkdtempSync(path.join(tmpdir(),'skd-briefing-browser-'))),directory=path.join(root,'data'),bin=path.join(root,'bin');mkdirSync(bin);
+const hoursAgo=h=>new Date(Date.now()-h*3600000).toISOString();
+function repo(name,commits){
+ const folder=path.join(root,name);mkdirSync(folder);const git=(env,...args)=>execFileSync('git',['-C',folder,...args],{encoding:'utf8',env:{...process.env,...env},stdio:['ignore','pipe','pipe']});
+ git({},'init','-q','-b','main');git({},'config','user.name','Fixture');git({},'config','user.email','fixture@example.invalid');
+ commits.forEach(([subject,at],i)=>{writeFileSync(path.join(folder,`f${i}.txt`),subject);git({},'add','.');git({GIT_AUTHOR_DATE:at,GIT_COMMITTER_DATE:at},'commit','-q','-m',subject);});
+ return folder;
+}
+const store=new Store(directory);
+const busy=store.createProject({name:'Busy app',folderPath:repo('busy',[['Add dashboard layout',hoursAgo(3)]])});
+const quiet=store.createProject({name:'Quiet app',folderPath:repo('quiet',[['Start the settings page',hoursAgo(24*5)]])});
+writeFileSync(path.join(directory,'codex-runs.json'),JSON.stringify([{id:'failed-session',agent:'codex',projectID:busy.id,projectSnapshot:busy,sourceContext:{folderPath:busy.folderPath,git:null},task:'Migrate settings store',model:'fixture',effort:'low',mode:'read-only',status:'failed',createdAt:hoursAgo(2),startedAt:hoursAgo(2),finishedAt:hoursAgo(2),output:'',activity:[],usage:null,cost:null,error:'Tests failed.',workflowID:null,purpose:null}]));
+const respond=(which,value)=>writeFileSync(path.join(bin,which+'.txt'),typeof value==='string'?value:JSON.stringify(value));
+respond('busy',{summary:'Added the dashboard layout. A settings migration session failed its tests and still needs a fix.',suggestions:[]});
+respond('quiet',{summary:'',suggestions:[{title:'Finish the settings page',reason:'It was started five days ago and has not moved since.',sourceIDs:['COMMIT']}]});
+// Quiet packets have no activity; the fixture answers each kind from its own file and fills in the real commit ID.
 writeFileSync(path.join(bin,'codex'),`#!/usr/bin/env node
-const fs=require('node:fs'),p=require('node:path');let input='';process.stdin.on('data',d=>input+=d);process.stdin.on('end',()=>{const id=(input.match(/"id":"(commit:[0-9a-f]+)"/)||[])[1];const text=fs.readFileSync(p.join(${JSON.stringify(bin)},'response.txt'),'utf8').replaceAll('COMMIT',id);setTimeout(()=>{console.log(JSON.stringify({type:'item.completed',item:{type:'agent_message',text}}));console.log(JSON.stringify({type:'turn.completed',usage:{input_tokens:10,cached_input_tokens:0,output_tokens:5}}));},300);});`,{mode:0o755});
+const fs=require('node:fs'),p=require('node:path');let input='';process.stdin.on('data',d=>input+=d);process.stdin.on('end',()=>{const id=(input.match(/"id":"(commit:[0-9a-f]+)"/)||[])[1];const which=input.includes('"activity":[]')?'quiet':'busy';const text=fs.readFileSync(p.join(${JSON.stringify(bin)},which+'.txt'),'utf8').replaceAll('COMMIT',id);setTimeout(()=>{console.log(JSON.stringify({type:'item.completed',item:{type:'agent_message',text}}));console.log(JSON.stringify({type:'turn.completed',usage:{input_tokens:10,cached_input_tokens:0,output_tokens:5}}));},200);});`,{mode:0o755});
 const provider={available:true,version:'fixture',models:[{id:'fixture',name:'Fixture model',efforts:['low','high'],isDefault:true}]};
 const server=createServer({directory,codexOptions:{binary:path.join(bin,'codex'),discover:async()=>provider},terminalOptions:{discover:async()=>provider},githubOptions:{binary:path.join(root,'missing-gh')}});
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const url=`http://127.0.0.1:${server.address().port}`;
@@ -26,60 +33,48 @@ const browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL||'ch
 const noHorizontalScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth);
 try{
  const page=await browser.newPage({viewport:{width:1440,height:1100},serviceWorkers:'block'}),errors=[];page.on('pageerror',error=>errors.push(error.message));
- await page.goto(url+'/#project/'+project.id);
- const widget=page.locator('.briefing-widget');await widget.getByText('Not generated').waitFor();
- assert.match(await widget.textContent(),/No briefing for/);
- await widget.locator('#briefing-model option[value="fixture"]').waitFor({state:'attached'});
- // Keyboard: focus Generate and submit with Enter.
- await widget.locator('#briefing-generate').focus();await page.keyboard.press('Enter');
- await widget.locator('.briefing-state-ready').waitFor({timeout:15000});
- assert.deepEqual(await widget.locator('.briefing-suggestions strong').allTextContents(),['Fix the settings migration','Review the dashboard commit']);
- assert.match(await widget.locator('.briefing-project-panels').textContent(),/Added the dashboard layout\./);
- assert.match(await widget.locator('.briefing-coverage summary').textContent(),/incomplete/);
- assert.equal(await widget.locator('.briefing-generation-settings').getAttribute('open'),null);
- await widget.locator('.briefing-entry summary').first().focus();await page.keyboard.press('Enter');
- assert.equal(await widget.locator('.briefing-entry').first().getAttribute('open'),'');
- await page.screenshot({path:'output/briefing-project-ready.png',fullPage:false});
- // Failed regenerate keeps the last successful revision visible.
- respond('{"suggestions":[{"title":"Invent","reason":"x","sourceIDs":["session:nope"]}]}');
- await widget.locator('#briefing-generate').click();
- await widget.locator('.briefing-state-failed').waitFor({timeout:15000});
- assert.match(await widget.locator('.briefing-notice').textContent(),/Revision 2 failed: .*unknown source.* Revision 1 is still available\./);
- assert.equal(await widget.locator('.briefing-suggestions strong').first().textContent(),'Fix the settings migration');
- await page.screenshot({path:'output/briefing-project-failed.png'});
- // Source links open the cited session.
- await widget.locator('.briefing-suggestion summary').first().click();
- await widget.locator('.briefing-suggestions [data-source="session:failed-session"]').first().click();
- await page.waitForURL(/#sessions\/.*failed-session|failed-session/);
- // Inject an explicit workflow gate into saved-read responses; no execution is started.
- await page.route('**/api/briefings',async route=>{const response=await route.fetch(),rows=await response.json();for(const row of rows)for(const report of [row.briefing?.latest,row.briefing?.lastSuccessful].filter(Boolean)){report.evidence.openLoops.push({id:'workflow:review-gate',kind:'workflow',recordID:'review-gate',title:'Review results',status:'waiting'});if(report.synthesis)report.synthesis.suggestions.push({title:'Inspect workflow gate',reason:'The workflow awaits a human decision.',sourceIDs:['workflow:review-gate']});}await route.fulfill({response,json:rows});});
- // Home aggregates the last successful suggestions and reports status.
- // The cross-project briefing moved from Home to its own Briefing page.
- await page.goto(url+'/#briefing');const home=page.locator('#home-briefings');await home.getByText('Fix the settings migration').waitFor();
- assert.match(await home.locator('.briefing-project-list').textContent(),/Briefing fixture.*Failed/);
- assert.equal(await home.locator('.briefing-action-attention .briefing-action-card').count(),1);
- assert.equal(await home.locator('.briefing-action-next .briefing-action-card').count(),1);
- assert.equal(await home.locator('.briefing-action-review .briefing-action-card').count(),1);
- assert.equal(await home.locator('.briefing-home-coverage').getAttribute('open'),null);
+ // Project page: nothing yet, then Update writes the summary.
+ await page.goto(url+'/#project/'+busy.id);
+ const widget=page.locator('.briefing-widget');await widget.getByText('No summary yet').waitFor();
+ await widget.getByRole('button',{name:'Update'}).click();
+ await widget.locator('.briefing-summary').waitFor({timeout:15000});
+ assert.match(await widget.locator('.briefing-summary').textContent(),/Added the dashboard layout\./);
+ assert.equal(await widget.locator('.briefing-counts').textContent(),'1 commit · 1 session · 1 unfinished');
+ assert.match(await widget.locator('.briefing-meta').textContent(),/^Updated /);
+ await widget.screenshot({path:'output/briefing-project.png'});
+ // Briefing page: one card per project; Update all fills the quiet one with suggestions.
+ await page.goto(url+'/#briefing');const cards=page.locator('#briefing-cards');
+ const busyCard=cards.locator(`[data-briefing-card="${busy.id}"]`),quietCard=cards.locator(`[data-briefing-card="${quiet.id}"]`);
+ await busyCard.locator('.briefing-summary').waitFor();await quietCard.getByText('No summary yet').waitFor();
+ await page.getByRole('button',{name:'Update all'}).click();
+ await quietCard.locator('.briefing-next li').first().waitFor({timeout:15000});
+ assert.equal(await quietCard.locator('.briefing-quiet').textContent(),'Nothing happened in the last 24 hours.');
+ assert.deepEqual(await quietCard.locator('.briefing-next strong').allTextContents(),['Finish the settings page']);
+ await page.waitForFunction(()=>!document.querySelector('.briefing-working'),null,{timeout:15000});
+ assert.match(await busyCard.locator('.briefing-summary').textContent(),/settings migration session failed/);
+ await page.screenshot({path:'output/briefing-page.png'});
+ // A failed update keeps the last summary and says so.
+ respond('busy','{"summary":"x","suggestions":[{"title":"Invent","reason":"x","sourceIDs":["session:nope"]}]}');
+ await busyCard.getByRole('button',{name:'Update'}).click();
+ await busyCard.locator('.briefing-problem').waitFor({timeout:15000});
+ assert.match(await busyCard.locator('.briefing-problem').textContent(),/last update failed/);
+ assert.match(await busyCard.locator('.briefing-summary').textContent(),/Added the dashboard layout\./);
+ // Settings: agent and model for Update, and the daily update (off by default).
+ const settings=page.locator('.briefing-schedule');assert.equal(await settings.locator('summary').textContent(),'Settings · daily update off');
+ await settings.locator('summary').click();await settings.locator('#schedule-model option[value="fixture"]').waitFor({state:'attached'});
+ await settings.locator('#schedule-enabled').check();await settings.locator('#schedule-time').fill('23:59');await settings.locator('#schedule-timezone').fill('UTC');
+ await settings.locator('#schedule-save').click();await settings.getByText('Settings · updates daily at 23:59 (UTC)').waitFor();
+ await settings.locator('#schedule-timezone').fill('Mars/Base');await settings.locator('#schedule-save').click();
+ await settings.locator('#schedule-error:not(:empty)').waitFor();assert.match(await settings.locator('#schedule-error').textContent(),/timezone/);
  await page.locator('[data-theme-picker]').selectOption('dark');
- await page.screenshot({path:'output/briefing-home.png'});
- // Schedule: off by default, saved explicitly, and shows the server-uptime limit.
- const schedule=home.locator('.briefing-schedule');assert.equal(await schedule.locator('summary').textContent(),'Schedule: off');
- await schedule.locator('summary').click();await schedule.locator('#schedule-model option[value="fixture"]').waitFor({state:'attached'});
- assert.match(await schedule.textContent(),/Runs only while SKD Workbench is running/);
- await schedule.locator('#schedule-enabled').check();await schedule.locator('#schedule-time').fill('23:59');await schedule.locator('#schedule-timezone').fill('UTC');
- await schedule.locator('#schedule-save').click();await schedule.getByText('Schedule: daily at 23:59 (UTC)').waitFor();
- await schedule.locator('#schedule-timezone').fill('Mars/Base');await schedule.locator('#schedule-save').click();
- await schedule.locator('#schedule-error:not(:empty)').waitFor();assert.match(await schedule.locator('#schedule-error').textContent(),/timezone/);
- await page.screenshot({path:'output/briefing-schedule.png',fullPage:true});
- await home.locator('.briefing-action-card[data-briefing-project]').first().click();await page.locator('.briefing-widget').waitFor();
+ await page.screenshot({path:'output/briefing-page-dark.png',fullPage:true});
+ // The project name opens the project.
+ await quietCard.locator('.briefing-card-name').click();await page.waitForURL(new RegExp('#project/'+quiet.id));
+ await page.locator('.briefing-widget .briefing-quiet').waitFor();
  // Mobile layout.
- await page.setViewportSize({width:390,height:900});await page.goto(url+'/#project/'+project.id);await page.locator('.briefing-widget .briefing-state-failed').waitFor();
- assert.equal(await noHorizontalScroll(page),true,'project page scrolls horizontally at 390px');
- await page.locator('.briefing-widget').screenshot({path:'output/briefing-project-mobile.png'});
- await page.goto(url+'/#briefing');await page.locator('#home-briefings .briefing-action-board').waitFor();
- assert.equal(await noHorizontalScroll(page),true,'home scrolls horizontally at 390px');
- await page.screenshot({path:'output/briefing-home-mobile.png',fullPage:true});
+ await page.setViewportSize({width:390,height:900});await page.goto(url+'/#briefing');await quietCard.locator('.briefing-next').waitFor();
+ assert.equal(await noHorizontalScroll(page),true,'Briefing scrolls horizontally at 390px');
+ await page.screenshot({path:'output/briefing-page-mobile.png',fullPage:true});
  assert.deepEqual(errors,[]);
- console.log('Briefing browser checks passed.');
+ console.log('Briefing browser checks passed: project Update writes a summary with counts, Briefing page cards, Update all gives a quiet project suggestions, failed update keeps the last summary, settings and daily update, project link, dark and 390 px.');
 }finally{await browser.close();server.shutdownCodex();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));rmSync(root,{recursive:true,force:true});}

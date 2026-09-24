@@ -1,120 +1,106 @@
+// Briefing: for each project, a written account of the last 24 hours, or what to work on next when nothing happened.
+// Reading never starts inference; Update (or the daily schedule) does.
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const day=date=>new Date(date+'T12:00:00Z').toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',timeZone:'UTC'});
-const time=value=>value?new Date(value).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}):'';
-const labels={absent:'Not generated','evidence-only':'Facts only',queued:'Waiting for agent',generating:'Generating',ready:'Ready',failed:'Failed',interrupted:'Interrupted',cancelled:'Cancelled',unavailable:'Agent unavailable'};
-const kindLabels={session:'Session',terminal:'Session',imported:'Imported chat',workflow:'Workflow',delegation:'Delegation',commit:'Commit',issue:'Issue'};
-const coverageLabels={session:'Sessions',terminal:'Terminal sessions',imported:'Imported chats',workflow:'Workflows',delegation:'Delegations',commits:'Commits',issues:'Open issues'};
+const DAY=86400000;
 const busy=status=>['queued','generating'].includes(status);
-const pref=(key,value)=>{try{if(value===undefined)return localStorage.getItem('skd-briefing-'+key);localStorage.setItem('skd-briefing-'+key,value);}catch{}return null;};
-export function localYesterday(now=new Date()){const d=new Date(now);d.setDate(d.getDate()-1);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+const failed=['failed','interrupted','cancelled','unavailable'];
+const kindNames={commit:['commit','commits'],session:['session','sessions'],terminal:['terminal session','terminal sessions'],imported:['imported chat','imported chats'],workflow:['workflow','workflows'],delegation:['delegation','delegations']};
 
-function sourceIndex(report){const index=new Map();for(const item of [...(report?.evidence?.activity||[]),...(report?.evidence?.openLoops||[]),...(report?.evidence?.issues||[])])index.set(item.id,item);return index;}
-function sourceLinks(ids,index){
- return ids.map(id=>{const item=index.get(id);if(!item)return '';const label=item.kind==='commit'?`Commit ${esc(item.recordID.slice(0,7))}`:item.kind==='issue'?`#${esc(item.recordID)}`:esc(kindLabels[item.kind]||item.kind);
-  return ['session','terminal','imported','issue'].includes(item.kind)?`<button type="button" class="briefing-source" data-source="${esc(id)}">${label}</button>`:`<span class="briefing-source">${label}</span>`;}).join('');
+// The report to show: the newest one with a written summary, unless nothing newer has one.
+const shownReport=view=>!view?.latest?null:view.latest.synthesis||!view.lastSuccessful?.synthesis?view.latest:view.lastSuccessful;
+const when=value=>{const d=new Date(value),today=new Date().toDateString()===d.toDateString();return today?d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}):d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+', '+d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});};
+function counts(activity){const n={};for(const a of activity)n[a.kind]=(n[a.kind]||0)+1;const order=Object.keys(kindNames);return Object.entries(n).sort(([a],[b])=>order.indexOf(a)-order.indexOf(b)).map(([k,c])=>`${c} ${(kindNames[k]||[k,k+'s'])[c===1?0:1]}`).join(' · ');}
+// Older reports stored a list of updates instead of a summary.
+const summaryText=s=>typeof s?.summary==='string'?s.summary:(s?.yesterday||[]).map(i=>i.text).join(' ');
+
+function issueFor(report,ids){const index=new Map([...(report.evidence.issues||[])].map(i=>[i.id,i]));return ids.map(id=>index.get(id)).find(Boolean);}
+function bodyMarkup(view){
+ const report=shownReport(view);
+ if(!report)return `<p class="briefing-empty">No summary yet. Update to write one.</p>`;
+ const e=report.evidence,quiet=!e.activity.length,s=report.synthesis,parts=[];
+ if(!quiet){
+  const text=summaryText(s);
+  if(text)parts.push(`<p class="briefing-summary">${esc(text)}</p>`);
+  parts.push(`<p class="briefing-counts">${esc(counts(e.activity))}${e.openLoops.length?` · ${e.openLoops.length} unfinished`:''}</p>`);
+  if(!text)parts.push(`<p class="briefing-empty">Update to write a summary.</p>`);
+ }else{
+  parts.push(`<p class="briefing-quiet">Nothing happened in the last 24 hours.</p>`);
+  if(s?.suggestions?.length)parts.push(`<h3 class="briefing-next-heading">Work on next</h3><ol class="briefing-next">${s.suggestions.map(item=>{const issue=issueFor(report,item.sourceIDs||[]);return `<li><strong>${esc(item.title)}</strong><span>${esc(item.reason)}</span>${issue?`<button type="button" class="briefing-source" data-issue="${esc(issue.recordID)}">#${esc(issue.recordID)}</button>`:''}</li>`;}).join('')}</ol>`);
+  else if(s)parts.push(`<p class="briefing-empty">No open issues or unfinished work to suggest from.</p>`);
+  else parts.push(`<p class="briefing-empty">Update to get suggestions for what to work on next.</p>`);
+ }
+ return parts.join('');
 }
-function coverage(report){
- const rows=Object.entries(report.evidence.coverage||{}),gaps=rows.filter(([,c])=>c.status!=='complete');
- return `<details class="briefing-coverage"><summary>Sources${gaps.length?` · ${gaps.length} incomplete`:''}</summary><ul>${rows.map(([name,c])=>`<li><span>${esc(coverageLabels[name]||name)}</span><span class="coverage-${esc(c.status)}">${esc(c.status)}${c.reason?` — ${esc(c.reason)}`:''}</span></li>`).join('')}</ul></details>`;
+function metaMarkup(view){
+ if(busy(view?.status))return `<span class="briefing-meta briefing-working" role="status">Writing summary…</span>`;
+ const report=shownReport(view);if(!report)return '';
+ const end=Date.parse(report.evidence.interval?.end||report.updatedAt),stale=Date.now()-end>DAY;
+ const problem=failed.includes(view.status)?` · <span class="briefing-problem" title="${esc(view.latest.error||'')}">last update ${esc(view.status)}</span>`:'';
+ return `<span class="briefing-meta${stale?' briefing-stale':''}">Updated ${esc(when(report.updatedAt))}${stale?' · out of date':''}${problem}</span>`;
 }
-function briefingRows(items,index,empty,prefix){
- if(!items.length)return `<p class="widget-empty">${empty}</p>`;
- const row=(item,i)=>{const text=item.text||item.title||'Untitled record',short=text.length>90?text.slice(0,87).replace(/\s+\S*$/,'')+'…':text,ids=item.sourceIDs||[item.id];
-  return `<details class="briefing-entry" data-disclosure="${prefix}-${i}"><summary><span>${esc(short)}</span><small>${ids.length} ${ids.length===1?'source':'sources'}</small></summary><div class="briefing-entry-body"><p>${esc(text)}</p>${item.partial?'<p class="field-help">Spans the day boundary; not all activity occurred during this briefing interval.</p>':''}${item.status?`<p class="field-help">Recorded status: ${esc(item.status)}</p>`:''}<div class="briefing-sources">${sourceLinks(ids,index)}</div></div></details>`;};
- return items.slice(0,5).map(row).join('')+(items.length>5?`<details class="briefing-more" data-disclosure="${prefix}-more"><summary>Show ${items.length-5} more</summary>${items.slice(5).map((item,i)=>row(item,i+5)).join('')}</details>`:'');
-}
-function reportBody(report,projectName){
- const index=sourceIndex(report),s=report.synthesis,updates=s?.yesterday||report.evidence.activity,loops=s?.openLoops||report.evidence.openLoops;
- const suggestions=s?(s.suggestions.length?`<div class="briefing-suggestions briefing-project-suggestions">${s.suggestions.map((item,i)=>`<details class="briefing-suggestion" data-disclosure="suggestion-${i}"><summary><span class="briefing-card-project">${esc(projectName)}</span><strong>${esc(item.title)}</strong></summary><div class="briefing-entry-body"><p>${esc(item.reason)}</p><div class="briefing-sources">${sourceLinks(item.sourceIDs,index)}</div></div></details>`).join('')}</div>`:'<p class="widget-empty">No suggestions.</p>'):`<p class="widget-empty">${report.status==='evidence-only'&&report.error?esc(report.error):'Generate with an agent to get suggestions.'}</p>`;
- return `<section class="briefing-project-next"><header><h3>Suggested next</h3><span>${s?.suggestions.length||0}</span></header>${suggestions}</section><div class="briefing-project-panels"><section><header><h3>Yesterday</h3><span>${updates.length} ${updates.length===1?'update':'updates'}</span></header>${briefingRows(updates,index,'No observed work.','yesterday')}</section><section><header><h3>Open loops</h3><span>${loops.length} unresolved</span></header>${briefingRows(loops,index,'No open loops.','loops')}</section></div>${coverage(report)}`;
+function cardMarkup(project,view,{link=true}={}){
+ return `<article class="briefing-card" data-briefing-card="${esc(project.id)}"><header>${link?`<button type="button" class="briefing-card-name" data-briefing-project="${esc(project.id)}">${esc(project.name)}</button>`:`<h2 class="briefing-card-name">Last 24 hours</h2>`}${metaMarkup(view)}<button type="button" class="text-button briefing-update" data-briefing-update="${esc(project.id)}" ${busy(view?.status)?'disabled':''}>Update</button></header>${bodyMarkup(view)}</article>`;
 }
 
-// Project overview widget. Reading never starts inference; Generate is explicit.
-export function mountProjectBriefing(host,{project,api,onSession,onIssue}){
- let view=null,timer=null,catalog=null,agent=pref('agent')||'codex';
- host.classList.add('briefing-widget');
+// Agent, model and effort come from the briefing settings; a model left unset uses the CLI's default.
+async function generation(api){
+ const schedule=await api('briefings/schedule');let {agent,model,effort}=schedule;
+ if(!model||!effort){const catalog=await api('terminal-agents/'+agent),m=catalog.models.find(x=>x.id===model)||catalog.models.find(x=>x.isDefault)||catalog.models[0];if(!m)throw new Error('No model is available for the briefing.');model=m.id;effort=m.efforts.includes(effort)?effort:m.defaultEffort&&m.efforts.includes(m.defaultEffort)?m.defaultEffort:m.efforts[0];}
+ return {synthesize:true,agent,model,effort};
+}
+
+// Project page: this project's card.
+export function mountProjectBriefing(host,{project,api,onIssue}){
+ let view=null,timer=null;host.classList.add('briefing-widget');
  const alive=()=>host.isConnected;
- async function load(){
-  clearTimeout(timer);
-  try{view=await api(`projects/${project.id}/briefing`);if(!alive())return;render();if(busy(view.status))timer=setTimeout(load,2000);}
-  catch(error){if(alive())host.innerHTML=`<header><div><span class="eyebrow">DAILY BRIEFING</span><h2>Daily briefing</h2></div></header><p class="widget-empty" role="alert">${esc(error.message)}</p>`;}
- }
- async function models(){
-  const select=host.querySelector('#briefing-model'),effort=host.querySelector('#briefing-effort');if(!select)return;
-  select.innerHTML='<option>Loading…</option>';select.disabled=true;effort.disabled=true;host.querySelector('#briefing-generate').disabled=true;
-  try{catalog=await api('terminal-agents/'+agent);if(!alive())return;const saved=pref('model:'+agent),chosen=catalog.models.find(m=>m.id===saved)||catalog.models.find(m=>m.isDefault)||catalog.models[0];
-   select.innerHTML=catalog.models.map(m=>`<option value="${esc(m.id)}" ${m.id===chosen?.id?'selected':''}>${esc(m.name||m.id)}</option>`).join('');select.disabled=false;efforts();host.querySelector('#briefing-generate').disabled=busy(view.status)||!chosen;}
-  catch(error){if(alive()){select.innerHTML='<option value="">Unavailable</option>';host.querySelector('#briefing-error').textContent=error.message;}}
- }
- function efforts(){
-  const select=host.querySelector('#briefing-effort'),model=catalog?.models.find(m=>m.id===host.querySelector('#briefing-model').value);if(!model)return;
-  const saved=pref('effort'),chosen=model.efforts.includes(saved)?saved:model.defaultEffort&&model.efforts.includes(model.defaultEffort)?model.defaultEffort:model.efforts[0];
-  select.innerHTML=model.efforts.map(e=>`<option value="${esc(e)}" ${e===chosen?'selected':''}>${esc(e)}</option>`).join('');select.disabled=false;
- }
- async function generate(synthesize){
-  const button=host.querySelector(synthesize?'#briefing-generate':'#briefing-facts'),error=host.querySelector('#briefing-error');error.textContent='';button.disabled=true;
-  const input=synthesize?{synthesize:true,agent,model:host.querySelector('#briefing-model').value,effort:host.querySelector('#briefing-effort').value}:{};
-  if(synthesize){pref('agent',agent);pref('model:'+agent,input.model);pref('effort',input.effort);}
-  try{view=await api(`projects/${project.id}/briefing`,'POST',input);if(!alive())return;render();if(busy(view.status))timer=setTimeout(load,2000);host.querySelector('#briefing-status')?.focus();}
-  catch(e){if(alive()){button.disabled=false;error.textContent=e.message;}}
- }
+ async function load(){clearTimeout(timer);try{view=await api(`projects/${project.id}/briefing`);if(!alive())return;render();if(busy(view.status))timer=setTimeout(load,2000);}catch(error){if(alive())host.innerHTML=`<p class="widget-empty" role="alert">${esc(error.message)}</p>`;}}
  function render(){
-  const expanded=new Set([...host.querySelectorAll('[data-disclosure][open]')].map(el=>el.dataset.disclosure));
-  const settingsOpen=host.querySelector('.briefing-generation-settings')?.open;
-  const report=view.latest,shown=!report?null:report.synthesis||!view.lastSuccessful?.synthesis?report:view.lastSuccessful;
-  const notice=view.lastSuccessful&&['failed','interrupted','cancelled','unavailable'].includes(view.status)?`<p class="briefing-notice" role="status">Revision ${view.latest.revision} ${esc(labels[view.status].toLowerCase())}: ${esc(view.latest.error||'')} Revision ${view.lastSuccessful.revision} is still available.</p>`:report?.error&&!report.synthesis&&report.status!=='evidence-only'?`<p class="briefing-notice" role="status">${esc(report.error)}</p>`:'';
-  host.innerHTML=`<header><div><h2>Daily briefing</h2><span class="briefing-report-date">${esc(day(view.date))}</span></div><span id="briefing-status" tabindex="-1" class="briefing-state briefing-state-${esc(view.status)}">${esc(view.status==='ready'?'Summary available':labels[view.status]||view.status)}${report?` · rev ${report.revision} · ${esc(time(report.updatedAt))}`:''}</span></header>
-   ${notice}${shown?reportBody(shown,project.name):`<p class="widget-empty">No briefing for ${esc(day(view.date))}.</p>`}
-   <form class="briefing-generation" id="briefing-form"><details class="briefing-generation-settings" ${settingsOpen?'open':''}><summary>Generation settings</summary><div class="briefing-controls"><label>Agent<select id="briefing-agent">${['codex','claude'].map(a=>`<option value="${a}" ${a===agent?'selected':''}>${a==='codex'?'Codex':'Claude'}</option>`).join('')}</select></label><label>Model<select id="briefing-model"></select></label><label>Effort<select id="briefing-effort"></select></label>
-   </div><p class="field-help">Generate uses provider usage and waits while another agent task is running.</p></details><div class="briefing-actions"><button type="button" class="text-button" id="briefing-facts" ${busy(view.status)?'disabled':''}>Collect facts</button><button type="submit" class="primary" id="briefing-generate" disabled>${report?'Regenerate':'Generate'}</button></div><p class="field-error" id="briefing-error" role="alert"></p></form>
-   `;
-  host.querySelectorAll('[data-disclosure]').forEach(el=>el.open=expanded.has(el.dataset.disclosure));
-  host.querySelector('#briefing-agent').onchange=e=>{agent=e.target.value;models();};
-  host.querySelector('#briefing-model').onchange=efforts;
-  host.querySelector('#briefing-form').onsubmit=e=>{e.preventDefault();generate(true);};
-  host.querySelector('#briefing-facts').onclick=()=>generate(false);
-  const index=sourceIndex(shown);
-  host.querySelectorAll('[data-source]').forEach(button=>button.onclick=()=>{const item=index.get(button.dataset.source);if(item.kind==='issue')onIssue(Number(item.recordID));else onSession(item.recordID);});
-  models();
+  host.innerHTML=cardMarkup(project,view,{link:false})+'<p class="field-error" role="alert"></p>';
+  host.querySelector('[data-briefing-update]').onclick=async e=>{const error=host.querySelector('.field-error');e.target.disabled=true;error.textContent='';try{view=await api(`projects/${project.id}/briefing`,'POST',await generation(api));if(!alive())return;render();if(busy(view.status))timer=setTimeout(load,2000);}catch(err){if(alive()){e.target.disabled=false;error.textContent=err.message;}}};
+  host.querySelectorAll('[data-issue]').forEach(b=>b.onclick=()=>onIssue(Number(b.dataset.issue)));
  }
  load();
  return {dispose(){clearTimeout(timer);},reload:load};
 }
 
-// Home panel: aggregates each project's latest report without starting inference.
-export async function mountHomeBriefings(host,{projects,api,onProject}){
- host.innerHTML='<div class="overview-section-heading"><h2>Daily briefing</h2></div><p class="widget-empty">Loading briefings…</p>';
- let rows,schedule;
- try{[rows,schedule]=await Promise.all([api('briefings'),api('briefings/schedule')]);}catch(error){if(host.isConnected)host.innerHTML=`<div class="overview-section-heading"><h2>Daily briefing</h2></div><p class="widget-empty" role="alert">${esc(error.message)}</p>`;return;}
- if(!host.isConnected)return;
- const names=new Map(projects.map(p=>[p.id,p.name])),yesterday=localYesterday(),present=rows.filter(r=>names.has(r.projectID));
- const summary=r=>{const b=r.briefing;if(!b)return null;const report=b.latest.synthesis||!b.lastSuccessful?.synthesis?b.latest:b.lastSuccessful;return {...b,report};};
- // Rank across projects by each project's own order: every first suggestion before any second.
- const seen=new Set(),suggestions=[];
- for(let rank=0;rank<3;rank++)for(const row of present){
-  const b=summary(row),s=b?.report.synthesis?.suggestions?.[rank];if(!s||b.date<yesterday)continue;
-  const index=sourceIndex(b.report),issue=s.sourceIDs.map(id=>index.get(id)).find(item=>item?.kind==='issue'&&item.url);
-  if(issue){if(seen.has(issue.url))continue;seen.add(issue.url);}
-  const sources=s.sourceIDs.map(id=>index.get(id)).filter(Boolean);
-  const group=sources.some(item=>(['failed','interrupted','blocked','unavailable'].includes(item.status)||(item.kind==='delegation'&&item.status==='waiting')))?'attention':sources.some(item=>item.kind==='workflow'&&['waiting','checking'].includes(item.status))?'review':'next';
-  suggestions.push({...s,projectID:row.projectID,group});
+// Briefing page: one card per project, Update all, and the settings with the daily schedule.
+export async function mountHomeBriefings(host,{projects,api,onProject,onIssue}){
+ let rows=[],timer=null;const views=new Map(),names=new Map(projects.map(p=>[p.id,p]));
+ host.innerHTML=`<div class="briefing-toolbar"><button type="button" class="primary" id="briefing-update-all">Update all</button><p class="field-error" id="briefing-error" role="alert"></p></div><div class="briefing-cards" id="briefing-cards"><p class="widget-empty">Loading…</p></div>`;
+ const cards=host.querySelector('#briefing-cards'),error=host.querySelector('#briefing-error');
+ const alive=()=>host.isConnected;
+ function render(){
+  const list=projects.filter(p=>names.has(p.id));
+  cards.innerHTML=list.map(p=>cardMarkup(p,views.get(p.id))).join('')||'<p class="widget-empty">No projects.</p>';
+  cards.querySelectorAll('[data-briefing-project]').forEach(b=>b.onclick=()=>onProject(b.dataset.briefingProject));
+  cards.querySelectorAll('[data-briefing-update]').forEach(b=>b.onclick=()=>update([b.dataset.briefingUpdate]));
+  cards.querySelectorAll('[data-issue]').forEach(b=>b.onclick=()=>onIssue?.(b.closest('[data-briefing-card]').dataset.briefingCard,Number(b.dataset.issue)));
+  host.querySelector('#briefing-update-all').disabled=[...views.values()].some(v=>busy(v?.status));
  }
- const status=b=>!b?'absent':b.date<yesterday?'stale':b.status;
- const statusLabel=b=>!b?'Not generated':b.date<yesterday?`Stale · ${day(b.date)}`:labels[b.status]||b.status;
- const groups=[['next','Suggested next'],['attention','Needs attention'],['review','Ready for review']];
- const card=s=>`<button type="button" class="briefing-action-card" data-briefing-project="${esc(s.projectID)}"><span class="briefing-card-project">${esc(names.get(s.projectID))}</span><span class="briefing-card-title">${esc(s.title)}</span></button>`;
- host.innerHTML=`<div class="overview-section-heading"><h2>Daily briefing</h2><span class="briefing-home-date">Based on ${esc(day(yesterday))}</span></div><div class="briefing-action-board">
- ${groups.map(([key,label])=>{const items=suggestions.filter(s=>s.group===key);return `<section class="briefing-action-column briefing-action-${key}" aria-label="${label}"><header><h3>${label}</h3><span class="briefing-column-count">${items.length}</span></header><div class="briefing-action-items">${items.slice(0,6).map(card).join('')||`<p class="widget-empty">${key==='review'?'No suggestions cite a pending review gate.':key==='attention'?'No suggestions cite a failure or blocker.':'No suggestions yet. Open a project to generate its briefing.'}</p>`}</div>${items.length>6?`<details class="briefing-action-more"><summary>Show ${items.length-6} more</summary><div class="briefing-action-items">${items.slice(6).map(card).join('')}</div></details>`:''}</section>`;}).join('')}
- </div><details class="briefing-home-coverage"><summary>View coverage · ${present.length} ${present.length===1?'project':'projects'}</summary><p class="field-help">Groups reflect cited records in saved briefings, not a live readiness assessment.</p><ul class="briefing-project-list">${present.map(r=>{const b=r.briefing,e=b?.latest.evidence;return `<li><button type="button" class="briefing-home-link" data-briefing-project="${esc(r.projectID)}"><strong>${esc(names.get(r.projectID))}</strong><span class="briefing-state briefing-state-${esc(status(b))}">${esc(status(b)==='ready'?'Summary available':status(b)==='evidence-only'?'No summary generated':statusLabel(b))}</span>${e?`<small>${e.activity.length} activity records · ${e.openLoops.length} unresolved runs · ${e.issues?.length||0} issues${Object.values(e.coverage).some(c=>c.status!=='complete')?' · Sources incomplete':''}</small>`:''}</button></li>`;}).join('')||'<li class="widget-empty">No projects.</li>'}</ul></details>`;
- host.querySelectorAll("[data-briefing-project]").forEach(button=>button.onclick=()=>onProject(button.dataset.briefingProject));
- const scheduleHost=document.createElement('details');scheduleHost.className='briefing-schedule';host.append(scheduleHost);mountSchedule(scheduleHost,{api,schedule});
+ async function load(){
+  clearTimeout(timer);
+  try{rows=await api('briefings');if(!alive())return;for(const r of rows)views.set(r.projectID,r.briefing);render();if(rows.some(r=>busy(r.briefing?.status)))timer=setTimeout(load,2000);}
+  catch(e){if(alive())cards.innerHTML=`<p class="widget-empty" role="alert">${esc(e.message)}</p>`;}
+ }
+ async function update(ids){
+  error.textContent='';host.querySelectorAll('[data-briefing-update],#briefing-update-all').forEach(b=>b.disabled=true);
+  try{const input=await generation(api);for(const id of ids){const view=await api(`projects/${id}/briefing`,'POST',input);if(!alive())return;views.set(id,view);render();}}
+  catch(e){if(alive())error.textContent=e.message;}
+  if(alive())load();
+ }
+ host.querySelector('#briefing-update-all').onclick=()=>update(projects.filter(p=>p.folderPath).map(p=>p.id));
+ await load();
+ if(!alive())return;
+ try{const schedule=await api('briefings/schedule');if(!alive())return;const settings=document.createElement('details');settings.className='briefing-schedule';host.append(settings);mountSchedule(settings,{api,schedule});}
+ catch(e){if(alive())error.textContent=e.message;}
+ return {dispose(){clearTimeout(timer);}};
 }
-const scheduleSummary=s=>s.enabled?`Schedule: daily at ${s.time} (${s.timezone||s.serverTimezone})`:'Schedule: off';
+const scheduleSummary=s=>`Settings · ${s.enabled?`updates daily at ${s.time} (${s.timezone||s.serverTimezone})`:'daily update off'}`;
 function mountSchedule(host,{api,schedule}){
  let catalog=null;
- const render=()=>{host.innerHTML=`<summary>${esc(scheduleSummary(schedule))}</summary><form class="briefing-controls" id="schedule-form"><label class="briefing-check"><input type="checkbox" id="schedule-enabled" ${schedule.enabled?'checked':''}> Generate daily</label><label>Time<input type="time" id="schedule-time" value="${esc(schedule.time)}" required></label><label>Timezone<input id="schedule-timezone" value="${esc(schedule.timezone||'')}" placeholder="${esc(schedule.serverTimezone)}" autocomplete="off" spellcheck="false"></label><label>Agent<select id="schedule-agent">${['codex','claude'].map(a=>`<option value="${a}" ${a===schedule.agent?'selected':''}>${a==='codex'?'Codex':'Claude'}</option>`).join('')}</select></label><label>Model<select id="schedule-model"></select></label><label>Effort<select id="schedule-effort"></select></label><div class="briefing-actions"><button type="submit" class="primary" id="schedule-save">Save schedule</button></div><p class="field-error" id="schedule-error" role="alert"></p></form><p class="field-help">Runs only while SKD Workbench is running. Missed days are not generated later. Each project with activity uses one agent task, one at a time, after your own agent work.</p>`;
+ const render=()=>{host.innerHTML=`<summary>${esc(scheduleSummary(schedule))}</summary><form class="briefing-controls" id="schedule-form"><label>Agent<select id="schedule-agent">${['codex','claude'].map(a=>`<option value="${a}" ${a===schedule.agent?'selected':''}>${a==='codex'?'Codex':'Claude'}</option>`).join('')}</select></label><label>Model<select id="schedule-model"></select></label><label>Effort<select id="schedule-effort"></select></label><label class="briefing-check"><input type="checkbox" id="schedule-enabled" ${schedule.enabled?'checked':''}> Update daily</label><label>Time<input type="time" id="schedule-time" value="${esc(schedule.time)}" required></label><label>Timezone<input id="schedule-timezone" value="${esc(schedule.timezone||'')}" placeholder="${esc(schedule.serverTimezone)}" autocomplete="off" spellcheck="false"></label><div class="briefing-actions"><button type="submit" class="primary" id="schedule-save">Save settings</button></div><p class="field-error" id="schedule-error" role="alert"></p></form><p class="field-help">Update and the daily update use this agent and model. Each project uses one agent task, one at a time, after your own agent work. The daily update runs only while SKD Workbench is running; missed days are skipped.</p>`;
   const agent=host.querySelector('#schedule-agent'),model=host.querySelector('#schedule-model'),effort=host.querySelector('#schedule-effort');
-  const efforts=()=>{const m=catalog?.models.find(x=>x.id===model.value);if(!m)return;const chosen=m.efforts.includes(schedule.effort)?schedule.effort:m.efforts[0];effort.innerHTML=m.efforts.map(e=>`<option value="${esc(e)}" ${e===chosen?'selected':''}>${esc(e)}</option>`).join('');};
+  const efforts=()=>{const m=catalog?.models.find(x=>x.id===model.value);if(!m)return;const chosen=m.efforts.includes(schedule.effort)?schedule.effort:m.defaultEffort&&m.efforts.includes(m.defaultEffort)?m.defaultEffort:m.efforts[0];effort.innerHTML=m.efforts.map(e=>`<option value="${esc(e)}" ${e===chosen?'selected':''}>${esc(e)}</option>`).join('');};
   const models=async()=>{model.innerHTML='<option value="">Loading…</option>';effort.innerHTML='';try{catalog=await api('terminal-agents/'+agent.value);if(!host.isConnected)return;const chosen=catalog.models.find(m=>m.id===schedule.model)||catalog.models.find(m=>m.isDefault)||catalog.models[0];model.innerHTML=catalog.models.map(m=>`<option value="${esc(m.id)}" ${m.id===chosen?.id?'selected':''}>${esc(m.name||m.id)}</option>`).join('');efforts();}catch(e){if(host.isConnected){model.innerHTML='<option value="">Unavailable</option>';host.querySelector('#schedule-error').textContent=e.message;}}};
   agent.onchange=models;model.onchange=efforts;models();
   host.querySelector('#schedule-form').onsubmit=async e=>{e.preventDefault();const error=host.querySelector('#schedule-error'),button=host.querySelector('#schedule-save');error.textContent='';button.disabled=true;
