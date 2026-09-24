@@ -593,7 +593,11 @@ body.dock-project-split .project-agent{grid-template-columns:minmax(0,1fr)}
 body.dock-project-split .project-agent>.agent-thread{display:none}
 /* Compact conversation panes: title left, Chat / CLI and refresh right */
 .agent-thread>.agent-thread-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0}
-.agent-thread-head h2{margin:0;font:normal 22px/1.2 Georgia,serif;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.agent-thread-heading{display:flex;align-items:baseline;gap:10px;min-width:0;flex-wrap:wrap}
+.agent-thread-head h2,.agent-thread>header.agent-thread-head h2{margin:0;font:normal 16px/1.2 Georgia,serif;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.agent-thread-heading .agent-coordinator{min-width:0;color:var(--muted)}
+.agent-waiting-slot:empty{display:none}.agent-waiting-slot .agent-waiting{margin:0}
+.thread-history{width:30px;height:30px;padding:0;display:grid;place-items:center;border-radius:8px}.thread-history[hidden]{display:none}.thread-history svg{width:16px;height:16px}
 .agent-thread-tools{display:flex;align-items:center;gap:6px;flex:none}
 .agent-thread-tools .agent-view-switch{margin:0}.agent-thread-tools .agent-view-switch button{padding:4px 12px}
 .thread-refresh{width:30px;height:30px;padding:0;display:grid;place-items:center;border-radius:8px}.thread-refresh svg{width:16px;height:16px}
