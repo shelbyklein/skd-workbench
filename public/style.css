@@ -670,3 +670,15 @@ main.no-topbar .projects-section>.overview-section-heading{margin-top:0}
 .issue-tag-orchestrated{border-color:#6b5bd6;color:#6b5bd6}.issue-tag-solo{border-color:#3f8a47;color:#3f8a47}
 [data-theme="dark"] .issue-tag-orchestrated{color:#a99cff;border-color:#6b5bd6}[data-theme="dark"] .issue-tag-solo{color:#8fd19a;border-color:#3f8a47}
 .issue-labels:empty{display:none}
+/* Inside a project the panel is the project's agent, full height */
+.coordinator-dock.dock-project-only .dock-project{flex:1 1 auto;min-height:0;overflow:auto;border-top:0;margin:0;padding:0}
+.coordinator-dock.dock-project-only .dock-conversation{display:none}
+/* Project and issue timelines */
+.project-timeline{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.timeline-entry{padding:10px 0;border-top:1px solid var(--line)}.timeline-entry:first-child{border-top:0}
+.timeline-meta{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.timeline-meta strong{color:var(--ink);font-weight:600}
+.timeline-kind{font-size:11px}.timeline-question .timeline-kind,.timeline-action .timeline-kind{color:#b7791f;font-weight:600}
+.timeline-entry p{margin:4px 0 0;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}
+.issue-timeline{margin-top:22px}.issue-timeline h3{margin:0 0 8px}
+.project-agent #agent-timeline-list{max-height:420px;overflow:auto}

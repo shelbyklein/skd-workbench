@@ -281,6 +281,8 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       if(pathname==='/api/coordinator/messages'){if(req.method==='GET')return json(threads.list(COORDINATOR,{cursor:Math.max(0,Number(url.searchParams.get('cursor'))||0),limit:50}));if(req.method==='POST'){const input=await body(req,16*1024);assert(Object.keys(input).every(k=>['text','requestKey','refs'].includes(k)),'Unknown message field.');const message=threads.post({id:COORDINATOR},{...input,author:'user'});return json({...message,...await deliver(COORDINATOR,message,{})},201);}}
       if(pathname==='/api/coordinator'&&req.method==='GET')return json(coordinator.view());
       if(pathname==='/api/coordinator'&&req.method==='PUT')return json(await coordinator.save(await body(req,16*1024),`http://${host}/api/controller/call`));
+      const timeline=pathname.match(/^\/api\/projects\/([\w-]+)\/timeline$/);
+      if(timeline&&req.method==='GET'){const p=store.project(timeline[1]),n=url.searchParams.get('issue');assert(!n||/^[1-9]\d{0,8}$/.test(n),'Invalid issue number.');return json({projectID:p.id,issue:n?Number(n):null,entries:coordinator.projectTimeline(p.id,{issue:n})});}
       const agentSettings=pathname.match(/^\/api\/projects\/([\w-]+)\/agent-settings$/);
       if(agentSettings&&req.method==='GET'){const p=store.project(agentSettings[1]);return json({version:coordinator.data.version,agent:coordinator.projectAgent(p.id)});}
       if(agentSettings&&req.method==='PUT')return json(await coordinator.saveProjectAgent(store.project(agentSettings[1]).id,await body(req,4096)));

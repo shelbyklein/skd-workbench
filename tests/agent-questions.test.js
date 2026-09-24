@@ -26,3 +26,21 @@ test('agent questions and action requests stay open until the person replies; up
  await delay(5);agent.reportToOrchestrator(projects[0],'question','Ship it?','q2',controller);
  assert.deepEqual(agent.openQuestions().map(o=>o.detail),['Ship it?']);
 });
+
+test('the project timeline merges agent reports and the project conversation, newest first, and filters by issue',async t=>{
+ const dir=mkdtempSync(path.join(tmpdir(),'skd-timeline-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));
+ const projects=[{id:'p1',name:'Tiny Tasks',folderPath:dir},{id:'p2',name:'Newton',folderPath:dir}];
+ const threads=new ProjectThreads(dir,{projects:()=>projects});
+ const agent=new CoordinatorAgent(dir,{threads,controllers:{},projects:()=>projects,executor:{},sessions:{paste:()=>false,shutdown(){}}});
+ const c={id:'c1',name:'agent'};
+ threads.post(projects[0],{author:'agent',text:'From the orchestrator: Work on #3 filters',requestKey:'o1',controller:{id:'o',name:'Orchestrator'}});await delay(5);
+ agent.reportToOrchestrator(projects[0],'update','Started #3: selectTasks skeleton','u1',c);await delay(5);
+ agent.reportToOrchestrator(projects[0],'question','For #3, toggle or tab?','q1',c);await delay(5);
+ agent.reportToOrchestrator(projects[1],'update','Newton only','n1',c);await delay(5);
+ agent.reportToOrchestrator(projects[0],'update','Refactored #30 styles','u2',c);await delay(5);
+ threads.post(projects[0],{author:'user',text:'Toggle for #3',requestKey:'r1'});
+ const all=agent.projectTimeline('p1');
+ assert.deepEqual(all.map(e=>[e.kind,e.who]),[['you','You'],['update','Tiny Tasks agent'],['question','Tiny Tasks agent'],['update','Tiny Tasks agent'],['request','Orchestrator']],'Newest first; other projects excluded.');
+ assert.equal(all.find(e=>e.kind==='question').answered,true);assert.equal(all.at(-1).text,'Work on #3 filters');
+ assert.deepEqual(agent.projectTimeline('p1',{issue:3}).map(e=>e.text),['Toggle for #3','For #3, toggle or tab?','Started #3: selectTasks skeleton','Work on #3 filters'],'#30 does not match #3.');
+});
