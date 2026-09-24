@@ -29,7 +29,7 @@ try{
  // System lists it; adding the same folder offers restore instead of a duplicate.
  await page.goto(url+'#system/'+keep.id);const list=page.locator('.removed-projects');await list.getByText('Gone',{exact:true}).waitFor();
  assert.match(await list.textContent(),/removed/);await page.screenshot({path:'output/remove-project-system.png'});
- await page.goto(url+'#home');await page.locator('#add-project').click();await dialog.getByRole('heading',{name:'Add a project'}).waitFor();
+ await page.goto(url+'#home');await page.locator('[data-add-project]').click();await dialog.getByRole('heading',{name:'Add a project'}).waitFor();
  await dialog.locator('[name=name]').fill('Gone again');await dialog.locator('[name=folderPath]').fill(path.join(root,'gone'));await dialog.getByRole('button',{name:/Connect|Add project|Save/}).last().click();
  await dialog.getByRole('heading',{name:'Restore project?'}).waitFor();assert.match(await dialog.textContent(),/removed project “Gone”/);
  await dialog.getByRole('button',{name:'Restore project',exact:true}).click();await page.getByText('Gone restored.').waitFor();
