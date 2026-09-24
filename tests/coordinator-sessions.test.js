@@ -98,3 +98,11 @@ test('messages arriving together are submitted one at a time, never merged',asyn
  assert.deepEqual(fake.spawned[0].writes,['\x1b[200~reply one\x1b[201~','\r','\x1b[200~relayed report\x1b[201~','\r']);
  assert.equal(s.paste('nobody','x'),false,'Relays never start a session.');
 });
+
+test('a CLI startup trust screen shows as waiting once; Workbench never answers it',t=>{
+ const dir=temp(t),fake=fakePty(),s=new CoordinatorSessions(dir,{spawn:fake.spawn}),r=s.deliver('coordinator','x',start({provider:'codex',binary:'codex'})),child=fake.spawned[0];
+ child.emit('Hooks need review\r\n1 hook is new or changed.\r\n› 1. Review hooks  2. Trust all and continue');
+ assert.equal(s.current('coordinator').waiting,true,'The chat can offer Open CLI.');assert.deepEqual(child.writes.filter(w=>/^[123]$|\r/.test(w)&&!w.includes('\x1b[200~')),[],'Nothing is typed into the trust screen.');
+ s.input(r.id,'2');assert.equal(s.current('coordinator').waiting,false);
+ child.emit('Hooks need review (redraw)');assert.equal(s.current('coordinator').waiting,false,'Flagged once per session.');
+});
