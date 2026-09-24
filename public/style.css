@@ -639,3 +639,4 @@ body.dock-project-split .project-agent>.agent-thread{display:none}
 .home-secondary>.workflow-overview{padding-left:0;padding-right:0}
 @media(max-width:1050px){.projects-section>.home-project-grid{grid-template-columns:1fr}}
 @media(max-width:650px){.home-secondary{margin:0 20px 24px}.home-project-card{padding:16px}}
+main.no-topbar{padding-top:30px}
