@@ -74,7 +74,10 @@ try{
  await page.screenshot({path:'output/coordinator-cli-history.png'});
  // Start session from the CLI view without sending a message.
  const agentReplies=async()=>(await api('coordinator/messages')).items.filter(m=>m.author==='agent').length,before=await agentReplies();
- await page.getByRole('button',{name:'Start session',exact:true}).click();
+ // After a stop, starting again asks first; Cancel leaves it stopped.
+ await page.getByRole('button',{name:'Start session',exact:true}).click();const confirm=page.locator('#dialog');await confirm.getByRole('heading',{name:'Start this session again?'}).waitFor();
+ await confirm.getByRole('button',{name:'Cancel',exact:true}).click();assert.equal(sessions(),1,'Cancel starts nothing.');
+ await page.getByRole('button',{name:'Start session',exact:true}).click();await confirm.getByRole('button',{name:'Start session',exact:true}).click();
  await page.waitForFunction(()=>/Session running/.test(document.querySelector('#dock-coordinator')?.textContent));await waitScreen(/Fixture Claude Code session/);
  assert.equal(await page.getByRole('button',{name:'Start session',exact:true}).count(),0);assert.equal(sessions(),2);
  await page.waitForTimeout(300);assert.equal(await agentReplies(),before,'Starting a session posts nothing.');
@@ -118,5 +121,5 @@ try{
  await page.setViewportSize({width:390,height:844});await page.locator('.dock-project .coordinator-terminal').scrollIntoViewIfNeeded();await page.waitForTimeout(400);
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:'output/coordinator-cli-mobile.png'});
  assert.deepEqual(errors,[]);
- console.log('Coordinator CLI browser passed: orchestrator setup and chat in the side panel, Chat/CLI, typing in the CLI, no respawn, stop, history, Start session, all-projects permission prompt via Home Open CLI (declined), project card as live project agent reporting to the orchestrator, Home pill (state) opens/closes it in a split, keyboard, dark and 390 px. Fixture CLI only.');
+ console.log('Coordinator CLI browser passed: orchestrator setup and chat in the side panel, Chat/CLI, typing in the CLI, no respawn, stop, history, Start session (confirmed after a stop), all-projects permission prompt via Home Open CLI (declined), project card as live project agent reporting to the orchestrator, Home pill (state) opens/closes it in a split, keyboard, dark and 390 px. Fixture CLI only.');
 }finally{await browser.close();server.shutdownCodex();server.closeAllConnections();await new Promise(r=>server.close(r));rmSync(root,{recursive:true,force:true});}
