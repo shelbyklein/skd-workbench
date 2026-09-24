@@ -68,10 +68,12 @@ function coordinatorPanel(host,{key,api,modal,notify,refresh,p='agent'}){
   q('#'+p+'-messages').hidden=cli;q('#'+p+'-cli').hidden=!cli;q('.agent-thread').classList.toggle('agent-cli-mode',cli);
   host.querySelectorAll('[data-coordinator-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.coordinatorMode===mode())));
   if(!cli){clear();return;}
-  if(!c.enabled){clear();q('#'+p+'-cli-empty').innerHTML='The coordinator agent is off. <button type="button" class="primary" data-coordinator-settings>Set up</button>';q('#'+p+'-cli-history').innerHTML='';return;}
+  if(!c.enabled){clear();q('#'+p+'-cli-empty').innerHTML='<span>The coordinator agent is off</span><button type="button" class="agent-start" data-coordinator-settings>Set up</button>';q('#'+p+'-cli-history').innerHTML='';q('#'+p+'-cli').classList.add('agent-cli-idle');return;}
   const saved=viewing&&c.history.find(h=>h.id===viewing),target=saved||c.session||null;
   if(target)mount(target,!saved&&target===c.session);else clear();
-  q('#'+p+'-cli-empty').innerHTML=c.session?'':`${target?'':'No session is running. '}<button type="button" class="primary" data-coordinator-start>Start session</button>`;
+  q('#'+p+'-cli-empty').innerHTML=c.session?'':`${target?'':'<span>No session running</span>'}<button type="button" class="agent-start" data-coordinator-start>Start session</button>`;
+  // With no terminal on screen, the start controls and history sit centered on one line.
+  q('#'+p+'-cli').classList.toggle('agent-cli-idle',!target);
   // Previous sessions open in a dialog; the pane keeps one button (and a way back while viewing one).
   q('#'+p+'-cli-history').innerHTML=c.history.length?`<button type="button" class="text-button" data-coordinator-history-open>Previous sessions (${c.history.length})</button>${saved&&c.session?'<button type="button" class="text-button" data-coordinator-history="">Back to current session</button>':''}`:'';
  }
