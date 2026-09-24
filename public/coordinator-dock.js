@@ -2,13 +2,13 @@
 // It lives on the body, so page navigation never rebuilds it; open state, tab and width are remembered.
 // The shell starts only when Shell is chosen; a restored panel reattaches to a running shell and never starts one.
 import {mountTerminal} from './terminal-ui.js';
-import {mountCoordinatorConversation} from './project-agent-ui.js';
+import {mountCoordinatorConversation,mountProjectConversation} from './project-agent-ui.js';
 const read=(key,fallback)=>{try{return localStorage.getItem(key)??fallback;}catch{return fallback;}};
 const write=(key,value)=>{try{localStorage.setItem(key,value);}catch{}};
 const tabs=['chat','cli','shell'];
 
 export function createCoordinatorDock({api,modal,notify}){
- let panel=null,conversation=null,shell=null,shellID=null,tab=tabs.includes(read('skd-dock-tab','chat'))?read('skd-dock-tab','chat'):'chat';
+ let panel=null,conversation=null,projectView=null,currentProject=null,shell=null,shellID=null,tab=tabs.includes(read('skd-dock-tab','chat'))?read('skd-dock-tab','chat'):'chat';
  const q=s=>panel.querySelector(s);
  function layout(open){document.body.classList.toggle('workspace-terminal-open',open);document.body.classList.toggle('coordinator-dock-open',open);document.querySelectorAll('[data-workspace-terminal]').forEach(b=>b.setAttribute('aria-expanded',String(open)));}
  function resizer(edge){
@@ -28,6 +28,7 @@ export function createCoordinatorDock({api,modal,notify}){
   panel.innerHTML=`<div class="terminal-resize-edge" tabindex="0" role="separator" aria-label="Resize panel" aria-orientation="vertical"></div>
    <header class="dock-header"><span class="agent-view-switch" role="group" aria-label="Panel view"><button type="button" data-dock-tab="chat">Chat</button><button type="button" data-dock-tab="cli">CLI</button><button type="button" data-dock-tab="shell">Shell</button></span><button type="button" class="text-button" data-dock-hide>Hide</button></header>
    <div class="dock-conversation"></div>
+   <div class="dock-project" hidden></div>
    <div class="dock-shell" hidden><div class="dock-shell-screen"></div><p class="field-help dock-shell-empty"></p></div>`;
   document.body.append(panel);resizer(q('.terminal-resize-edge'));
   conversation=mountCoordinatorConversation(q('.dock-conversation'),{api,modal,notify});
@@ -57,14 +58,23 @@ export function createCoordinatorDock({api,modal,notify}){
   tab=tabs.includes(next)?next:'chat';write('skd-dock-tab',tab);write('skd-dock-open','1');
   if(panel.hidden){document.dispatchEvent(new Event('coordinator-dock-show'));panel.hidden=false;layout(true);}
   panel.querySelectorAll('[data-dock-tab]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.dockTab===tab)));
-  const isShell=tab==='shell';q('.dock-conversation').hidden=isShell;q('.dock-shell').hidden=!isShell;
+  const isShell=tab==='shell';q('.dock-conversation').hidden=isShell;q('.dock-shell').hidden=!isShell;syncProject();
   if(isShell)await attachShell(start);else{conversation.setMode(tab);conversation.refresh();}
  }
- function hide(){if(!panel)return;panel.hidden=true;layout(false);write('skd-dock-open','0');}
+ // On a project page the panel splits: the coordinator on top, that project's agent below (Chat and CLI only).
+ function syncProject(){
+  if(!panel)return;const slot=q('.dock-project'),split=!!currentProject&&tab!=='shell';
+  if(projectView&&projectView.projectID!==currentProject?.id){projectView.destroy();projectView=null;slot.innerHTML='';}
+  if(currentProject&&!projectView)projectView=mountProjectConversation(slot,{project:currentProject,api,modal,notify});
+  slot.hidden=!split;panel.classList.toggle('dock-split',split);document.body.classList.toggle('dock-project-split',split&&!panel.hidden);
+ }
+ function hide(){if(!panel)return;panel.hidden=true;layout(false);document.body.classList.remove('dock-project-split');write('skd-dock-open','0');}
  document.addEventListener('coordinator-dock-open',e=>show(e.detail?.tab||tab,{start:e.detail?.tab==='shell'}));
  return {
   toggle(){if(panel&&!panel.hidden)hide();else show(tab,{start:tab==='shell'});},
   show,hide,isOpen:()=>!!panel&&!panel.hidden,
+  // The page tells the panel which project it shows (null elsewhere); nothing mounts until the panel is built.
+  setProject(project){currentProject=project?.folderPath?project:null;syncProject();if(!currentProject)document.body.classList.remove('dock-project-split');},
   restore(){if(read('skd-dock-open','0')==='1')show(tab);}
  };
 }

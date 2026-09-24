@@ -346,3 +346,27 @@ export function mountCoordinatorConversation(host,{api,modal,notify}){
  timer=setInterval(()=>{if(!host.isConnected){clearInterval(timer);return;}if(document.visibilityState==='visible'&&!composer.sending())refresh();},15000);
  return {refresh,setMode:m=>coordinator.setMode(m),mode:()=>coordinator.mode(),destroy(){clearInterval(timer);clearTimeout(fast);coordinator.destroy();}};
 }
+
+// The current project's agent conversation for the side panel's lower half (project pages only). It uses the
+// "dockp" ID prefix so it can sit under the coordinator conversation and beside the project page.
+export function mountProjectConversation(host,{project,api,modal,notify}){
+ let timer=null,fast=null;const p='dockp',name=`${project.name} agent`;
+ const pace=pending=>{if(pending&&!fast)fast=setTimeout(()=>{fast=null;if(host.isConnected)refresh();},1500);};
+ host.innerHTML=threadAside('Project agent conversation','PROJECT AGENT',false,p);
+ const q=s=>host.querySelector(s);
+ const composer=bindComposer(host,{key:project.id,p,send:body=>api('projects/'+encodeURIComponent(project.id)+'/messages','POST',body).then(r=>{if(r.deliveryError)notify(r.deliveryError);return r;}),sent:()=>refresh()});
+ const coordinator=coordinatorPanel(host,{key:project.id,api,modal,notify,refresh:()=>refresh(),p});
+ q('#dockp-refresh').onclick=()=>refresh(true);
+ async function refresh(announce=false){
+  try{
+   const state=await api('projects/'+encodeURIComponent(project.id)+'/agent');if(!host.isConnected)return;
+   q('#dockp-thread-title').textContent=name;q('#dockp-thread-status').textContent=state.current?`${statusLabels[state.current.status]||state.current.status}: ${state.current.taskRef||state.current.flowName}`:'';
+   q('#dockp-message-label').textContent=`Message ${name}`;
+   renderMessages(host,state.thread,name,p);pace(coordinator.update(state.coordinator));
+   if(announce)notify('Project agent refreshed.');
+  }catch(error){if(host.isConnected)q('#dockp-thread-status').textContent=error.message;}
+ }
+ refresh();
+ timer=setInterval(()=>{if(!host.isConnected){clearInterval(timer);return;}if(document.visibilityState==='visible'&&!composer.sending())refresh();},15000);
+ return {projectID:project.id,refresh,destroy(){clearInterval(timer);clearTimeout(fast);coordinator.destroy();}};
+}

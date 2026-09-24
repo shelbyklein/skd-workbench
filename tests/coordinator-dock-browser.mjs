@@ -34,6 +34,10 @@ try{
  await page.evaluate(id=>location.hash='#project/'+id,project.id);await toggle.waitFor();await page.waitForTimeout(300);
  assert.equal(await dock.isVisible(),true);assert.equal(await tab('Shell').getAttribute('aria-pressed'),'true');assert.equal(shell.current().id,first);assert.equal(opens,1);
  assert.equal(await page.locator('#agent-composer').count(),1,'Project overview keeps its conversation card.');
+ // On a project page the panel splits: coordinator on top, this project's agent below; the page's card steps aside.
+ await tab('Chat').click();await dock.locator('.dock-project #dockp-composer').waitFor();assert.match(await dock.locator('#dockp-thread-title').textContent(),/agent$/);
+ assert.equal(await page.locator('.project-agent>.agent-thread').isVisible(),false);assert.equal(await dock.locator('.dock-conversation #dock-composer').isVisible(),true);
+ await page.screenshot({path:'output/coordinator-dock-split.png'});
  await page.evaluate(()=>location.hash='#workflows');await toggle.waitFor();assert.equal(await dock.isVisible(),true);
  // Chat and CLI tabs switch the conversation view; the conversation has its own IDs beside a project card.
  await tab('CLI').click();await dock.locator('#dock-cli').waitFor();assert.equal(await dock.locator('#dock-composer').isVisible(),true,'The message box stays in CLI view.');
