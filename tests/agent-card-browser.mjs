@@ -57,12 +57,5 @@ try{
  assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('skd-agent-choice-main'))),{agent:'codex',model:'two',effort:'high'});
  await page.emulateMedia({reducedMotion:'reduce'});await card.locator('[data-agent-parameter="model"]').click();
  assert.equal(await page.locator(':popover-open').evaluate(el=>getComputedStyle(el).transitionDuration),'0s');await page.keyboard.press('Escape');await page.emulateMedia({reducedMotion:'no-preference'});
- await page.goto(url+'/#issues/'+project.id+'/1');const discard=page.getByRole('button',{name:'Discard changes',exact:true});if(await discard.isVisible({timeout:1000}).catch(()=>false))await discard.click();await page.waitForURL(new RegExp(`#issues/${project.id}/1$`));await page.reload();await page.locator('.issue-work-card > summary').click();await page.getByRole('button',{name:'Edit plan',exact:true}).click();await page.locator('.agent-selection-card').waitFor();await page.locator('#orchestration-card>summary').click();await page.waitForFunction(()=>document.querySelectorAll('.agent-selection-card').length===3);
- await page.getByLabel('Appearance',{exact:true}).selectOption('dark');
- await page.waitForTimeout(250);
- await page.screenshot({path:'output/agent-cards.png',fullPage:true,animations:'disabled'});
- const worker=page.locator('[data-assignment="worker"] .agent-selection-card');
- await worker.locator('[data-agent-parameter="model"]').click();await page.waitForTimeout(200);await page.screenshot({path:'output/agent-card-overlay.png',fullPage:true});await page.keyboard.press('Escape');
- await page.setViewportSize({width:390,height:844});await worker.locator('[data-agent-parameter="effort"]').click();assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));const overlay=await page.locator(':popover-open').boundingBox();assert(overlay.x>=0&&overlay.x+overlay.width<=391);await page.keyboard.press('Escape');
- assert.deepEqual(errors,[]);console.log('Agent cards passed: placeholders, equal pills, overlays, keyboard, cache, role cards, mobile.');
+ assert.deepEqual(errors,[]);console.log('Agent cards passed: placeholders, equal pills, overlays, keyboard, cache.');
 }finally{await browser.close();server.shutdownCodex();server.closeAllConnections();await new Promise(r=>server.close(r));rmSync(root,{recursive:true,force:true});}

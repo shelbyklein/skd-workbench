@@ -284,6 +284,8 @@ Run `npm install` after updating: xterm.js renders the terminal and node-pty pro
 
 ## GitHub issues
 
+The issue page shows the issue itself: title, author, labels, its **priority** (from labels such as `priority: urgent`) and how it is planned, read from the issue's *Work preparation* section (**Solo** or **Orchestrated**, with the named models; **Not planned** when absent). Discussion stays on GitHub. The Review, Work plan and Add to a workflow panels were removed; project agents and the orchestrator now take on that work. Editing with an agent (header button) is unchanged.
+
 Issue detail offers **Review with an agent** (shared model selector, contextual read-only CLI in a side panel) and **Add to a workflow** (an unsaved issue input in an eligible project workflow). Open review reconnects to the existing terminal. Adding input does not run or save the workflow. See [issue review actions](instructions/2026-09-21-issue-review-actions.md) for captured context and limits.
 
 Open a project and choose **Issues**. SKD reads the current checkout's GitHub origin
