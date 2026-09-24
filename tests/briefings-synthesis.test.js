@@ -96,7 +96,7 @@ test('a quiet day asks for suggestions from earlier work; an empty project needs
  const view=await briefings.generate({id:'p1',name:'App'},agent);
  assert.equal(view.status,'generating');assert.deepEqual(view.latest.evidence.activity,[]);
  assert.deepEqual(view.latest.evidence.recent.map(c=>c.title),['Start the settings page'],'Earlier commits are context when the last 24 hours were quiet.');
- assert.match(starts[0].task,/"openIssues":\[\{"id":"issue:7"/);assert.match(starts[0].task,/"recentCommits":\[\{"id":"commit:a{40}"/);assert.match(starts[0].task,/when activity is empty, up to 3 items/);assert.match(starts[0].task,/Write for a person skimming a morning update/);assert.match(starts[0].task,/"headline": at most two short sentences/);
+ assert.match(starts[0].task,/"openIssues":\[\{"id":"issue:7"/);assert.match(starts[0].task,/"recentCommits":\[\{"id":"commit:a{40}"/);assert.match(starts[0].task,/when activity is empty, up to 3 items/);assert.match(starts[0].task,/Write for a person skimming a morning update/);assert.match(starts[0].task,/"headline": at most two short sentences/);assert.match(starts[0].task,/Quiet day\. Next: /);
  quiet=false;const empty=await briefings.generate({id:'p2',name:'Empty'},agent);
  assert.equal(empty.status,'ready');assert.deepEqual(empty.latest.synthesis,{summary:'',headline:'',suggestions:[]});assert.equal(starts.length,1,'Nothing to summarize or suggest from starts no agent.');
  briefings.close();

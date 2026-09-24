@@ -56,7 +56,7 @@ try{
  // Home: each card carries the headline (two sentences at most); a quiet project without one names its next step.
  await page.goto(url+'/#home');const line=id=>page.locator(`[data-home-briefing="${id}"]`);await line(busy.id).waitFor();
  assert.equal(await line(busy.id).textContent(),'Good momentum: the new dashboard layout is in. The settings migration still needs a fix.');
- assert.equal(await line(quiet.id).textContent(),'Quiet day. Next up: Finish the settings page.');
+ assert.equal(await line(quiet.id).textContent(),'Quiet day. Next: Finish the settings page.');
  await page.locator(`[data-home-project="${busy.id}"]`).screenshot({path:'output/briefing-home-card.png'});
  await page.goto(url+'/#briefing');await busyCard.locator('.briefing-summary').waitFor();
  // A failed update keeps the last summary and says so.
