@@ -8,7 +8,7 @@ Home currently places agent summaries, daily briefings and global utility cards 
 Secondary Home sections move into a collapsed More disclosure. Preserve routes, the coordinator, project/tag navigation and all stored data. Compact project cards omit filesystem/repository detail, retain tag editing, and open issues in their own project's scope. The existing first-page issue API returns up to 50 recent records: sort this bounded set and disclose partial coverage when more exist; never claim the global highest priority across unloaded pages. Limit concurrent requests to three. Loading, empty and unavailable results remain distinct.
 
 - [x] HP-01 — Implement the project-first Home grid and issue previews. Acceptance: browser fixture verifies four cards in two columns, three priority-sorted issues, correct project issue links, empty/error states, and collapsed secondary sections.
-- [ ] HP-02 — Verify responsive behavior and record delivery. Acceptance: affected Home/navigation/tag/count/briefing tests pass, inspected desktop/mobile screenshots show no overflow, cache version and VALIDATION are updated and scoped source is committed.
+- [x] HP-02 — Verify responsive behavior and record delivery. Acceptance: affected Home/navigation/tag/count/briefing tests pass, inspected desktop/mobile screenshots show no overflow, cache version and VALIDATION are updated and scoped source is committed.
 
 Success: all projects visible before supplementary sections; useful issue summaries; keyboard/mobile navigation preserved. Deliverables: local committed source, test, screenshots and this plan; push/merge remain pending. No live restart or provider execution. No schema change; rollback scoped source and bump shell cache again if activated.
 
@@ -22,3 +22,5 @@ Eight affected browser suites passed: home-project-overview, overview, project-t
 
 ![Implemented desktop](assets/home-project-overview/desktop.png)
 ![Implemented mobile](assets/home-project-overview/mobile.png)
+
+Implementation: `e6cc12a` on `codex/home-project-overview`. Local source complete; push/merge and installed PWA acceptance remain pending.
