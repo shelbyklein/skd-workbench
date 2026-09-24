@@ -8,7 +8,7 @@ import path from 'node:path';
 import {WebSocket} from 'ws';
 import {createServer} from '../server.js';
 import {attachTerminalStreams} from '../lib/terminal-stream.js';
-import {createWorkspaceTerminal} from '../lib/workspace-terminal.js';
+import {createWorkspaceTerminal} from './fixtures/pty-manager.js';
 import {RemoteAccess,writeRemoteAccess,removeRemoteAccess} from '../lib/remote-access.js';
 import {accessFixture,remoteConfig} from './remote-access-fixture.mjs';
 
@@ -45,7 +45,7 @@ test('remote HTTP requests need configured remote access and a valid Access toke
 
  // The real server hands the same gate to terminal streams: refused without a token,
  // admitted with one (then 404 for the unknown session, proving the gate let it through).
- const upgrade=async headers=>{const ws=new WebSocket(`ws://127.0.0.1:${port}/api/workspace-terminal/none/stream`,{origin:`https://${remoteConfig.host}`,headers:{Host:remoteConfig.host,...headers}});ws.on('error',()=>{});const [,res]=await once(ws,'unexpected-response');res.resume();ws.terminate();return res.statusCode;};
+ const upgrade=async headers=>{const ws=new WebSocket(`ws://127.0.0.1:${port}/api/terminal-sessions/none/stream`,{origin:`https://${remoteConfig.host}`,headers:{Host:remoteConfig.host,...headers}});ws.on('error',()=>{});const [,res]=await once(ws,'unexpected-response');res.resume();ws.terminate();return res.statusCode;};
  assert.equal(await upgrade({}),403);assert.equal(await upgrade({'cf-access-jwt-assertion':fixture.token()}),404);
  // Coordinator CLI streams use the same gate.
  const coordinatorUpgrade=async headers=>{const ws=new WebSocket(`ws://127.0.0.1:${port}/api/coordinator-terminal/none/stream`,{origin:`https://${remoteConfig.host}`,headers:{Host:remoteConfig.host,...headers}});ws.on('error',()=>{});const [,res]=await once(ws,'unexpected-response');res.resume();ws.terminate();return res.statusCode;};
@@ -58,10 +58,10 @@ test('remote terminal WebSockets need the Access token and the https origin',asy
  const directory=mkdtempSync(path.join(tmpdir(),'skd-remote-ws-')),fixture=accessFixture();writeRemoteAccess(directory,remoteConfig);
  let spawned=0;const manager=createWorkspaceTerminal('.',{spawn:()=>{spawned++;let exit;return {onData(){},onExit:fn=>exit=fn,write(){},resize(){},kill(){exit?.();}};}});
  const session=manager.open(),server=http.createServer(),remoteAccess=new RemoteAccess(directory,{fetchKeys:fixture.fetchKeys});
- const streams=attachTerminalStreams(server,{workspace:manager,agents:manager,remoteAccess});
+ const streams=attachTerminalStreams(server,{agents:manager,remoteAccess});
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const port=server.address().port;
  t.after(async()=>{streams.shutdown();manager.shutdown();await new Promise(r=>server.close(r));rmSync(directory,{recursive:true,force:true});});
- const url=`ws://127.0.0.1:${port}/api/workspace-terminal/${session.id}/stream`;
+ const url=`ws://127.0.0.1:${port}/api/terminal-sessions/${session.id}/stream`;
  const refused=async options=>{const ws=new WebSocket(url,options);ws.on('error',()=>{});const [,res]=await once(ws,'unexpected-response');res.resume();ws.terminate();return res.statusCode;};
  const secure={origin:`https://${remoteConfig.host}`,headers:{Host:remoteConfig.host,'cf-access-jwt-assertion':fixture.token()}};
  assert.equal(await refused({...secure,headers:{Host:remoteConfig.host}}),403);

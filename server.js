@@ -12,7 +12,6 @@ import {AttentionStore} from './lib/lifecycle-attention.js';
 import {LifecycleService} from './lib/lifecycle-service.js';
 import {WorkspaceTasks} from './lib/workspace-tasks.js';
 import {randomUUID} from 'node:crypto';
-import {createWorkspaceTerminal} from './lib/workspace-terminal.js';
 import {ImportedSessions} from './lib/imported-sessions.js';
 import {QuickActions} from './lib/quick-actions.js';
 import {Settings,instructionFiles} from './lib/settings.js';
@@ -59,7 +58,7 @@ async function body(req,limit=1024*1024) {
   try { const parsed=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks))); assert(parsed && typeof parsed==='object' && !Array.isArray(parsed),'Expected a JSON object.'); return parsed; }
   catch(e) { if(e instanceof Problem) throw e; throw new Problem('Invalid JSON.'); }
 }
-export function createServer({directory = process.env.FLOW_BENCH_DATA || path.join(root,'.data'), publicDirectory=path.join(root,'public'), codexOptions={},claudeOptions={},terminalOptions={},githubOptions={},skillsOptions={},connectionsOptions={},gitStatusOptions={},quickActionOptions={},briefingOptions={},folderPicker=createFolderPicker(),workspaceTerminal=createWorkspaceTerminal(root),remoteAccessOptions={},coordinatorOptions={},toolsOptions={}} = {}) {
+export function createServer({directory = process.env.FLOW_BENCH_DATA || path.join(root,'.data'), publicDirectory=path.join(root,'public'), codexOptions={},claudeOptions={},terminalOptions={},githubOptions={},skillsOptions={},connectionsOptions={},gitStatusOptions={},quickActionOptions={},briefingOptions={},folderPicker=createFolderPicker(),remoteAccessOptions={},coordinatorOptions={},toolsOptions={}} = {}) {
   const toolsHome=toolsOptions.home||connectionsOptions.home||undefined;
   const store = new Store(directory);
   const remoteAccess=new RemoteAccess(directory,remoteAccessOptions);
@@ -152,10 +151,6 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       const projectInstructions=pathname.match(/^\/api\/projects\/([\w-]+)\/instructions$/);
       if(projectInstructions&&req.method==='GET')return json(await instructionFiles(store.project(projectInstructions[1]).folderPath));
       // Reports the shell without starting one, so a restored panel never auto-starts it.
-      if(req.method==='GET'&&pathname==='/api/workspace-terminal')return json({session:workspaceTerminal.current?.()||null});
-      if(req.method==='POST'&&pathname==='/api/workspace-terminal'){const input=await body(req);assert(Object.keys(input).length===0,'Terminal opens the Workbench workspace only.');return json(workspaceTerminal.open());}
-      const workspaceShell=pathname.match(/^\/api\/workspace-terminal\/([\w-]+)\/(output|input|resize|stop)$/);
-      if(workspaceShell){const [,id,action]=workspaceShell;if(req.method==='GET'&&action==='output')return json(workspaceTerminal.output(id,Number(url.searchParams.get('cursor')||0)));if(req.method==='POST'){const input=await body(req);if(action==='input')return json(workspaceTerminal.input(id,input.data));if(action==='resize')return json(workspaceTerminal.resize(id,input.cols,input.rows));if(action==='stop')return json(workspaceTerminal.stop(id));}}
       if(req.method==='POST'&&pathname==='/api/choose-folder'){await body(req);return json(await folderPicker());}
       if(req.method==='GET'&&pathname==='/api/health')return json({app:'skd-workbench',ok:true,version:'0.5.0'});
       if(pathname==='/api/skills'&&req.method==='GET')return json(await skills.inventory(store.snapshot().projects,url.searchParams.get('scope')==='project'?{kind:'project',projectID:url.searchParams.get('projectID')}:{kind:'global'}));
@@ -444,8 +439,8 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
     } catch(e) { json({error:e instanceof Problem?e.message:'Could not save or load data. Your previous saved state is intact.',...(e instanceof Problem&&e.detail?e.detail:{})},e.status||500); if(!(e instanceof Problem)) console.error(e); }
   });
   server.on('close',()=>{controllerCommands.shutdown();mcpConnections.shutdown();terminals.shutdown();delegations.shutdown();workflows.shutdown();});
-  const terminalStreams=attachTerminalStreams(server,{workspace:workspaceTerminal,agents:terminals,coordinator:coordinator.sessions,remoteAccess});
-  server.shutdownCodex=()=>{coordinator.shutdown();controllerCommands.shutdown();terminalStreams.shutdown();workspaceTerminal.shutdown();mcpConnections.shutdown();terminals.shutdown();delegations.shutdown();workflows.shutdown();briefings.close();};
+  const terminalStreams=attachTerminalStreams(server,{agents:terminals,coordinator:coordinator.sessions,remoteAccess});
+  server.shutdownCodex=()=>{coordinator.shutdown();controllerCommands.shutdown();terminalStreams.shutdown();mcpConnections.shutdown();terminals.shutdown();delegations.shutdown();workflows.shutdown();briefings.close();};
   server.on('listening',()=>{const address=server.address();if(address&&typeof address==='object')coordinator.endpoint=`http://127.0.0.1:${address.port}/api/controller/call`;});
   return server;
 }

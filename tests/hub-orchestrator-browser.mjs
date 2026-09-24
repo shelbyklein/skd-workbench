@@ -23,7 +23,7 @@ try{
  assert.equal(await page.locator('[data-global-workflows]').count(),0);assert.equal(await page.getByRole('heading',{name:'Project owners'}).count(),0);
  await page.waitForFunction(()=>/need/.test(document.querySelector('#home-agent-summary')?.textContent||''));assert.doesNotMatch(await page.locator('#home-agent-summary').textContent(),/owner/);
  // Orchestrator: paste an email, it routes to the Austin agent and relays its update.
- await page.getByRole('button',{name:'Toggle coordinator panel',exact:true}).click();await dock.waitFor();
+ await dock.waitFor();assert.equal(await page.getByRole('button',{name:'Toggle coordinator panel'}).count(),0,'The panel is always open.');
  await page.waitForFunction(()=>/hands work to project agents/.test(document.querySelector('#dock-message-help')?.textContent||''));
  await page.locator('#dock-message').fill('I got an email about Austin: change the hours banner to 9–5.');await page.locator('#dock-send').click();
  await dock.getByText('Passed to Austin.').waitFor();await dock.getByText(/Update: Done: I got an email about Austin/).waitFor();
@@ -36,21 +36,21 @@ try{
  await dock.getByText(/Update: Done: blue and gold/).waitFor();
  const agents=async()=>Promise.all(['Austin','Newton'].map(async n=>(await api(`projects/${projects[n].id}/agent`)).coordinator.session?.status));
  assert.deepEqual(await agents(),['running','running'],'Both project agents run at the same time.');
- await dock.getByRole('button',{name:'Hide',exact:true}).click();
+ 
  // Project page: the conversation card is the project agent; mandates and workflows are off the page.
  await page.locator(`.project-card[data-project="${projects.Austin.id}"]`).click();await page.locator('#agent-decisions').waitFor();
- await page.waitForFunction(()=>/Austin agent/.test(document.querySelector('#agent-thread-title')?.textContent||''));
+ await page.waitForFunction(()=>/Austin/.test(document.querySelector('#dockp-thread-title')?.textContent||''));
  assert.equal(await page.locator('#agent-mandate-card').count(),0);assert.equal(await page.locator('.sidebar [data-sidebar-view=overview]').count(),0);
  assert.match(await page.locator('#project-owner').textContent(),/Agent: Claude Code · fixture[\s\S]*Running/);
- assert.match(await page.locator('#agent-messages').textContent(),/From the orchestrator: I got an email about Austin/);
- await page.getByRole('button',{name:'CLI',exact:true}).click();await page.waitForFunction(()=>/\[from orchestrator\] I got an email/.test((document.querySelector('.coordinator-terminal .xterm-rows')?.innerText||'').replace(/\n/g,'')));
+ assert.match(await page.locator('#dockp-messages').textContent(),/From the orchestrator: I got an email about Austin/);
+ await page.locator('.dock-project').getByRole('button',{name:'CLI',exact:true}).click();await page.waitForFunction(()=>/\[from orchestrator\] I got an email/.test((document.querySelector('.dock-project .coordinator-terminal .xterm-rows')?.innerText||'').replace(/\n/g,'')));
  await page.screenshot({path:'output/hub-project-agent.png'});
  // Project agent settings: model and workspace; saving ends the running session.
- await page.getByRole('button',{name:'Chat',exact:true}).click();await page.locator('#agent-coordinator [data-coordinator-settings]').click();
+ await page.locator('.dock-project').getByRole('button',{name:'Chat',exact:true}).click();await page.locator('#dockp-coordinator [data-coordinator-settings]').click();
  await page.getByRole('heading',{name:'Project agent'}).waitFor();await page.locator('#dialog [name=model]').selectOption('other');await page.locator('#dialog [name=effort]').selectOption('low');
  await page.getByLabel('Project folder').check();await page.screenshot({path:'output/hub-project-agent-settings.png'});
  await page.getByRole('button',{name:'Save',exact:true}).click();
- await page.waitForFunction(()=>/Claude Code · other · project folder · No session/.test(document.querySelector('#agent-coordinator')?.textContent||''));
+ await page.waitForFunction(()=>/Claude Code · other · project folder · No session/.test(document.querySelector('#dockp-coordinator')?.textContent||''));
  assert.equal((await api(`projects/${projects.Austin.id}/agent`)).coordinator.history[0].endReason,'settings');
  // The Workflows routes still render for existing data.
  await page.evaluate(id=>location.hash='#workflows/'+id,projects.Austin.id);await page.getByRole('heading',{name:'Workflows',exact:true}).waitFor();await page.getByText('Legacy flow').first().waitFor();

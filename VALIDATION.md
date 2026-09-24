@@ -1,3 +1,15 @@
+# Always-open side panel; Workbench shell removed — 2026-09-24
+
+- The coordinator side panel is always open (no header toggle, no Shell/Hide tabs). It steps aside while an agent
+  session terminal is shown and flows below the page at 900 px and below. The page reserves its width with the
+  panel's own `coordinator-dock-open` class; `terminal-ui.js` no longer rewrites that class.
+- The Workbench folder shell is removed: `/api/workspace-terminal` routes and stream endpoint, `lib/workspace-terminal.js`
+  (moved to `tests/fixtures/pty-manager.js` as a stream-test double), the panel's shell view and `terminal-ui`'s
+  workspace variant. `terminal-stream-browser.mjs` (shell latency) is retired; stream protocol and security remain
+  covered by `terminal-stream.test.js` and `remote-access-server.test.js`, live terminals by `coordinator-cli-browser`.
+- `npm run test:browser` now runs the 40 Chrome suites 6 at a time (`scripts/run-browser-tests.mjs`,
+  list in `scripts/browser-tests.json`, `BROWSER_TEST_JOBS` to change): 40/40 in 73 s instead of ~20 min.
+
 # Tools in concert: native skills and MCP — 2026-09-24
 
 - Issue #20. Sessions, quick actions, reviews, project agents and the orchestrator use each CLI's own skills and

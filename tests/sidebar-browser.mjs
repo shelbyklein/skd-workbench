@@ -23,7 +23,7 @@ try{
  assert.equal(await views.locator('[aria-current]').count(),0);
  await page.locator('.sidebar-all-projects').click();await page.getByRole('button',{name:'Discard changes',exact:true}).click();
  await page.getByRole('navigation',{name:'Projects',exact:true}).getByRole('button',{name:'Second project'}).click();
- await page.getByRole('heading',{name:'Second project',exact:true}).waitFor();
+ await page.locator('h1',{hasText:'Second project'}).waitFor();
  assert.equal(await page.locator('.project-view-list .view-icon').count(),7);assert.equal(await page.locator('main .project-views').count(),0);
  await page.getByRole('button',{name:'Project details',exact:true}).click();await page.getByLabel('Project name',{exact:true}).waitFor();await page.keyboard.press('Escape');
  await page.locator('[data-add-project]').click();await page.getByLabel('Project name',{exact:true}).fill('Selected project');
@@ -36,6 +36,6 @@ try{
  mkdirSync('output',{recursive:true});await page.screenshot({path:'output/projects-sidebar-desktop.png'});
  await page.reload();await views.waitFor();assert.equal(await views.locator('[aria-current]').getAttribute('data-sidebar-view'),'issues');
  await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:'output/projects-sidebar-mobile.png',fullPage:true});
- await views.getByRole('link',{name:'System',exact:true}).focus();await page.keyboard.press('Enter');await page.getByRole('heading',{name:'System',exact:true}).waitFor();await page.locator('.sidebar-all-projects').click();await page.getByRole('navigation',{name:'Projects',exact:true}).getByRole('button',{name:'First project'}).click();await page.getByRole('heading',{name:'First project',exact:true}).waitFor();
+ await views.getByRole('link',{name:'System',exact:true}).focus();await page.keyboard.press('Enter');await page.locator('#app').getByRole('heading',{name:'System',exact:true}).waitFor();await page.locator('.sidebar-all-projects').click();await page.getByRole('navigation',{name:'Projects',exact:true}).getByRole('button',{name:'First project'}).click();await page.locator('#app').getByRole('heading',{name:'First project',exact:true}).waitFor();
  assert.deepEqual(errors,[]);console.log('Project sidebar passed: seven icons (Tools replaces Skills and Connections) (Workflows off the main path), scoped view links, active view, planned Scratchpad, dirty guard, All projects, details/add, reload, keyboard and mobile.');
 }finally{await browser.close();server.closeAllConnections();await new Promise(r=>server.close(r));rmSync(root,{recursive:true,force:true});}

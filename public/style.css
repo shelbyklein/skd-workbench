@@ -400,13 +400,13 @@ body.terminal-open .issue-detail-layout{grid-template-columns:minmax(0,1fr)}
 .header-terminal{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;padding:8px;flex:none;margin-left:auto}.header-terminal svg{display:block}
 
 /* The workspace shell remains a separate column while the app changes views. */
-.workspace-terminal-panel{width:var(--workspace-terminal-width,clamp(400px,40vw,640px))}
-.workspace-terminal-open #app{margin-right:var(--workspace-terminal-width,clamp(400px,40vw,640px))}
-.workspace-terminal-open .project-dashboard{grid-template-columns:minmax(0,1fr)}
-.workspace-terminal-open .project-quick-actions{grid-template-columns:minmax(0,1fr)}
+
+.coordinator-dock-open #app{margin-right:var(--workspace-terminal-width,clamp(400px,40vw,640px))}
+.coordinator-dock-open .project-dashboard{grid-template-columns:minmax(0,1fr)}
+
 .workspace-terminal-panel .terminal-header>div:first-child{min-width:0}
 .workspace-terminal-panel .terminal-header>div:last-child{flex-shrink:0}
-@media(max-width:650px){.workspace-terminal-panel{width:100vw}.workspace-terminal-open #app{margin-right:0}}
+@media(max-width:650px){.coordinator-dock-open #app{margin-right:0}}
 
 .terminal-resize-edge{position:absolute;inset:0 auto 0 -5px;width:10px;z-index:2;cursor:col-resize;touch-action:none}
 .terminal-resize-edge:hover,.terminal-resize-edge:focus-visible{background:#e9b77f66;outline:none}
@@ -515,19 +515,12 @@ body.terminal-open .issue-detail-layout{grid-template-columns:minmax(0,1fr)}
 .dock-header{display:flex;align-items:center;justify-content:space-between;gap:10px;flex:none}
 .dock-header .agent-view-switch{margin:0}
 .dock-conversation{flex:1 1 auto;min-height:0;overflow:auto}
-.dock-conversation[hidden],.dock-shell[hidden]{display:none}
-.coordinator-dock .agent-thread{position:static;max-height:none;border:0;padding:0;background:transparent;display:flex;flex-direction:column;height:100%}
+.dock-conversation[hidden],.coordinator-dock .agent-thread{position:static;max-height:none;border:0;padding:0;background:transparent;display:flex;flex-direction:column;height:100%}
 .coordinator-dock .agent-thread>*{flex:none}
 /* Messages or the CLI take the free height so the message box stays in view. */
 .coordinator-dock .agent-thread>.agent-messages{flex:1 1 0;min-height:120px}
 
 .coordinator-dock .agent-thread>.agent-cli{flex:1 1 0;height:auto;min-height:280px}
-.dock-shell{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:10px}
-.dock-shell-screen{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
-.dock-shell-screen:empty{display:none}
-.dock-shell-empty{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0}
-.dock-shell-empty:empty{display:none}
-.dock-shell .coordinator-terminal{flex:1 1 auto}
 @media(max-width:650px){.coordinator-dock{width:100vw}}
 /* Remove project */
 .remove-project h3{margin:0 0 4px}.remove-project .field-help{margin:0 0 10px}
@@ -615,3 +608,12 @@ body.dock-project-split .project-agent>.agent-thread{display:none}
 [data-theme] .dock-edge-tabs button:hover:not(:disabled){background:transparent;border:0;color:var(--ink)}
 /* A full-width phone panel has no outside edge: the tabs sit inside its top-right corner */
 @media(max-width:650px){.dock-edge-tabs{right:12px;top:0;flex-direction:row}.dock-edge-tabs button::before{border-right:1px solid var(--line);border-top:0;border-radius:0 0 8px 8px;transform:none}.coordinator-dock{padding-top:40px}}
+/* The panel is always open. On narrow screens it follows the page instead of covering it. */
+@media(max-width:900px){
+ .coordinator-dock{position:static;width:auto;height:85vh;border-left:0;border-top:1px solid var(--line);box-shadow:none}
+ .coordinator-dock-open #app{margin-right:0}
+ .coordinator-dock .terminal-resize-edge{display:none}
+ .dock-edge-tabs{display:none}
+}
+/* Banners center on the page area beside the always-open panel */
+@media(min-width:901px){.coordinator-dock-open .pwa-banner{left:calc((100vw - var(--workspace-terminal-width,clamp(400px,40vw,640px)))/2);z-index:31}}

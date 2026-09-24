@@ -152,12 +152,8 @@ function shell(content) {
     heading.append(actions);
     topbar.append(heading);
   }
-  const terminalButton=document.createElement('button');terminalButton.type='button';terminalButton.className='header-terminal';terminalButton.dataset.workspaceTerminal='';terminalButton.setAttribute('aria-label','Toggle coordinator panel');terminalButton.title='Coordinator chat, CLI and workspace shell';
-  terminalButton.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3m6 0h4"/></svg>';
-  (topbar.querySelector('.view-actions')||topbar).append(terminalButton);
+  // The coordinator side panel is always open (no toggle).
   coordinatorDock??=createCoordinatorDock({api,modal,notify:toast});
-  terminalButton.setAttribute('aria-expanded',String(coordinatorDock.isOpen()));
-  terminalButton.onclick=()=>coordinatorDock.toggle();
   const themeControl=document.createElement('label');themeControl.className='theme-control';
   themeControl.innerHTML='Appearance<select data-theme-picker aria-label="Appearance"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>';
   $('.sidebar').append(themeControl);window.workbenchTheme?.sync();
@@ -581,7 +577,7 @@ function applyRoute(hash=location.hash){
  else if(route[0]==='flow'){view='flow';projectID=data.flows.find(f=>f.id===route[1])?.projectID||'unassigned';}
  if(!data.projects.some(p=>p.id===projectID))projectID='unassigned';draft=clone(data.flows.find(f=>f.id===route[1]&&f.projectID===projectID)||scopedFlows()[0]||null);
 }
-async function boot(){try{await reload();await loadSettings(api);try{primeAgentCache(await api('sessions'));}catch{}applyRoute();loaded=true;render();coordinatorDock?.restore();}
+async function boot(){try{await reload();await loadSettings(api);try{primeAgentCache(await api('sessions'));}catch{}applyRoute();loaded=true;render();coordinatorDock?.show();}
  catch(e){if(!/^(127\.0\.0\.1|localhost)$/.test(location.hostname)){$('#app').innerHTML=`<section class="empty offline-startup"><img src="/icon.svg" alt=""><h1>Workbench unavailable</h1><p>The Workbench on your Mac is not reachable, or your remote sign-in expired.</p><button id="retry-load" class="primary">Reload</button><p class="offline-note">${esc(e.message)}</p></section>`;$('#retry-load').onclick=()=>location.reload();return;}
   $('#app').innerHTML=`<section class="empty offline-startup"><img src="/icon.svg" alt=""><h1>Server unavailable</h1><p>The interface is ready. Your projects and workflows need the local server.</p><p>Start the local server with the installed Mac launcher.</p><button id="start-workbench" data-start-workbench class="primary">Start Workbench</button><button id="retry-load">Reconnect</button><details class="launcher-help"><summary>Launcher not installed?</summary><p>Open <strong>Launch SKD Workbench.command</strong> in the Workbench folder. To install the launcher, run <code>npm run launcher:install</code> there once.</p></details><p class="offline-note">${esc(e.message)}</p></section>`;$('#retry-load').onclick=boot;$('#start-workbench').onclick=startWorkbench;}}
 let followingLocation=false;

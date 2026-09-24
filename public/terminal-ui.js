@@ -1,30 +1,16 @@
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // inline: {host,endpoint,stopPath,eyebrow,title,footer,endLabel} renders inside host instead of the side panel.
-export function mountTerminal({session,api,onChange,workspace=false,inline=null}){
+export function mountTerminal({session,api,onChange,inline=null}){
  let disposed=false,timer,cursor=0,latest=session,resizeTimer;
- function syncLayout(){if(inline)return;document.body.classList.toggle('terminal-open',!!document.querySelector('.terminal-panel:not([hidden])'));document.body.classList.toggle('workspace-terminal-open',!!document.querySelector('.workspace-terminal-panel:not([hidden])'));}
+ function syncLayout(){if(inline)return;document.body.classList.toggle('terminal-open',!!document.querySelector('.terminal-panel:not([hidden])'));}
  const previousFocus=document.activeElement;
- const endpoint=inline?.endpoint||(workspace?'workspace-terminal/':'terminal-sessions/');
+ const endpoint=inline?.endpoint||'terminal-sessions/';
  if(!inline)document.dispatchEvent(new Event('terminal-panel-open'));
- const panel=document.createElement(inline?'section':'aside');panel.className=inline?'coordinator-terminal':'terminal-panel'+(workspace?' workspace-terminal-panel':'');panel.setAttribute('aria-label',inline?inline.title:workspace?'Workspace terminal':'Agent terminal');
+ const panel=document.createElement(inline?'section':'aside');panel.className=inline?'coordinator-terminal':'terminal-panel';panel.setAttribute('aria-label',inline?inline.title:'Agent terminal');
  if(inline)panel.innerHTML=`<header class="terminal-header"><div><span class="eyebrow">${esc(inline.eyebrow)}</span><h2>${esc(inline.title)}</h2></div><div><button type="button" id="terminal-end">${esc(inline.endLabel||'Stop session')}</button></div></header><p class="terminal-status" role="status">Connecting…</p><div class="terminal-screen"></div><p class="terminal-error" role="alert"></p><footer>${esc(inline.footer||'')}</footer>`;
- else panel.innerHTML=`<header class="terminal-header"><div><span class="eyebrow">${workspace?esc(session.cwd):esc(session.agent)+' · '+esc(session.model)}</span><h2>${workspace?'Workspace terminal':'Session terminal'}</h2></div><div><button id="terminal-end">End session</button><button id="terminal-hide">Hide</button></div></header><p class="terminal-status" role="status">Connecting…</p><div class="terminal-screen"></div><p class="terminal-error" role="alert"></p><footer>${workspace?'Hiding this panel keeps the shell running. Commands run in the Workbench folder.':'Closing this panel keeps the session running. Changes are never merged automatically.'}</footer>`;
+ else panel.innerHTML=`<header class="terminal-header"><div><span class="eyebrow">${esc(session.agent)+' · '+esc(session.model)}</span><h2>Session terminal</h2></div><div><button id="terminal-end">End session</button><button id="terminal-hide">Hide</button></div></header><p class="terminal-status" role="status">Connecting…</p><div class="terminal-screen"></div><p class="terminal-error" role="alert"></p><footer>Closing this panel keeps the session running. Changes are never merged automatically.</footer>`;
 
  let removeResizer=()=>{};
- if(workspace){
-  const edge=document.createElement('div');edge.className='terminal-resize-edge';edge.tabIndex=0;edge.setAttribute('role','separator');edge.setAttribute('aria-label','Resize terminal');edge.setAttribute('aria-orientation','vertical');panel.prepend(edge);
-  let preferred;try{preferred=Number(localStorage.getItem('workspace-terminal-width'))||undefined;}catch{}
-  const maximum=()=>Math.max(320,innerWidth-280);
-  function apply(value,save=false){const width=Math.round(Math.max(320,Math.min(maximum(),value)));document.body.style.setProperty('--workspace-terminal-width',width+'px');edge.setAttribute('aria-valuemin','320');edge.setAttribute('aria-valuemax',maximum());edge.setAttribute('aria-valuenow',width);if(save){preferred=width;try{localStorage.setItem('workspace-terminal-width',String(width));}catch{}}}
-  const viewport=()=>apply(preferred||Math.min(640,Math.max(400,innerWidth*.4)));
-  let pointer=null;
-  const finish=()=>{if(pointer===null)return;pointer=null;document.body.classList.remove('terminal-resizing');};
-  edge.onpointerdown=e=>{if(e.button!==0)return;e.preventDefault();pointer=e.pointerId;edge.setPointerCapture(pointer);edge.focus();document.body.classList.add('terminal-resizing');};
-  edge.onpointermove=e=>{if(e.pointerId===pointer)apply(innerWidth-e.clientX,true);};
-  edge.onpointerup=finish;edge.onpointercancel=finish;edge.onlostpointercapture=finish;
-  edge.onkeydown=e=>{const current=panel.getBoundingClientRect().width;const values={ArrowLeft:current+32,ArrowRight:current-32,Home:320,End:maximum()};if(e.key in values){e.preventDefault();apply(values[e.key],true);}};
-  window.addEventListener('resize',viewport);viewport();removeResizer=()=>{finish();window.removeEventListener('resize',viewport);};
- }
  (inline?.host||document.body).append(panel);syncLayout();
  const status=panel.querySelector('.terminal-status'),error=panel.querySelector('.terminal-error'),end=panel.querySelector('#terminal-end');
  const terminal=new window.Terminal({cursorBlink:true,fontFamily:'Menlo, Monaco, monospace',fontSize:13,scrollback:3000,allowProposedApi:false,theme:{background:'#101010',foreground:'#eeeeee',cursor:'#e9b77f'}}),fit=new window.FitAddon.FitAddon();terminal.loadAddon(fit);terminal.open(panel.querySelector('.terminal-screen'));

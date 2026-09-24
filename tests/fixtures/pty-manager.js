@@ -1,8 +1,9 @@
+// Test double: a single-session PTY manager with the terminal-stream interface (formerly the Workbench shell).
 import {EventEmitter} from 'node:events';
 import * as pty from 'node-pty';
 import {realpathSync} from 'node:fs';
 import {randomUUID} from 'node:crypto';
-import {assert} from './domain.js';
+import {assert} from '../../lib/domain.js';
 
 // One plain shell per server, retained while its panel is hidden. Never auto-start.
 export function createWorkspaceTerminal(folder,{spawn=pty.spawn,shell=process.platform==='darwin'?'/bin/zsh':'/bin/bash'}={}){
