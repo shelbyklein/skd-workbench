@@ -24,19 +24,14 @@ test('interactive provider capability matrix remains honest about isolation and 
   assert(!codex.includes('--ignore-user-config'));
   assert(!codex.includes('--json'));
 
-  const claude=terminalArgs(run('claude',{status:'managed'}),[
-    '--restricted','--strict-mcp-config','--mcp-config','/tmp/exact.json'
-  ],['mcp__keep__fixture_tool']);
+  // Worktree Claude sessions run the person's normal CLI (#20): no managed or strict MCP, normal prompts.
+  const claude=terminalArgs(run('claude',{status:'native'}));
   assert(claude.includes('--append-system-prompt'));
-  assert(claude.includes('--disable-slash-commands'));
-  assert(claude.includes('--strict-mcp-config'));
-  assert(!claude.includes('--safe-mode'));
-  assert(!claude.includes('--print'));
-  assert(!claude.includes('--output-format'));
+  for(const flag of ['--disable-slash-commands','--strict-mcp-config','--safe-mode','--restricted','--permission-mode','--print','--output-format'])assert(!claude.includes(flag),flag);
 
-  const emptyClaude=terminalArgs(run('claude',{status:'empty'}));
-  assert(emptyClaude.includes('--safe-mode'));
-  assert.equal(emptyClaude[emptyClaude.indexOf('--mcp-config')+1],'{"mcpServers":{}}');
+  const readOnly=terminalArgs({...run('claude',{status:'excluded'}),mode:'read-only'});
+  assert(readOnly.includes('--safe-mode'));
+  assert.equal(readOnly[readOnly.indexOf('--mcp-config')+1],'{"mcpServers":{}}');
 });
 
 test('structured providers emit exact-child JSONL while keeping MCP excluded',()=>{

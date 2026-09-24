@@ -79,14 +79,13 @@ test('MCP-bearing workflow Agents need explicit exclusion acknowledgement; adapt
  for(const c of Object.values(input.config))c.agentProfile.acknowledgeExclusions=true;
  let r=await w.start(input,flow,project);r=await wait(w,r.id,['waiting']);assert.deepEqual(r.attempts[0].execution.agentContext.agentProfile.connectionSelection.connectionIDs,[]);assert.equal(r.attempts[0].execution.agentContext.connections.status,'excluded');act(w,r,'stop');
 });
-test('frozen skills and Agents survive restart before a step launches; current skill revocation still blocks',async t=>{
+test('frozen Agents survive restart before a step launches; stored skills are not injected (#20)',async t=>{
  const f=await withAgents(t),{workflows:w,codex,project,input}=f;
- const skill=codex.skills.create({revision:0,name:'Frozen skill',instructions:'ORIGINAL SKILL',scope:{kind:'global'}},[project]);await codex.playbooks.update(f.profile.id,{...f.profileInput,revision:2,version:1,skillIDs:[skill.id]},[project]);
- await f.preview();let r=await w.start(input,flow,project);r=await wait(w,r.id,['waiting']);
- codex.skills.update(skill.id,{revision:1,name:'Edited skill',instructions:'CHANGED SKILL',scope:{kind:'global'}},[project]);w.shutdown();
+ const skill=codex.skills.create({revision:0,name:'Stored skill',instructions:'STORED SKILL',scope:{kind:'global'}},[project]);await codex.playbooks.update(f.profile.id,{...f.profileInput,revision:2,version:1,skillIDs:[skill.id]},[project]);
+ await f.preview();let r=await w.start(input,flow,project);r=await wait(w,r.id,['waiting']);w.shutdown();
  const c2=new CodexRuns(f.directory,{binary:codex.binary,discover:codex.discover,skills:codex.skills,playbooks:codex.playbooks}),w2=new Workflows(f.directory,c2);t.after(()=>{if(existsSync(f.directory))w2.shutdown();});
- r=w2.get(r.id);act(w2,r,'changes','Retry after restart');r=await wait(w2,r.id,['waiting']);assert.match(r.attempts.at(-1).execution.output,/ORIGINAL SKILL/);assert(!r.attempts.at(-1).execution.output.includes('CHANGED SKILL'));
- codex.skills.archive(skill.id,{revision:2,archived:true});act(w2,r,'approve');r=await wait(w2,r.id,['failed']);assert.match(r.error,/revoked/);assert.equal(c2.runs.length,2);act(w2,r,'stop');
+ r=w2.get(r.id);act(w2,r,'changes','Retry after restart');r=await wait(w2,r.id,['waiting']);const output=r.attempts.at(-1).execution.output;
+ assert.match(output,/ORIGINAL SPECIALIZATION/);assert(!output.includes('STORED SKILL'),'Stored skills are not injected into steps.');act(w2,r,'stop');
 });
 async function mixedFixture(t,code){
  const f=await withAgents(t),binary=path.join(path.dirname(f.codex.binary),'claude-fixture');
