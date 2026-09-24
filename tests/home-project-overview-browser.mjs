@@ -42,6 +42,6 @@ try{
  await page.screenshot({path:'instructions/assets/home-project-overview/mobile.png',fullPage:true});
  mode='partial';await page.reload();await page.getByText('Preview from recently updated issues',{exact:true}).first().waitFor();
  mode='empty';await page.reload();await page.getByText('No open issues.',{exact:true}).first().waitFor();
- mode='error';await page.reload();await page.getByText('Issues unavailable. Open All issues to retry.',{exact:true}).first().waitFor();
+ mode='error';await page.reload();await page.getByText('Issues unavailable. Refresh to retry.',{exact:true}).first().waitFor();
  assert.deepEqual(errors,[]);console.log('Home overview passed: 2x2 grid, three sorted issues, project-scoped keyboard navigation, collapsed More, mobile, empty and error states.');
 }finally{await browser.close();server.closeAllConnections();await new Promise(r=>server.close(r));rmSync(root,{recursive:true,force:true});}

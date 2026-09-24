@@ -646,3 +646,9 @@ main.no-topbar{padding-top:22px}
 main.no-topbar .projects-section{padding-top:0}
 main.no-topbar .projects-section>.overview-section-heading{margin-top:0}
 @media(min-width:651px){.projects-toolbar{grid-template-columns:minmax(0,1fr) auto}}
+/* Home: refresh issues, at the right end of the Projects header */
+.home-issues-refresh{width:30px;height:30px;padding:0;display:grid;place-items:center;border-radius:8px;flex:none}
+.home-issues-refresh svg{width:16px;height:16px}
+.home-issues-refresh.is-loading svg{animation:home-refresh-spin .9s linear infinite}
+@keyframes home-refresh-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.home-issues-refresh.is-loading svg{animation:none;opacity:.5}}
