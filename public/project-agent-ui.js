@@ -227,6 +227,8 @@ export function mountProjectAgent(host,{project,api,modal,notify,flows,owner,onR
   const run=e.target.closest('[data-agent-run]');if(run){onRun(run.dataset.agentRun);return;}
   const issue=e.target.closest('[data-agent-issue]');if(issue){onIssue(Number(issue.dataset.agentIssue));return;}
   if(e.target.closest('[data-agent-open-cli]')){coordinator.openCLI();return;}
+  // Reply goes to this project's agent: the side panel's lower pane, or the page card when the panel is away.
+  if(e.target.closest('[data-agent-reply]')){const box=[document.querySelector('#dockp-message'),q('#agent-message')].find(el=>el?.offsetParent);box?.focus();return;}
   if(e.target.closest('[data-agent-mandate]'))openMandate();
   if(e.target.closest('[data-agent-issues]'))onIssues();
  });
@@ -238,7 +240,7 @@ export function mountProjectAgent(host,{project,api,modal,notify,flows,owner,onR
  }
  function renderMain(){
   const m=state.mandate;
-  const decisions=state.decisions.length?`<ul class="agent-list">${state.decisions.map(d=>`<li class="agent-decision"><span class="agent-dot agent-dot-${esc(d.kind)}" aria-hidden="true"></span><span class="agent-copy"><strong>${esc(d.title)}</strong><small>${esc(d.detail)}</small></span>${d.runID?`<button type="button" class="primary" data-agent-run="${esc(d.runID)}">${d.kind==='review'?'Review':'Inspect'}</button>`:d.kind==='coordinator'?'<button type="button" class="primary" data-agent-open-cli>Open CLI</button>':'<button type="button" data-agent-mandate>Review mandate</button>'}</li>`).join('')}</ul>`:'<p class="widget-empty">No decisions waiting.</p>';
+  const decisions=state.decisions.length?`<ul class="agent-list">${state.decisions.map(d=>`<li class="agent-decision"><span class="agent-dot agent-dot-${esc(d.kind)}" aria-hidden="true"></span><span class="agent-copy"><strong>${esc(d.title)}</strong><small>${esc(d.detail)}</small></span>${d.runID?`<button type="button" class="primary" data-agent-run="${esc(d.runID)}">${d.kind==='review'?'Review':'Inspect'}</button>`:d.kind==='question'?'<button type="button" class="primary" data-agent-reply>Reply</button>':d.kind==='coordinator'?'<button type="button" class="primary" data-agent-open-cli>Open CLI</button>':'<button type="button" data-agent-mandate>Review mandate</button>'}</li>`).join('')}</ul>`:'<p class="widget-empty">No decisions waiting.</p>';
   const c=state.current;
   const current=c?`<article class="agent-card"><div class="agent-card-head"><span class="eyebrow">${esc(c.taskRef||'WORKFLOW RUN')}</span><span class="agent-status agent-status-${esc(c.status)}">${esc(statusLabels[c.status]||c.status)}</span></div><h3>${esc(c.flowName)}</h3><p>${esc(c.task)}</p>${progress(c.steps)}
    <dl class="agent-facts"><div><dt>Attempts</dt><dd>${c.agentAttempts} of ${c.maxAttempts}</dd></div>${c.workspace?.branch?`<div><dt>Workspace</dt><dd>${esc(c.workspace.branch)}</dd></div>`:''}${c.deadlineAt?`<div><dt>Runtime limit</dt><dd>${esc(when(c.deadlineAt))}</dd></div>`:''}${c.controllerName?`<div><dt>Started by</dt><dd>${esc(c.controllerName)}${c.mandateVersion?` · mandate v${c.mandateVersion}`:''}</dd></div>`:''}</dl>
@@ -315,7 +317,7 @@ export function mountHomeAgents(host,{api,modal,notify,onProject,onRun}){
  function render(){
   const n=state.decisions.length;host.hidden=!n;q('#home-agent-summary').textContent='';
   q('#home-decisions').textContent=`${n} ${n===1?'thing needs':'things need'} your attention`;
-  q('#home-decisions-body').innerHTML=state.decisions.length?`<ul class="agent-list">${state.decisions.map(d=>`<li class="agent-decision"><span class="agent-dot agent-dot-${esc(d.kind)}" aria-hidden="true"></span><span class="agent-copy"><strong>${esc(d.projectName)} · ${esc(d.title)}</strong><small>${esc(d.detail)}</small></span>${d.runID?`<button type="button" class="primary" data-run-project="${esc(d.projectID)}" data-home-run="${esc(d.runID)}">${d.kind==='review'?'Review':'Inspect'}</button>`:d.kind==='coordinator'?`<button type="button" class="primary" data-home-open-cli="${esc(d.projectID||'')}">Open CLI</button>`:`<button type="button" data-home-project="${esc(d.projectID)}">Open project</button>`}</li>`).join('')}</ul>`:'<p class="widget-empty">No decisions waiting.</p>';
+  q('#home-decisions-body').innerHTML=state.decisions.length?`<ul class="agent-list">${state.decisions.map(d=>`<li class="agent-decision"><span class="agent-dot agent-dot-${esc(d.kind)}" aria-hidden="true"></span><span class="agent-copy"><strong>${esc(d.projectName)} · ${esc(d.title)}</strong><small>${esc(d.detail)}</small></span>${d.runID?`<button type="button" class="primary" data-run-project="${esc(d.projectID)}" data-home-run="${esc(d.runID)}">${d.kind==='review'?'Review':'Inspect'}</button>`:d.kind==='question'?`<button type="button" class="primary" data-home-project="${esc(d.projectID)}">Reply</button>`:d.kind==='coordinator'?`<button type="button" class="primary" data-home-open-cli="${esc(d.projectID||'')}">Open CLI</button>`:`<button type="button" data-home-project="${esc(d.projectID)}">Open project</button>`}</li>`).join('')}</ul>`:'<p class="widget-empty">No decisions waiting.</p>';
   pace(state.decisions.some(d=>d.kind==='coordinator'));
  }
  async function refresh(announce=false){
