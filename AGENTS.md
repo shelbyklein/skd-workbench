@@ -35,6 +35,8 @@ read-only GitHub browsing with explicit agent proposal and apply actions.
 - `lib/codex.js`, `lib/claude.js`: structured execution and provider adapters.
 - `lib/workflows.js`: execution sequence, handoffs, gates, retries and usage totals.
 - `lib/terminals.js`: interactive PTY sessions, reconnect and process lifecycle.
+- `lib/coordinator-sessions.js`, `lib/session-host.js`, `scripts/session-host.mjs`: agent CLI sessions and the
+  host process that keeps them alive across restarts.
 - `lib/benchmarks.js`: pinned baselines, workspace archives and guarded cleanup.
 - `lib/tools.js`, `public/tools-ui.js`: Tools inventory of each CLI's skills and MCP servers, and Install MCP server.
 - `lib/issues.js`, `public/issues-ui.js`: GitHub reads and persisted title/body edit
@@ -63,6 +65,11 @@ read-only GitHub browsing with explicit agent proposal and apply actions.
   internal grant has only `read` and `report`. Never bypass either CLI's permission prompts. Workflow launches
   through controller tools stay mandate-checked and take the lock. Hiding/reopening a terminal
   must not spawn another process; restarting the server must not resume execution.
+- The orchestrator and project agent CLIs run in the session host (`scripts/session-host.mjs`, client
+  `lib/session-host.js`), a separate detached process that owns their PTYs. A server restart leaves them
+  running and the next start reattaches them (`CoordinatorSessions.restore`); nothing is relaunched. Stop, idle
+  and settings changes still end them. Keep the host small and dependency-free beyond node-pty: changing it
+  means stopping every live agent. Tests use in-process PTYs (no `sessionHost` option).
 - Normal execution worktrees remain for review. Do not add automatic merge or
   deletion. Benchmark cleanup requires a successful archive and ownership checks;
   failures retain files. Never reset or clean a source checkout as benchmark cleanup.
