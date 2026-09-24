@@ -449,7 +449,8 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
 }
 if(process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
   const port=Number(process.env.PORT||4390);
-  const server=createServer();
+  // The running app keeps agent CLIs in the session host, so a restart leaves them running.
+  const server=createServer({coordinatorOptions:{sessionHost:process.env.SKD_SESSION_HOST!=='off'}});
   for(const signal of ['SIGTERM','SIGINT'])process.once(signal,()=>{server.shutdownCodex();server.closeAllConnections();server.close(()=>process.exit(0));});
   server.on('error',e=>{console.error(e.code==='EADDRINUSE'?`Port ${port} is busy. Choose another with PORT=4391 npm start.`:e.message);process.exitCode=1;});
   server.listen(port,'127.0.0.1',()=>{
