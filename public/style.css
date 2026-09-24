@@ -682,3 +682,10 @@ main.no-topbar .projects-section>.overview-section-heading{margin-top:0}
 .timeline-entry p{margin:4px 0 0;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}
 .issue-timeline{margin-top:22px}.issue-timeline h3{margin:0 0 8px}
 .project-agent #agent-timeline-list{max-height:420px;overflow:auto}
+/* Home card Git line and reconcile warning */
+.home-git{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;font-size:12px;color:var(--muted);margin:0 0 12px}
+.home-git-branch{font-weight:700;color:var(--ink)}
+.home-git-muted .home-git-branch{color:var(--muted)}
+.home-git-warn .home-git-summary{color:#b7791f}
+.home-git-reconcile{flex-basis:100%;margin:6px 0 0;padding:8px 10px;border:1px solid #c98b1d66;border-radius:8px;background:#c98b1d14;color:var(--ink);font-size:12px;line-height:1.4}
+.home-git-reconcile strong{color:#b7791f}
