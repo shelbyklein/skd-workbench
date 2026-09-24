@@ -37,11 +37,23 @@ try{
  const link=page.locator('.home-project-card').nth(1).locator('.priority-issue-row').first();await link.focus();await page.keyboard.press('Enter');
  await page.waitForURL(`**/#issues/${projects[1].id}/3`);await page.getByRole('heading',{name:issues[2].title,exact:true}).waitFor();
  await page.goto(url);await page.locator('.sidebar nav a',{hasText:'Tools'}).waitFor();
+ // List view: one row per project with name, Git and the open-issue count; remembered after a reload.
+ assert.equal(await page.locator('[data-home-session]:visible').count(),0,'No session dots without live sessions.');
+ await page.getByRole('button',{name:'List',exact:true}).click();
+ assert.equal(await page.locator('.home-project-grid').evaluate(el=>el.classList.contains('home-project-list')),true);
+ assert.equal(await page.locator('.home-project-card .priority-issue-row:visible').count(),0,'Issue previews hide in the list.');
+ const rows=await page.locator('.home-project-card').evaluateAll(es=>es.map(e=>e.getBoundingClientRect()));
+ assert.ok(rows.every(r=>r.height<90)&&rows[1].y>rows[0].y,'Compact stacked rows.');
+ await page.waitForFunction(()=>/4 open issues/.test(document.querySelector('.home-project-card [data-project-issues]')?.textContent||''));
+ assert.deepEqual(await page.locator('[data-home-layout]').evaluateAll(b=>b.map(x=>x.getAttribute('aria-pressed'))),['false','true']);
+ await page.mouse.move(0,0); await page.screenshot({path:'output/home-project-list.png'});
+ await page.reload();await page.locator('.home-project-grid.home-project-list').waitFor();assert.equal(await page.getByRole('button',{name:'List',exact:true}).getAttribute('aria-pressed'),'true');
+ await page.getByRole('button',{name:'Cards',exact:true}).click();assert.equal(await page.locator('.home-project-grid.home-project-list').count(),0);
  await page.setViewportSize({width:390,height:844});await page.reload();await page.waitForFunction(()=>document.querySelectorAll('.home-project-card .priority-issue-row').length===12);
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));assert.equal(await page.locator('.home-project-grid').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),1);
  await page.screenshot({path:'instructions/assets/home-project-overview/mobile.png',fullPage:true});
  mode='partial';await page.reload();await page.getByText('Preview from recently updated issues',{exact:true}).first().waitFor();
  mode='empty';await page.reload();await page.getByText('No open issues.',{exact:true}).first().waitFor();
  mode='error';await page.reload();await page.getByText('Issues unavailable. Refresh to retry.',{exact:true}).first().waitFor();
- assert.deepEqual(errors,[]);console.log('Home overview passed: 2x2 grid, three sorted issues, project-scoped keyboard navigation, collapsed More, mobile, empty and error states.');
+ assert.deepEqual(errors,[]);console.log('Home overview passed: 2x2 grid, list view, three sorted issues, project-scoped keyboard navigation, collapsed More, mobile, empty and error states.');
 }finally{await browser.close();server.closeAllConnections();await new Promise(r=>server.close(r));rmSync(root,{recursive:true,force:true});}
