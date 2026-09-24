@@ -617,3 +617,4 @@ body.dock-project-split .project-agent>.agent-thread{display:none}
 }
 /* Banners center on the page area beside the always-open panel */
 @media(min-width:901px){.coordinator-dock-open .pwa-banner{left:calc((100vw - var(--workspace-terminal-width,clamp(400px,40vw,640px)))/2);z-index:31}}
+main.no-topbar{padding-top:30px}
