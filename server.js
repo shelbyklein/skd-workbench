@@ -26,6 +26,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+const execFileAsync=promisify(execFile);
 import {pinBenchmark} from './lib/benchmarks.js';
 import { Delegations } from './lib/delegations.js';
 import { Workflows } from './lib/workflows.js';
@@ -42,7 +44,7 @@ import {AgentProfiles} from './lib/playbooks.js';
 import {Briefings,readCommits} from './lib/briefings.js';
 import {Mandates} from './lib/mandates.js';
 import {ProjectThreads,COORDINATOR} from './lib/project-threads.js';
-import {toolsInventory} from './lib/tools.js';
+import {toolsInventory,mcpInstallPlan,installMcp} from './lib/tools.js';
 import {projectAgentOverview,portfolioOverview} from './lib/project-agent.js';
 import {RemoteAccess} from './lib/remote-access.js';
 import {CoordinatorAgent} from './lib/coordinator-agent.js';
@@ -322,6 +324,8 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
         if(req.method==='GET'&&!proposal[3])return json(proposals.get(proposal[2],project));
         if(req.method==='POST'&&proposal[3]){await body(req);return json(await proposals[proposal[3]](proposal[2],project));}
       }
+      if(req.method==='POST'&&pathname==='/api/tools/mcp/preview'){const {commands,name}=mcpInstallPlan(await body(req));return json({name,commands});}
+      if(req.method==='POST'&&pathname==='/api/tools/mcp/install')return json(await installMcp(await body(req),{binaries:{codex:toolsOptions.codexBinary||codex.binary,claude:toolsOptions.claudeBinary||codex.claudeBinary},run:(file,args)=>execFileAsync(file,args,{timeout:60000,maxBuffer:1024*1024,env:process.env})}));
       if(req.method==='GET'&&pathname==='/api/tools'){const id=url.searchParams.get('projectID'),projects=store.snapshot().projects;return json(await toolsInventory({connections:mcpConnections,projects,project:id?store.project(id):null,home:toolsHome}));}
       if(req.method==='GET' && pathname==='/api/state') return json(store.snapshot());
       if(req.method==='POST' && pathname==='/api/projects'){
