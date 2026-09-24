@@ -640,3 +640,9 @@ body.dock-project-split .project-agent>.agent-thread{display:none}
 @media(max-width:1050px){.projects-section>.home-project-grid{grid-template-columns:1fr}}
 @media(max-width:650px){.home-secondary{margin:0 20px 24px}.home-project-card{padding:16px}}
 main.no-topbar{padding-top:30px}
+/* Home: tag filters sit at the right end of the Projects header; less space above it */
+.projects-toolbar .project-tag-filters{justify-content:flex-end;margin-left:auto}
+main.no-topbar{padding-top:22px}
+main.no-topbar .projects-section{padding-top:0}
+main.no-topbar .projects-section>.overview-section-heading{margin-top:0}
+@media(min-width:651px){.projects-toolbar{grid-template-columns:minmax(0,1fr) auto}}
