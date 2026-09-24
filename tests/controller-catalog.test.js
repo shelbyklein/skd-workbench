@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {controllerTools,validateCommand} from '../lib/controller-catalog.js';
 test('controller catalog is explicit and rejects unknown or invalid commands',()=>{
- assert.equal(controllerTools.length,25);assert.deepEqual(controllerTools.filter(t=>/message/.test(t.name)).map(t=>[t.name,t.capability]),[["list_messages","read"],["post_message","manage"],["list_coordinator_messages","read"],["post_coordinator_message","manage"],["message_project_agent","manage"]]);
+ assert.equal(controllerTools.length,26);assert.equal(controllerTools.find(t=>t.name==="create_workbench_issue").capability,"manage");assert.deepEqual(controllerTools.filter(t=>/message/.test(t.name)).map(t=>[t.name,t.capability]),[["list_messages","read"],["post_message","manage"],["list_coordinator_messages","read"],["post_coordinator_message","manage"],["message_project_agent","manage"]]);
  assert.deepEqual(controllerTools.filter(t=>/project_(agent|instructions)|orchestrator/.test(t.name)).map(t=>[t.name,t.capability]),[["get_project_instructions","read"],["get_project_agent","read"],["message_project_agent","manage"],["stop_project_agent","run"],["report_to_orchestrator","report"]]);assert.deepEqual(controllerTools.filter(t=>/mandate/.test(t.name)).map(t=>[t.name,t.capability]),[['get_project_mandate','read']]);
  assert.throws(()=>validateCommand('shell',{command:'rm'}),/Unknown/);
  assert.throws(()=>validateCommand('get_project',{projectID:'p',caller:'admin'}),/Invalid/);

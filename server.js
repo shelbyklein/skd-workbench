@@ -17,7 +17,7 @@ import {QuickActions} from './lib/quick-actions.js';
 import {Settings,instructionFiles} from './lib/settings.js';
 import {createFolderPicker} from './lib/folder-picker.js';
 import {captureIssueSteps} from './lib/issue-steps.js';
-import {GitHubIssues,IssueProposals} from './lib/issues.js';
+import {GitHubIssues,IssueProposals,WorkbenchIssues} from './lib/issues.js';
 import {IssueWork} from './lib/issue-work.js';
 import {TerminalSessions} from './lib/terminals.js';
 import http from 'node:http';
@@ -58,7 +58,7 @@ async function body(req,limit=1024*1024) {
   try { const parsed=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks))); assert(parsed && typeof parsed==='object' && !Array.isArray(parsed),'Expected a JSON object.'); return parsed; }
   catch(e) { if(e instanceof Problem) throw e; throw new Problem('Invalid JSON.'); }
 }
-export function createServer({directory = process.env.FLOW_BENCH_DATA || path.join(root,'.data'), publicDirectory=path.join(root,'public'), codexOptions={},claudeOptions={},terminalOptions={},githubOptions={},skillsOptions={},connectionsOptions={},gitStatusOptions={},quickActionOptions={},briefingOptions={},folderPicker=createFolderPicker(),remoteAccessOptions={},coordinatorOptions={},toolsOptions={}} = {}) {
+export function createServer({directory = process.env.FLOW_BENCH_DATA || path.join(root,'.data'), publicDirectory=path.join(root,'public'), codexOptions={},claudeOptions={},terminalOptions={},githubOptions={},skillsOptions={},connectionsOptions={},gitStatusOptions={},quickActionOptions={},briefingOptions={},folderPicker=createFolderPicker(),remoteAccessOptions={},coordinatorOptions={},toolsOptions={},workbenchIssueOptions={}} = {}) {
   const toolsHome=toolsOptions.home||connectionsOptions.home||undefined;
   const store = new Store(directory);
   const remoteAccess=new RemoteAccess(directory,remoteAccessOptions);
@@ -121,7 +121,8 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
    try{return {session:await coordinator.onMessage(key,message,scope)};}
    catch(e){if(!(e instanceof Problem))console.error(e);return {session:null,deliveryError:e instanceof Problem?e.message:'The coordinator session could not start. The message is saved.'};}
   };
-  const controllerCommands=new ControllerCommands({agents:()=>coordinator,controllers,store,workflows,playbooks,workspaceTasks,codex,lifecycle,mandates,threads});
+  const workbenchIssues=new WorkbenchIssues(directory,{github,folder:root,...workbenchIssueOptions});
+  const controllerCommands=new ControllerCommands({workbenchIssues,agents:()=>coordinator,controllers,store,workflows,playbooks,workspaceTasks,codex,lifecycle,mandates,threads});
   const server = http.createServer(async (req,res)=>{
     const json=(value,status=200)=>{res.writeHead(status,{'Content-Type':'application/json'});res.end(JSON.stringify(value));};
     res.setHeader('Cache-Control','no-store');

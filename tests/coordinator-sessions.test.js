@@ -17,7 +17,7 @@ const tick=ms=>new Promise(r=>setTimeout(r,ms));
 
 test('tool split: reading and posting replies are free, managing or running work prompts',()=>{
  assert(freeTools.includes('list_runs')&&freeTools.includes('preview_run')&&freeTools.includes('post_message')&&freeTools.includes('post_coordinator_message')&&freeTools.includes('message_project_agent'));
- assert.deepEqual([...promptTools].sort(),['create_workflow','start_run','stop_project_agent','stop_run','update_workflow']);
+ assert.deepEqual([...promptTools].sort(),['create_workbench_issue','create_workflow','start_run','stop_project_agent','stop_run','update_workflow'],'Filing a GitHub issue needs the user\'s approval.');
  assert(!freeTools.includes('report_to_orchestrator')&&!promptTools.includes('report_to_orchestrator'),'Report tools are for project agents only.');
 });
 
