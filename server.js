@@ -19,6 +19,7 @@ import {captureIssueSteps} from './lib/issue-steps.js';
 import {GitHubIssues,IssueProposals,WorkbenchIssues} from './lib/issues.js';
 import {IssueWork} from './lib/issue-work.js';
 import {Attachments,attachmentLimit} from './lib/attachments.js';
+import {branchWork} from './lib/branch-work.js';
 import {TerminalSessions} from './lib/terminals.js';
 import http from 'node:http';
 import { readFileSync } from 'node:fs';
@@ -354,6 +355,8 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
         const input=await body(req);input.folderPath=await canonicalFolder(input.folderPath);
         return json(store.updateProject(project[1],input));
       }
+      const branchWorkRoute=pathname.match(/^\/api\/projects\/([\w-]+)\/branch-work$/);
+      if(branchWorkRoute&&req.method==='GET'){const project=store.project(branchWorkRoute[1]);return json(await branchWork(await gitStatus.read(project)));}
       const gitStatusRoute=pathname.match(/^\/api\/projects\/([\w-]+)\/git-status(?:\/(remote-check))?$/);
       if(gitStatusRoute){
         const project=store.project(gitStatusRoute[1]);let result;

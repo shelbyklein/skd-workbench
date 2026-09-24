@@ -35,5 +35,6 @@
  "tests/remove-project-browser.mjs",
  "tests/tools-browser.mjs",
  "tests/home-project-overview-browser.mjs",
- "tests/composer-attachments-browser.mjs"
+ "tests/composer-attachments-browser.mjs",
+ "tests/branch-work-browser.mjs"
 ]

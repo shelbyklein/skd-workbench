@@ -729,3 +729,10 @@ main.no-topbar .projects-section>.overview-section-heading{margin-top:0}
 .agent-attachment-pending{color:var(--muted);padding-right:10px}
 .agent-composer .agent-composer-box.agent-drop{border-color:var(--ink);border-style:dashed}
 .agent-composer input[type=file][hidden]{display:none}
+/* Current work: unmerged branches, each summarized by its commits. */
+.branch-work{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.branch-work-row{border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-width:0}
+.branch-work-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;min-width:0}.branch-work-head code{font-size:13px;overflow-wrap:anywhere}.branch-work-head small{color:var(--muted);font-size:12px}
+.branch-work-row p{margin:6px 0 0;font-size:14px}
+.branch-work-row ul{margin:4px 0 0;padding-left:18px;color:var(--muted);font-size:13px}.branch-work-more{list-style:none;margin-left:-18px}
+#agent-current-run:empty{display:none}#agent-current-body{display:grid;gap:10px}

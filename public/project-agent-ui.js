@@ -243,13 +243,23 @@ export async function openCoordinatorSettings({api,modal,notify,onSaved}){
  model.onchange=efforts;efforts();
 }
 
+// Current work: each branch not yet merged, summarized by its own commits (newest first).
+function branchWorkMarkup(w){
+ if(w.status!=='connected')return `<li class="widget-empty">${esc(w.message)}</li>`;
+ if(!w.branches.length)return `<li class="widget-empty">No branches ahead of ${esc(w.target)}.</li>`;
+ const ago=value=>{if(!value)return '';const m=Math.round((Date.now()-Date.parse(value))/60000);return m<60?`${Math.max(m,1)} min ago`:m<1440?`${Math.round(m/60)} h ago`:`${Math.round(m/1440)} d ago`;};
+ return w.branches.map(b=>{const [first,...rest]=b.subjects,more=b.ahead-b.subjects.length;
+  const where=b.worktree?(b.worktree.current?'project folder':'worktree')+(b.worktree.changes?` · ${b.worktree.changes} uncommitted`:''):'no worktree';
+  return `<li class="branch-work-row"><div class="branch-work-head"><code>${esc(b.name)}</code><small>${b.ahead} ahead${b.behind?` · ${b.behind} behind`:''} · ${esc(where)}${b.lastCommitAt?` · ${esc(ago(b.lastCommitAt))}`:''}</small></div>
+   ${first?`<p>${esc(first)}</p>`:''}${rest.length?`<ul>${rest.map(t=>`<li>${esc(t)}</li>`).join('')}${more>0?`<li class="branch-work-more">${more} more commit${more>1?'s':''}</li>`:''}</ul>`:''}</li>`;}).join('')+(w.total>w.branches.length?`<li class="widget-empty">${w.total-w.branches.length} more branches</li>`:'');
+}
 export function mountProjectAgent(host,{project,api,modal,notify,flows,owner,onRun,onIssue,onIssues}){
  let state=null,timer=null,fast=null;
  // Check often only while a reply is pending.
  const pace=pending=>{if(pending&&!fast)fast=setTimeout(()=>{fast=null;if(host.isConnected)refresh();},1500);};
  host.className='project-agent';host.setAttribute('aria-label','Project agent');
  host.innerHTML=`<div class="agent-main" id="agent-main"><section aria-labelledby="agent-decisions"><h2 id="agent-decisions">Needs your decision</h2><div id="agent-decisions-body" aria-live="polite"><p class="widget-empty">Loading…</p></div></section>
- <section aria-labelledby="agent-current"><h2 id="agent-current">Current work</h2><div id="agent-current-body" aria-live="polite"></div></section>
+ <section aria-labelledby="agent-current"><h2 id="agent-current">Current work</h2><div id="agent-current-body" aria-live="polite"><div id="agent-current-run"></div><ul class="branch-work" id="agent-branches"><li class="widget-empty">Loading branches…</li></ul></div></section>
  <section aria-labelledby="agent-next"><div class="agent-section-head"><h2 id="agent-next">Issues</h2><button type="button" class="text-button" data-agent-issues>All issues</button></div><div id="agent-next-body" hidden></div>
   <div class="agent-subsection"><div class="agent-subhead"><h3>Priority issues</h3><span id="priority-issues-meta">Loading…</span></div><ol id="priority-issues-list" class="priority-issue-list" aria-live="polite"><li class="widget-empty">Loading issues…</li></ol><p class="field-help" id="priority-issues-note"></p></div></section>
  <section aria-labelledby="agent-timeline"><h2 id="agent-timeline">Timeline</h2><ol class="project-timeline" id="agent-timeline-list" aria-live="polite"><li class="widget-empty">Loading…</li></ol></section>
@@ -281,9 +291,9 @@ export function mountProjectAgent(host,{project,api,modal,notify,flows,owner,onR
   const c=state.current;
   const current=c?`<article class="agent-card"><div class="agent-card-head"><span class="eyebrow">${esc(c.taskRef||'WORKFLOW RUN')}</span><span class="agent-status agent-status-${esc(c.status)}">${esc(statusLabels[c.status]||c.status)}</span></div><h3>${esc(c.flowName)}</h3><p>${esc(c.task)}</p>${progress(c.steps)}
    <dl class="agent-facts"><div><dt>Attempts</dt><dd>${c.agentAttempts} of ${c.maxAttempts}</dd></div>${c.workspace?.branch?`<div><dt>Workspace</dt><dd>${esc(c.workspace.branch)}</dd></div>`:''}${c.deadlineAt?`<div><dt>Runtime limit</dt><dd>${esc(when(c.deadlineAt))}</dd></div>`:''}${c.controllerName?`<div><dt>Started by</dt><dd>${esc(c.controllerName)}${c.mandateVersion?` · mandate v${c.mandateVersion}`:''}</dd></div>`:''}</dl>
-   ${c.error?`<p class="agent-error">${esc(c.error)}</p>`:''}<div class="agent-card-actions"><button type="button" class="text-button" data-agent-run="${esc(c.id)}">View run</button></div></article>`:'<p class="widget-empty">No active run.</p>';
+   ${c.error?`<p class="agent-error">${esc(c.error)}</p>`:''}<div class="agent-card-actions"><button type="button" class="text-button" data-agent-run="${esc(c.id)}">View run</button></div></article>`:'';
   const next=m?(state.next.length?`<ul class="agent-list">${state.next.map(t=>{const n=t.ref.startsWith('github:')?issueNumber(t.ref):null;return `<li class="agent-next"><span class="agent-copy"><strong>${esc(t.title||t.ref)}</strong><small>${esc(t.ref)}</small></span>${n?`<button type="button" class="text-button" data-agent-issue="${n}">Open issue</button>`:''}</li>`;}).join('')}</ul>${state.nextTotal>state.next.length?`<p class="field-help">${state.nextTotal-state.next.length} more eligible task${state.nextTotal-state.next.length===1?'':'s'} in the mandate.</p>`:''}`:'<p class="widget-empty">All eligible tasks are claimed by a run.</p>'):'<p class="widget-empty">No owner mandate. <button type="button" class="text-button" data-agent-mandate>Set mandate</button></p>';
-  q('#agent-decisions-body').innerHTML=decisions;q('#agent-current-body').innerHTML=current;q('#agent-next-body').innerHTML=next;
+  q('#agent-decisions-body').innerHTML=decisions;q('#agent-current-run').innerHTML=current;q('#agent-next-body').innerHTML=next;
  }
  function renderThread(){
   const name=`${project.name} agent`;
@@ -295,6 +305,7 @@ export function mountProjectAgent(host,{project,api,modal,notify,flows,owner,onR
   // Mandates are off the main path (#18); the conversation card is the project's live agent.
  }
  async function refresh(announce=false){
+  api('projects/'+encodeURIComponent(project.id)+'/branch-work').then(w=>{if(host.isConnected)q('#agent-branches').innerHTML=branchWorkMarkup(w);},error=>{if(host.isConnected)q('#agent-branches').innerHTML=`<li class="widget-empty">${esc(error.message)}</li>`;});
   api('projects/'+encodeURIComponent(project.id)+'/timeline').then(t=>{if(host.isConnected)q('#agent-timeline-list').innerHTML=timelineMarkup(t.entries,'No agent activity yet. Reports from this project\'s agent appear here.');},error=>{if(host.isConnected)q('#agent-timeline-list').innerHTML=`<li class="widget-empty">${esc(error.message)}</li>`;});
   try{const next=await api('projects/'+encodeURIComponent(project.id)+'/agent');if(!host.isConnected)return;state=next;renderOwner();renderMain();renderThread();if(announce)notify('Project agent refreshed.');}
   catch(error){if(host.isConnected)q('#agent-decisions-body').innerHTML=`<p class="widget-empty">${esc(error.message)}</p>`;}
