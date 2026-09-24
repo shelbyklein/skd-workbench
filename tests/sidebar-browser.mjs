@@ -15,7 +15,7 @@ try{
  const page=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(`http://127.0.0.1:${server.address().port}/#flow/${flow.id}`);
  const views=page.getByRole('navigation',{name:'Project views',exact:true});await views.waitFor();
- assert.equal(await views.locator('.view-icon').count(),8);assert.equal(await page.getByRole('navigation',{name:'Projects',exact:true}).count(),0);
+ assert.equal(await views.locator('.view-icon').count(),7,'Skills and Connections became one Tools entry (#20).');assert.equal(await page.getByRole('navigation',{name:'Projects',exact:true}).count(),0);
  assert.equal(await views.locator('[aria-current]').count(),0,'Workflows are off the sidebar; flow pages highlight no view.');
  assert(await views.getByRole('button',{name:/Scratchpad/}).isDisabled());
  await page.locator('[data-step]').click();await page.getByLabel('Step name',{exact:true}).fill('Unsaved');
@@ -24,7 +24,7 @@ try{
  await page.locator('.sidebar-all-projects').click();await page.getByRole('button',{name:'Discard changes',exact:true}).click();
  await page.getByRole('navigation',{name:'Projects',exact:true}).getByRole('button',{name:'Second project'}).click();
  await page.getByRole('heading',{name:'Second project',exact:true}).waitFor();
- assert.equal(await page.locator('.project-view-list .view-icon').count(),8);assert.equal(await page.locator('main .project-views').count(),0);
+ assert.equal(await page.locator('.project-view-list .view-icon').count(),7);assert.equal(await page.locator('main .project-views').count(),0);
  await page.getByRole('button',{name:'Project details',exact:true}).click();await page.getByLabel('Project name',{exact:true}).waitFor();await page.keyboard.press('Escape');
  await page.locator('[data-add-project]').click();await page.getByLabel('Project name',{exact:true}).fill('Selected project');
  await page.getByLabel('Local folder',{exact:true}).fill('/keep/manual');
@@ -37,5 +37,5 @@ try{
  await page.reload();await views.waitFor();assert.equal(await views.locator('[aria-current]').getAttribute('data-sidebar-view'),'issues');
  await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:'output/projects-sidebar-mobile.png',fullPage:true});
  await views.getByRole('link',{name:'System',exact:true}).focus();await page.keyboard.press('Enter');await page.getByRole('heading',{name:'System',exact:true}).waitFor();await page.locator('.sidebar-all-projects').click();await page.getByRole('navigation',{name:'Projects',exact:true}).getByRole('button',{name:'First project'}).click();await page.getByRole('heading',{name:'First project',exact:true}).waitFor();
- assert.deepEqual(errors,[]);console.log('Project sidebar passed: eight icons (Workflows off the main path), scoped view links, active view, planned Scratchpad, dirty guard, All projects, details/add, reload, keyboard and mobile.');
+ assert.deepEqual(errors,[]);console.log('Project sidebar passed: seven icons (Tools replaces Skills and Connections) (Workflows off the main path), scoped view links, active view, planned Scratchpad, dirty guard, All projects, details/add, reload, keyboard and mobile.');
 }finally{await browser.close();server.closeAllConnections();await new Promise(r=>server.close(r));rmSync(root,{recursive:true,force:true});}

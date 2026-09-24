@@ -575,3 +575,16 @@ body.terminal-open .issue-detail-layout{grid-template-columns:minmax(0,1fr)}
 @media(hover:hover) and (pointer:fine){.effort-model:hover:not(:disabled){background:var(--line)}}
 .effort-all{justify-self:center}
 [data-theme="dark"] .effort-model[aria-pressed="true"]{background:#383838}
+/* Tools page (#20) */
+.tools-bar{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:6px}.tools-bar label{display:grid;gap:4px;font-size:11px;font-weight:600}.tools-search{flex:1 1 220px}.tools-bar #tools-install{margin-left:auto}
+.tools-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:12px}
+.tools-column{border:1px solid var(--line);border-radius:10px;background:var(--white);padding:16px 18px;min-width:0}
+.tools-column h2{margin:0 0 6px;font:normal 22px/1.2 Georgia,serif}
+.tools-column h3{margin:16px 0 6px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}.tools-column h3 span{font-weight:600;margin-left:4px}
+.tools-list{list-style:none;margin:0;padding:0}.tools-list>li{border-top:1px solid var(--line)}.tools-list>li:first-child{border-top:0}
+.tools-list summary{display:flex;justify-content:space-between;gap:10px;padding:8px 2px;cursor:pointer;list-style:none}.tools-list summary::-webkit-details-marker{display:none}
+.tools-list summary strong{font-weight:600;overflow-wrap:anywhere}.tools-meta{flex:none;font-size:11px;color:var(--muted)}
+.tools-list details p,.tools-detail{margin:0 2px 10px;font-size:12px;color:var(--muted)}.tools-detail div{display:grid;grid-template-columns:90px 1fr;gap:8px}.tools-detail dt{font-weight:600}.tools-detail dd{margin:0;overflow-wrap:anywhere}
+.tools-install{display:grid;gap:10px}.tools-install [hidden]{display:none}
+.tools-command{display:grid;gap:4px;margin:8px 0}.tools-command code{display:block;padding:8px 10px;border-radius:7px;background:var(--surface);font-size:12px;overflow-wrap:anywhere;white-space:pre-wrap}
+@media(max-width:900px){.tools-columns{grid-template-columns:1fr}}
