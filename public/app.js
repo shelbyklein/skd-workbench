@@ -3,7 +3,7 @@ import {mountLifecycle} from './lifecycle-ui.js';
 import {mountDelegation} from './delegations-ui.js';
 import {openSessionImport} from './session-import-ui.js';
 import {mountQuickActions} from './quick-actions-ui.js';
-import {mountGitStatus} from './git-status-ui.js';
+import {mountGitStatus,gitDrift} from './git-status-ui.js';
 import {mountProjectBriefing,mountHomeBriefings} from './briefing-ui.js';
 import {mountProjectAgent,mountHomeAgents} from './project-agent-ui.js';
 import {agentCard,requireAgentCards,primeAgentCache} from './agent-card.js';
@@ -215,19 +215,38 @@ let projectTagFilters=new Set();
 function renderProjects(){
  const tags=projectTags(),tagIDs=new Set(tags.map(tag=>tag.id));projectTagFilters=new Set([...projectTagFilters].filter(id=>tagIDs.has(id)));
  const visibleProjects=data.projects.filter(project=>project.id!=='unassigned'&&(!projectTagFilters.size||tags.some(tag=>projectTagFilters.has(tag.id)&&tag.projectIDs.includes(project.id))));
- shell(`<h1 class="visually-hidden">Home</h1><section class="workflow-overview projects-section"><div class="overview-section-heading projects-toolbar"><div class="projects-title"><h2>Projects</h2><span>${data.projects.filter(p=>p.folderPath).length} connected</span></div><div class="project-tag-filters" aria-label="Filter projects by tag">${tags.map(tag=>`<button type="button" class="project-tag-filter-pill" data-project-tag-filter="${esc(tag.id)}" aria-label="Filter by ${esc(tag.name)}" aria-pressed="${projectTagFilters.has(tag.id)}">${tagMarkup(tag)}</button>`).join('')}<button type="button" class="icon-button home-issues-refresh" data-home-issues-refresh aria-label="Refresh issues" title="Refresh issues"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 6.1A8 8 0 0 1 19.5 10M4.5 14a8 8 0 0 0 13.4 3.9"/></svg></button></div></div><div class="overview-grid home-project-grid">${visibleProjects.map(p=>`<article class="home-project-card" data-home-project="${esc(p.id)}"><header><button class="project-card text-button" data-project="${esc(p.id)}">${esc(p.name)}</button><button type="button" class="project-card-menu" data-project-tags="${esc(p.id)}" aria-label="Edit tags for ${esc(p.name)}" aria-haspopup="dialog">⋯</button></header><div class="project-tags">${tags.filter(t=>t.projectIDs.includes(p.id)).map(tagMarkup).join('')}</div><div class="home-issue-heading"><span>Priority issues</span><span data-project-issues="${esc(p.id)}">Loading…</span></div><ul class="priority-issue-list" data-home-issues="${esc(p.id)}"><li class="widget-empty">Loading issues…</li></ul><footer><span data-home-issue-note></span><a href="#issues/${encodeURIComponent(p.id)}">All issues ↗</a></footer></article>`).join('')}</div></section>`);
+ shell(`<h1 class="visually-hidden">Home</h1><section class="workflow-overview projects-section"><div class="overview-section-heading projects-toolbar"><div class="projects-title"><h2>Projects</h2><span>${data.projects.filter(p=>p.folderPath).length} connected</span></div><div class="project-tag-filters" aria-label="Filter projects by tag">${tags.map(tag=>`<button type="button" class="project-tag-filter-pill" data-project-tag-filter="${esc(tag.id)}" aria-label="Filter by ${esc(tag.name)}" aria-pressed="${projectTagFilters.has(tag.id)}">${tagMarkup(tag)}</button>`).join('')}<button type="button" class="icon-button home-issues-refresh" data-home-issues-refresh aria-label="Refresh issues" title="Refresh issues"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 6.1A8 8 0 0 1 19.5 10M4.5 14a8 8 0 0 0 13.4 3.9"/></svg></button></div></div><div class="overview-grid home-project-grid">${visibleProjects.map(p=>`<article class="home-project-card" data-home-project="${esc(p.id)}"><header><button class="project-card text-button" data-project="${esc(p.id)}">${esc(p.name)}</button><button type="button" class="project-card-menu" data-project-tags="${esc(p.id)}" aria-label="Edit tags for ${esc(p.name)}" aria-haspopup="dialog">⋯</button></header><div class="project-tags">${tags.filter(t=>t.projectIDs.includes(p.id)).map(tagMarkup).join('')}</div><div class="home-git" data-home-git="${esc(p.id)}"><span class="home-git-branch">Git</span><span class="home-git-summary">Loading…</span></div><div class="home-issue-heading"><span>Priority issues</span><span data-project-issues="${esc(p.id)}">Loading…</span></div><ul class="priority-issue-list" data-home-issues="${esc(p.id)}"><li class="widget-empty">Loading issues…</li></ul><footer><span data-home-issue-note></span><a href="#issues/${encodeURIComponent(p.id)}">All issues ↗</a></footer></article>`).join('')}</div></section>`);
  const projectsSection=$('.projects-section');
  // Home is the project cards, with an alert strip above them only when something needs you.
  const homeAgents=document.createElement('section');projectsSection.before(homeAgents);
  mountHomeAgents(homeAgents,{api,modal,notify:toast,onProject:id=>confirmLeave(()=>switchProject(id)),onRun:(id,run)=>confirmLeave(()=>{projectID=id;workflowRunID=run;view='workflow';render();})});
- fillHomeProjectIssues();
+ fillHomeProjectIssues();fillHomeGit();
  // Reload every card's open-issue count and previews from GitHub.
- $('[data-home-issues-refresh]').onclick=async e=>{const button=e.currentTarget;button.disabled=true;button.classList.add('is-loading');try{await fillHomeProjectIssues();}finally{if(button.isConnected){button.disabled=false;button.classList.remove('is-loading');}}};
+ $('[data-home-issues-refresh]').onclick=async e=>{const button=e.currentTarget;button.disabled=true;button.classList.add('is-loading');try{await Promise.all([fillHomeProjectIssues(),fillHomeGit()]);}finally{if(button.isConnected){button.disabled=false;button.classList.remove('is-loading');}}};
  document.querySelectorAll('[data-project-tag-filter]').forEach(button=>button.onclick=()=>{const id=button.dataset.projectTagFilter;if(projectTagFilters.has(id))projectTagFilters.delete(id);else projectTagFilters.add(id);renderProjects();[...document.querySelectorAll('[data-project-tag-filter]')].find(item=>item.dataset.projectTagFilter===id)?.focus();});
 
  if(!document.querySelector('[data-project]'))$('.projects-section .overview-grid').innerHTML=projectTagFilters.size?'<p class="overview-empty">No projects with these tags.</p>':'<p class="overview-empty">No projects. Add a project to get started.</p>';
  document.querySelectorAll('[data-project-tags]').forEach(b=>b.onclick=()=>openProjectTags({api,modal,project:data.projects.find(p=>p.id===b.dataset.projectTags),onSaved:()=>{render();toast('Tags saved.');}}));
  document.querySelectorAll('[data-project]').forEach(b=>b.onclick=()=>confirmLeave(()=>switchProject(b.dataset.project)));
+}
+// A compact Git line per Home card (local read, no network): branch, branches behind main, branches with
+// unmerged commits, and a reconcile warning when drift passes the limits in gitDrift.
+async function fillHomeGit(){
+ const nodes=[...document.querySelectorAll('[data-home-git]')];
+ async function worker(){
+  while(nodes.length){
+   const host=nodes.shift();if(!host.isConnected)continue;const summary=host.querySelector('.home-git-summary'),branch=host.querySelector('.home-git-branch');
+   try{
+    const d=gitDrift(await api('projects/'+encodeURIComponent(host.dataset.homeGit)+'/git-status'));if(!host.isConnected)continue;
+    if(!d){branch.textContent='Git';summary.textContent='Not a Git checkout';host.classList.add('home-git-muted');continue;}
+    branch.textContent=d.branch;summary.textContent=[`${d.behind} behind ${d.target}`,`${d.unmerged} unmerged`,...(d.remote?[`${d.remote.ahead}↑ ${d.remote.behind}↓ remote`]:[]),...(d.dirty?['uncommitted changes']:[])].join(' · ');
+    host.classList.toggle('home-git-warn',d.reasons.length>0);
+    host.querySelector('.home-git-reconcile')?.remove();
+    if(d.reasons.length)host.insertAdjacentHTML('beforeend',`<p class="home-git-reconcile" role="status"><strong>Needs reconciling</strong> — ${esc(d.reasons.join('; '))}. Merge finished work, push and clean up branches.</p>`);
+   }catch(error){if(host.isConnected){summary.textContent='Git status unavailable';host.title=error.message;}}
+  }
+ }
+ await Promise.all(Array.from({length:Math.min(3,nodes.length)},worker));
 }
 async function fillHomeProjectIssues(){
  const nodes=[...document.querySelectorAll('[data-home-issues]')];
