@@ -269,7 +269,7 @@ async function fillHomeProjectIssues(){
     const result=await api('projects/'+encodeURIComponent(id)+'/issues?state=open&page=1');
     if(!host.isConnected)continue;
     const shown=result.issues.map((issue,index)=>({issue,index,priority:issuePriority(issue)})).sort((a,b)=>a.priority.rank-b.priority.rank||a.index-b.index).slice(0,3);
-    host.innerHTML=shown.length?shown.map(({issue,priority})=>`<li><a class="priority-issue-row" href="#issues/${encodeURIComponent(id)}/${issue.number}"><span class="priority-pill priority-${priority.key}">${priority.label}</span><span class="priority-issue-copy"><strong>${esc(issue.title)}</strong><small>#${issue.number}</small></span><span aria-hidden="true">↗</span></a></li>`).join(''):'<li class="widget-empty">No open issues.</li>';
+    host.innerHTML=shown.length?shown.map(({issue,priority})=>`<li><a class="priority-issue-row" href="#issues/${encodeURIComponent(id)}/${issue.number}"><span class="priority-pill priority-${priority.key}" title="${priority.label}">#${issue.number}</span><span class="priority-issue-copy"><span class="visually-hidden">${priority.label}: </span><strong>${esc(issue.title)}</strong></span><span aria-hidden="true">↗</span></a></li>`).join(''):'<li class="widget-empty">No open issues.</li>';
     note.textContent=result.hasMore?'Preview from recently updated issues':'';
    }catch(error){if(host.isConnected){host.innerHTML='<li class="widget-empty">Issues unavailable. Refresh to retry.</li>';host.title=error.message;}}
   }
@@ -307,7 +307,7 @@ async function loadPriorityIssues(project){
   const sorted=result.issues.map((issue,index)=>({issue,index,priority:issuePriority(issue)})).sort((a,b)=>a.priority.rank-b.priority.rank||a.index-b.index),shown=sorted.slice(0,6);
   meta.textContent=result.issues.length+(result.hasMore?'+':'')+` open issue${result.issues.length===1?'':'s'}`;
   $('#priority-issues-note').textContent=sorted.length>shown.length?`Showing ${shown.length} highest priority`:'Highest priority first';
-  host.innerHTML=shown.length?shown.map(({issue,priority})=>`<li><button type="button" class="priority-issue-row" data-priority-issue="${issue.number}"><span class="priority-pill priority-${priority.key}">${priority.label}</span><span class="priority-issue-copy"><strong>${esc(issue.title)}</strong><small>#${issue.number}</small></span><span aria-hidden="true">↗</span></button></li>`).join(''):'<li class="widget-empty">No open issues.</li>';
+  host.innerHTML=shown.length?shown.map(({issue,priority})=>`<li><button type="button" class="priority-issue-row" data-priority-issue="${issue.number}"><span class="priority-pill priority-${priority.key}" title="${priority.label}">#${issue.number}</span><span class="priority-issue-copy"><span class="visually-hidden">${priority.label}: </span><strong>${esc(issue.title)}</strong></span><span aria-hidden="true">↗</span></button></li>`).join(''):'<li class="widget-empty">No open issues.</li>';
   host.querySelectorAll('[data-priority-issue]').forEach(button=>button.onclick=()=>openProjectIssue(Number(button.dataset.priorityIssue)));
  }catch(error){if(host?.isConnected){meta.textContent='Unavailable';host.innerHTML=`<li class="widget-empty">${esc(error.message)}</li>`;}}
 }
