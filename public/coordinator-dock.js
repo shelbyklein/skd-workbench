@@ -36,7 +36,8 @@ export function createCoordinatorDock({api,modal,notify}){
    if(e.target.closest('[data-coordinator-open-cli]')){show('cli');return;}
    const row=e.target.closest('[data-dock-agent]');if(row){splitProject=splitProject===row.dataset.dockAgent?null:row.dataset.dockAgent;write('skd-dock-split',splitProject||'');syncProject();return;}
   });
-  poll=setInterval(()=>{if(!panel.hidden&&document.visibilityState==='visible')loadRunning();},10000);
+  // Often enough that Working shows while an agent is producing output.
+  poll=setInterval(()=>{if(!panel.hidden&&document.visibilityState==='visible')loadRunning();},4000);
   // Always open, except that an agent session terminal (body.terminal-open) takes this side while it is shown;
   // the panel steps aside and comes back when that terminal is hidden or closed.
   const away=()=>{const covered=document.body.classList.contains('terminal-open');if(panel.hidden!==covered){panel.hidden=covered;layout(!covered);if(!covered)syncProject();}};
@@ -49,11 +50,12 @@ export function createCoordinatorDock({api,modal,notify}){
   panel.querySelectorAll('[data-dock-tab]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.dockTab===tab)));
   syncProject();conversation.setMode(tab);conversation.refresh();loadRunning();
  }
- // Project agents with a live session; on Home and the global pages each gets a row that opens it in a split.
+ // Project agents (live, or ended in the last 12 hours); on Home and the global pages each is a pill that opens it in a split.
  async function loadRunning(){try{running=(await api('coordinator')).running||[];runningLoaded=true;}catch{return;}syncProject();}
  function renderAgents(){
   const nav=q('.dock-agents'),rows=currentProject?[]:running;nav.hidden=!rows.length;
-  nav.innerHTML=rows.map(r=>{const open=r.projectID===splitProject;return `<button type="button" class="dock-agent-row" data-dock-agent="${esc(r.projectID)}" aria-pressed="${open}"><span class="dock-agent-dot${r.waiting?' is-waiting':''}" aria-hidden="true"></span><span class="dock-agent-name">${esc(r.name)} agent</span><span class="dock-agent-state">${r.waiting?'Waiting for you':'Running'}</span><span class="dock-agent-toggle">${open?'Close':'Open'}</span></button>`;}).join('');
+  const labels={on:'Session on',working:'Working',waiting:'Needs you',off:'Off'};
+  nav.innerHTML=rows.map(r=>{const open=r.projectID===splitProject,state=r.state||'on',label=labels[state]||state;return `<button type="button" class="dock-agent-pill" data-state="${esc(state)}" data-dock-agent="${esc(r.projectID)}" aria-pressed="${open}" title="${esc(r.name)} agent · ${esc(label)}${open?' · click to close':' · click to open'}"><span class="dock-agent-dot" aria-hidden="true"></span>${esc(r.name)}<span class="visually-hidden">, ${esc(label)}</span></button>`;}).join('');
  }
  // On a project page the panel splits: the coordinator on top, that project's agent below (Chat and CLI only).
  function syncProject(){
