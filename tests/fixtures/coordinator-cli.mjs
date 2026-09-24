@@ -3,7 +3,7 @@
 // connects to the Workbench MCP server named in its settings like the real CLIs, reads bracketed-paste
 // messages, posts replies with post_message/post_coordinator_message and simulates the native permission
 // prompt (running the configured hook) before tools that are not pre-approved.
-import {appendFileSync,readFileSync} from 'node:fs';
+import {appendFileSync,readFileSync,mkdirSync} from 'node:fs';
 import path from 'node:path';
 import {execFile} from 'node:child_process';
 import {Client} from '@modelcontextprotocol/sdk/client/index.js';
@@ -42,15 +42,24 @@ if(projectMode){
 }
 const client=new Client({name:'coordinator-fixture',version:'1'});await client.connect(new StdioClientTransport({command:server.command,args:server.args,stderr:'ignore'}));
 const say=text=>process.stdout.write(text.replace(/\n/g,'\r\n')+'\r\n');
+// Like Claude Code, record the session as a JSONL transcript named by --session-id (under FIXTURE_HOME in tests).
+const sessionID=args.includes('--session-id')?value('--session-id'):null;
+const txFile=!codex&&sessionID&&process.env.FIXTURE_HOME?path.join(process.env.FIXTURE_HOME,'.claude','projects',process.cwd().replace(/[^a-zA-Z0-9]/g,'-'),sessionID+'.jsonl'):null;
+if(txFile)mkdirSync(path.dirname(txFile),{recursive:true});
+let txCount=0;const tx=(type,content)=>{if(txFile)appendFileSync(txFile,JSON.stringify({type,uuid:`${sessionID}-${++txCount}`,timestamp:new Date().toISOString(),sessionId:sessionID,message:{role:type,content}})+'\n');};
+let pick=null;
 let answer=null;
 const call=async(name,input={})=>{
- say(`⏺ workbench - ${name} (MCP)`);
+ say(`⏺ workbench - ${name} (MCP)`);const toolID=`toolu_${++txCount}`;tx('assistant',[{type:'tool_use',id:toolID,name:'mcp__workbench__'+name,input}]);
+ try{return await callTool(name,input,toolID);}catch(error){tx('user',[{type:'tool_result',tool_use_id:toolID,content:[{type:'text',text:error.message}],is_error:true}]);throw error;}
+};
+const callTool=async(name,input,toolID)=>{
  if(needsPrompt(name)){
   say(`Do you want to allow workbench - ${name}? (y/n)`);
   execFile('/bin/sh',['-c',hook],{env:process.env},()=>{});
   const allowed=await new Promise(r=>{answer=r;});if(!allowed){say('  ⎿ Declined');throw new Error('declined by the user');}
  }
- const r=await client.callTool({name,arguments:input});const parsed=JSON.parse(r.content[0].text);if(r.isError)throw new Error(parsed.error||'tool failed');say(`  ⎿ ok`);return parsed;
+ const r=await client.callTool({name,arguments:input});const parsed=JSON.parse(r.content[0].text);if(r.isError)throw new Error(parsed.error||'tool failed');say(`  ⎿ ok`);tx('user',[{type:'tool_result',tool_use_id:toolID,content:[{type:'text',text:'ok'}],is_error:false}]);return parsed;
 };
 const projectID=projectMode?/projectID ([\w-]+),/.exec(system)?.[1]:/projectID ([\w-]+)\)/.exec(system)?.[1]||null;let posts=0;
 const key=()=>`fixture-${process.pid}-${++posts}`;
@@ -76,6 +85,15 @@ async function handle(text){
    }
   }catch(error){await call('post_coordinator_message',{text:`Tool error: ${error.message}`,requestKey:key()}).catch(()=>{});return;}
  }
+ // A question like AskUserQuestion: shown in the terminal, answered with the option's number.
+ if(!projectID&&/ask me a question/i.test(text)){
+  const toolID=`toolu_${++txCount}`,options=[{label:'Red',description:'Warm'},{label:'Blue',description:'Cool'}];
+  tx('assistant',[{type:'tool_use',id:toolID,name:'AskUserQuestion',input:{questions:[{question:'Which colour?',header:'Colour',options,multiSelect:false}]}}]);
+  say('? Which colour?  1. Red  2. Blue');const chosen=await new Promise(r=>{pick=r;});
+  tx('user',[{type:'tool_result',tool_use_id:toolID,content:[{type:'text',text:`Your questions have been answered: "Which colour?"="${options[chosen].label}". You can now continue with these answers in mind.`}]}]);
+  reply=`You chose ${options[chosen].label}.`;tx('assistant',[{type:'text',text:reply}]);
+  try{await call('post_coordinator_message',{text:reply,requestKey:key()});}catch(error){say(`Post failed: ${error.message}`);}return;
+ }
  try{
   if(/launch/.test(text)){
    const pid=projectID||(await call('list_projects')).items[0].id;
@@ -85,7 +103,7 @@ async function handle(text){
    reply=`Started ${mandate.tasks[0].ref} under mandate v${mandate.version} (operation ${operation.id}).`;
   }else{const projects=await call('list_projects');reply=`Echo: ${text} (${projects.total} granted project${projects.total===1?'':'s'})`;}
  }catch(error){reply=`Tool error: ${error.message}`;}
- const requestKey=key();
+ const requestKey=key();tx('assistant',[{type:'text',text:reply}]);
  try{if(projectID)await call('post_message',{projectID,text:reply,requestKey});else await call('post_coordinator_message',{text:reply,requestKey});}catch(error){say(`Post failed: ${error.message}`);}
 }
 say(`Fixture ${codex?'Codex':'Claude Code'} session · ${codex?value('--model'):value('--model')}`);
@@ -94,6 +112,7 @@ const first=projectMode?prompt:[...prompt.matchAll(/\[User [^\]]+\] ([^\n]*)/g)]
 process.stdin.setRawMode?.(true);process.stdin.setEncoding('utf8');let buffer='';
 process.stdin.on('data',chunk=>{
  buffer+=chunk;
+ if(pick&&/^[1-9]$/.test(buffer.trim())){const r=pick;pick=null;const index=Number(buffer.trim())-1;buffer='';r(index);return;}
  if(answer&&/^[yn]$/i.test(buffer.trim())){const r=answer;answer=null;const yes=/y/i.test(buffer);buffer='';r(yes);return;}
  if(buffer==='\x03'||buffer==='\x04')process.exit(0);
  let n;while((n=buffer.indexOf('\r'))>=0){const line=buffer.slice(0,n).replace(/\x1b\[20[01]~/g,'').trim();buffer=buffer.slice(n+1);if(line==='exit')process.exit(0);if(line)enqueue(line);}

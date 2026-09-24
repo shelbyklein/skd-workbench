@@ -7,9 +7,11 @@ import {createServer} from '../server.js';
 // over the real Workbench MCP bridge. No provider inference.
 const root=mkdtempSync(path.join(tmpdir(),'skd-coordinator-cli-browser-'));mkdirSync(path.join(root,'newton'));
 const log=path.join(root,'fixture.log');process.env.COORDINATOR_FIXTURE_LOG=log;
+// The fixture CLI writes its Claude-format transcript here; Chat reads it from the same place (#48).
+const home=path.join(root,'home');process.env.FIXTURE_HOME=home;
 const sessions=()=>existsSync(log)?readFileSync(log,'utf8').trim().split('\n').filter(l=>l.includes('"mode":"session"')).length:0;
 const fixture=path.resolve('tests/fixtures/coordinator-cli.mjs'),catalog=async()=>({version:'fixture',models:[{id:'fixture',name:'Fixture',efforts:['low','default']}]});
-const server=createServer({directory:path.join(root,'data'),codexOptions:{binary:fixture,discover:catalog},claudeOptions:{binary:fixture,discover:catalog}});
+const server=createServer({directory:path.join(root,'data'),codexOptions:{binary:fixture,discover:catalog},claudeOptions:{binary:fixture,discover:catalog},coordinatorOptions:{transcriptHome:home}});
 await new Promise(r=>server.listen(0,'127.0.0.1',r));const url=`http://127.0.0.1:${server.address().port}`;
 const api=async(route,input,method)=>{const res=await fetch(url+'/api/'+route,{method:method||(input?'POST':'GET'),headers:{'Content-Type':'application/json'},...(input?{body:JSON.stringify(input)}:{})});return res.json();};
 const browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL||'chrome'});
@@ -46,6 +48,18 @@ try{
  await page.locator('#dock-message').fill('hi from browser');await page.locator('#dock-send').click();
  await page.getByText('Echo: hi from browser (1 granted project)').waitFor();
  assert.match(await dock.locator('.agent-message-agent').last().textContent(),/Orchestrator/);
+ // Chat follows the session transcript: tool steps as one expandable line, the reply once (it was also posted).
+ const steps=dock.locator('.chat-tools').last();await steps.waitFor();assert.match(await steps.textContent(),/workbench · list projects/);
+ assert.equal(await dock.locator('.agent-message').filter({hasText:'Echo: hi from browser'}).count(),1,'A reply that was also posted shows once.');
+ await steps.locator('summary').first().click();await steps.locator('.chat-tool-output').first().waitFor();assert.match(await steps.locator('.chat-tool-output').first().textContent(),/ok/);
+ // A question from the agent is answered from Chat; the answer is typed into the CLI.
+ await page.locator('#dock-message').fill('ask me a question');await page.locator('#dock-send').click();
+ const question=dock.locator('.chat-question[data-question]');await question.waitFor();assert.match(await question.textContent(),/Which colour\?.*Red.*Warm.*Blue.*Cool/s);
+ await page.screenshot({path:'output/chat-question.png'});
+ await question.getByRole('button',{name:/Blue/}).click();
+ await dock.locator('.chat-question.is-answered').waitFor();assert.match(await dock.locator('.chat-question.is-answered').textContent(),/Which colour\?\s*→ Blue/);
+ await dock.getByText('You chose Blue.').first().waitFor();assert.equal(await dock.locator('.agent-message').filter({hasText:'You chose Blue.'}).count(),1);
+ await page.screenshot({path:'output/chat-live.png'});
  await page.waitForFunction(()=>/Session running/.test(document.querySelector('#dock-coordinator')?.textContent));
  // CLI: the same session, with the tool calls, live.
  await tab('CLI').click();await page.locator('.coordinator-terminal').waitFor();
@@ -121,5 +135,5 @@ try{
  await page.setViewportSize({width:390,height:844});await page.locator('.dock-project .coordinator-terminal').scrollIntoViewIfNeeded();await page.waitForTimeout(400);
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:'output/coordinator-cli-mobile.png'});
  assert.deepEqual(errors,[]);
- console.log('Coordinator CLI browser passed: orchestrator setup and chat in the side panel, Chat/CLI, typing in the CLI, no respawn, stop, history, Start session (confirmed after a stop), all-projects permission prompt via Home Open CLI (declined), project card as live project agent reporting to the orchestrator, Home pill (state) opens/closes it in a split, keyboard, dark and 390 px. Fixture CLI only.');
+ console.log('Coordinator CLI browser passed: orchestrator setup and chat in the side panel, chat from the transcript (tool steps, reply once, question answered from Chat), Chat/CLI, typing in the CLI, no respawn, stop, history, Start session (confirmed after a stop), all-projects permission prompt via Home Open CLI (declined), project card as live project agent reporting to the orchestrator, Home pill (state) opens/closes it in a split, keyboard, dark and 390 px. Fixture CLI only.');
 }finally{await browser.close();server.shutdownCodex();server.closeAllConnections();await new Promise(r=>server.close(r));rmSync(root,{recursive:true,force:true});}

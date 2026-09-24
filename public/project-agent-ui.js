@@ -2,6 +2,7 @@
 // Everything shown is derived from canonical records; sending a message or saving a mandate starts nothing.
 // With the coordinator on, messages are typed into a live Claude Code or Codex session shown in the CLI view.
 import {mountTerminal} from './terminal-ui.js';
+import {chatFeed} from './chat-feed.js';
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const drafts=new Map();
 try{for(const [id,value] of Object.entries(JSON.parse(sessionStorage.getItem('skd-agent-drafts')||'{}')))if(value&&typeof value.text==='string')drafts.set(id,{text:value.text,key:typeof value.key==='string'?value.key:null});}catch{}
@@ -65,9 +66,11 @@ function bindComposer(host,{key,send,sent,p='agent'}){
  };
  return {sending:()=>sending};
 }
+// One conversation message; Chat also mixes in the agent's live transcript (chat-feed.js).
+function messageItem(msg,name){return `<li class="agent-message agent-message-${esc(msg.author)}"><div class="agent-message-meta"><strong>${msg.author==='user'?(msg.source==='cli'?'You · in CLI':'You'):esc(msg.controllerName==='Workbench coordinator'?'Orchestrator':msg.controllerName||name)}</strong><time datetime="${esc(msg.createdAt)}">${esc(time(msg.createdAt))}</time></div><p>${esc(msg.text)}</p>${msg.refs.length?`<div class="agent-refs">${msg.refs.map(refButton).join('')}</div>`:''}</li>`;}
 function renderMessages(host,t,name,p='agent'){
  const list=host.querySelector('#'+p+'-messages');
- list.innerHTML=(t.trimmed?`<li class="field-help">${t.trimmed} older message${t.trimmed===1?'':'s'} not shown.</li>`:'')+(t.items.length?t.items.map(msg=>`<li class="agent-message agent-message-${esc(msg.author)}"><div class="agent-message-meta"><strong>${msg.author==='user'?(msg.source==='cli'?'You · in CLI':'You'):esc(msg.controllerName==='Workbench coordinator'?'Orchestrator':msg.controllerName||name)}</strong><time datetime="${esc(msg.createdAt)}">${esc(time(msg.createdAt))}</time></div><p>${esc(msg.text)}</p>${msg.refs.length?`<div class="agent-refs">${msg.refs.map(refButton).join('')}</div>`:''}</li>`).join(''):'<li class="widget-empty">No messages.</li>');
+ list.innerHTML=(t.trimmed?`<li class="field-help">${t.trimmed} older message${t.trimmed===1?'':'s'} not shown.</li>`:'')+(t.items.length?t.items.map(msg=>messageItem(msg,name)).join(''):'<li class="widget-empty">No messages.</li>');
  list.scrollTop=list.scrollHeight;
 }
 
@@ -390,6 +393,7 @@ export function mountCoordinatorConversation(host,{api,modal,notify}){
  const q=s=>host.querySelector(s);
  const composer=bindComposer(host,{key:'coordinator',p,send:body=>api('coordinator/messages','POST',body).then(r=>{if(r.deliveryError)notify(r.deliveryError);return r;}),sent:()=>refresh()});
  const coordinator=coordinatorPanel(host,{key:'coordinator',api,modal,notify,refresh:()=>refresh(),p});
+ const feed=chatFeed(host,{key:'coordinator',p,api,name:'Orchestrator',notify,threadItem:messageItem,onChange:()=>refresh()});
  q('#dock-refresh').onclick=()=>refresh(true);
  async function refresh(announce=false){
   try{
@@ -397,13 +401,13 @@ export function mountCoordinatorConversation(host,{api,modal,notify}){
    q('#dock-thread-title').textContent='Coordinator';
    q('#dock-thread-status').textContent='';
    q('#dock-message-label').textContent='Message coordinator · all projects';
-   renderMessages(host,state.thread,'Coordinator',p);pace(coordinator.update(state.coordinator));
+   feed.thread(state.thread);pace(coordinator.update(state.coordinator));
    if(announce)notify('Coordinator refreshed.');
   }catch(error){if(host.isConnected)q('#dock-thread-status').textContent=error.message;}
  }
  refresh();
  timer=setInterval(()=>{if(!host.isConnected){clearInterval(timer);return;}if(document.visibilityState==='visible'&&!composer.sending())refresh();},15000);
- return {refresh,setMode:m=>coordinator.setMode(m),mode:()=>coordinator.mode(),destroy(){clearInterval(timer);clearTimeout(fast);coordinator.destroy();}};
+ return {refresh,setMode:m=>coordinator.setMode(m),mode:()=>coordinator.mode(),destroy(){clearInterval(timer);clearTimeout(fast);feed.destroy();coordinator.destroy();}};
 }
 
 // The current project's agent conversation for the side panel's lower half (project pages only). It uses the
@@ -415,6 +419,7 @@ export function mountProjectConversation(host,{project,api,modal,notify}){
  const q=s=>host.querySelector(s);
  const composer=bindComposer(host,{key:project.id,p,send:body=>api('projects/'+encodeURIComponent(project.id)+'/messages','POST',body).then(r=>{if(r.deliveryError)notify(r.deliveryError);return r;}),sent:()=>refresh()});
  const coordinator=coordinatorPanel(host,{key:project.id,api,modal,notify,refresh:()=>refresh(),p});
+ const feed=chatFeed(host,{key:project.id,p,api,name,notify,threadItem:messageItem,onChange:()=>refresh()});
  q('#dockp-refresh').onclick=()=>refresh(true);
  // The project page's Open CLI (decisions list) switches this pane to the agent's CLI.
  const openCLI=e=>{if(e.detail?.projectID===project.id&&host.isConnected)coordinator.setMode('cli');};document.addEventListener('project-agent-open-cli',openCLI);
@@ -423,11 +428,11 @@ export function mountProjectConversation(host,{project,api,modal,notify}){
    const state=await api('projects/'+encodeURIComponent(project.id)+'/agent');if(!host.isConnected)return;
    q('#dockp-thread-title').textContent=title;q('#dockp-thread-status').textContent=state.current?`${statusLabels[state.current.status]||state.current.status}: ${state.current.taskRef||state.current.flowName}`:'';
    q('#dockp-message-label').textContent=`Message ${name}`;
-   renderMessages(host,state.thread,name,p);pace(coordinator.update(state.coordinator));
+   feed.thread(state.thread);pace(coordinator.update(state.coordinator));
    if(announce)notify('Project agent refreshed.');
   }catch(error){if(host.isConnected)q('#dockp-thread-status').textContent=error.message;}
  }
  refresh();
  timer=setInterval(()=>{if(!host.isConnected){clearInterval(timer);return;}if(document.visibilityState==='visible'&&!composer.sending())refresh();},15000);
- return {projectID:project.id,refresh,destroy(){clearInterval(timer);clearTimeout(fast);document.removeEventListener('project-agent-open-cli',openCLI);coordinator.destroy();}};
+ return {projectID:project.id,refresh,destroy(){clearInterval(timer);clearTimeout(fast);feed.destroy();document.removeEventListener('project-agent-open-cli',openCLI);coordinator.destroy();}};
 }

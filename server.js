@@ -50,7 +50,7 @@ import {projectAgentOverview,portfolioOverview} from './lib/project-agent.js';
 import {RemoteAccess} from './lib/remote-access.js';
 import {CoordinatorAgent} from './lib/coordinator-agent.js';
 const root = path.dirname(fileURLToPath(import.meta.url));
-const files = {'/coordinator-dock.js':'coordinator-dock.js','/project-agent-ui.js':'project-agent-ui.js','/sidebar-texture.png':'sidebar-texture.png','/briefing-ui.js':'briefing-ui.js','/controllers-ui.js':'controllers-ui.js','/connection-editor.js':'connection-editor.js','/agent-profile-picker.js':'agent-profile-picker.js','/issue-actions-ui.js':'issue-actions-ui.js','/workspace-tasks-ui.js':'workspace-tasks-ui.js','/delegations-ui.js':'delegations-ui.js','/session-import-ui.js':'session-import-ui.js','/git-status-ui.js':'git-status-ui.js','/agent-card.js':'agent-card.js','/planning-ui.js':'planning-ui.js','/knowledge-ui.js':'knowledge-ui.js','/skills-ui.js':'skills-ui.js','/tools-ui.js':'tools-ui.js','/connections-ui.js':'connections-ui.js','/playbooks-ui.js':'playbooks-ui.js','/settings-ui.js':'settings-ui.js','/markdown.js':'markdown.js','/theme.js':'theme.js','/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
+const files = {'/coordinator-dock.js':'coordinator-dock.js','/project-agent-ui.js':'project-agent-ui.js','/chat-feed.js':'chat-feed.js','/sidebar-texture.png':'sidebar-texture.png','/briefing-ui.js':'briefing-ui.js','/controllers-ui.js':'controllers-ui.js','/connection-editor.js':'connection-editor.js','/agent-profile-picker.js':'agent-profile-picker.js','/issue-actions-ui.js':'issue-actions-ui.js','/workspace-tasks-ui.js':'workspace-tasks-ui.js','/delegations-ui.js':'delegations-ui.js','/session-import-ui.js':'session-import-ui.js','/git-status-ui.js':'git-status-ui.js','/agent-card.js':'agent-card.js','/planning-ui.js':'planning-ui.js','/knowledge-ui.js':'knowledge-ui.js','/skills-ui.js':'skills-ui.js','/tools-ui.js':'tools-ui.js','/connections-ui.js':'connections-ui.js','/playbooks-ui.js':'playbooks-ui.js','/settings-ui.js':'settings-ui.js','/markdown.js':'markdown.js','/theme.js':'theme.js','/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
   '/icons/icon-192.png':'icons/icon-192.png','/icons/icon-512.png':'icons/icon-512.png','/icons/maskable-512.png':'icons/maskable-512.png','/icons/apple-touch-icon.png':'icons/apple-touch-icon.png'};
 const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
 // Raw upload for message attachments: the file name travels URI-encoded in X-File-Name.
@@ -303,10 +303,13 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
        if(input.threadKey===COORDINATOR)return json(coordinator.startSession(COORDINATOR,{}),201);
        const project=store.project(input.threadKey);return json(await coordinator.startSession(project.id,{projectID:project.id,projectName:project.name}),201);
       }
-      const coordinatorSession=pathname.match(/^\/api\/coordinator\/sessions\/([\w-]+)\/(stop|signal)$/);
+      // Chat events from the conversation's CLI transcripts (#48).
+      if(pathname==='/api/coordinator/transcript'&&req.method==='GET'){const key=url.searchParams.get('threadKey')||'';assert(key===COORDINATOR||store.project(key),'Choose a conversation.');return json(await coordinator.sessions.transcript(key));}
+      const coordinatorSession=pathname.match(/^\/api\/coordinator\/sessions\/([\w-]+)\/(stop|signal|answer)$/);
       if(coordinatorSession&&req.method==='POST'){
        const input=await body(req,4096);
        if(coordinatorSession[2]==='stop')return json(coordinator.stop(coordinatorSession[1]));
+       if(coordinatorSession[2]==='answer')return json(coordinator.sessions.answer(coordinatorSession[1],input));
        // Only the hook inside the session, on this Mac, can report a waiting permission prompt.
        assert(!remoteAccess.isRemote(req),'Local access only.',403);
        return json(coordinator.sessions.signal(coordinatorSession[1],input.secret,input.kind));
