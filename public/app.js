@@ -296,6 +296,8 @@ function mountProjectWidgets(project){
  const lifecycleHost=document.createElement('article');lifecycleHost.className='project-widget';dashboard.append(lifecycleHost);lifecycleView=mountLifecycle(lifecycleHost,{project,api,onSession:openProjectSession,onContinue:id=>{if(projectID===project.id)gitStatusView?.openTask(id);}});
  const briefingHost=document.createElement('article');briefingHost.className='project-widget';dashboard.prepend(briefingHost);briefingView=mountProjectBriefing(briefingHost,{project,api,onSession:id=>{if(projectID===project.id)openProjectSession(id);},onIssue:number=>{if(projectID===project.id)openProjectIssue(number);}});
  const quickHost=document.createElement('section');dashboard.prepend(quickHost);quickActionsView=mountQuickActions(quickHost,{project,api,confirmLeave,onOpen:openProjectSession});
+ // The widgets share the left column with the agent sections so the conversation card stays pinned beside the whole page.
+ agentHost.querySelector('#agent-main')?.append(dashboard);
  loadPriorityIssues(project);loadLastSession(project);
 }
 function renderProjectOverview(){

@@ -456,7 +456,7 @@ body.terminal-open .issue-detail-layout{grid-template-columns:minmax(0,1fr)}
 .agent-facts{display:flex;flex-wrap:wrap;gap:6px 22px;margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line);font-size:11px}.agent-facts>div{display:flex;gap:6px}.agent-facts dt{color:var(--muted)}.agent-facts dd{margin:0;overflow-wrap:anywhere}
 .agent-error{margin:10px 0 0!important;color:#a43b29!important}.agent-card-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:8px}
 .agent-result{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}.agent-result .agent-copy{flex:1 1 220px}.agent-result-facts{font-size:11px;color:var(--muted)}
-.agent-thread{position:sticky;top:18px;display:grid;grid-template-rows:auto auto minmax(160px,1fr) auto auto;gap:12px;border:1px solid var(--line);border-radius:9px;background:var(--white);padding:20px;max-height:calc(100vh - 36px);min-width:0}
+.agent-thread{position:sticky;top:18px;display:flex;flex-direction:column;gap:12px;border:1px solid var(--line);border-radius:9px;background:var(--white);padding:20px;max-height:calc(100vh - 36px);min-width:0}
 .agent-thread>header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.agent-thread>header h2{font:normal 22px/1.2 Georgia,serif;margin:6px 0 0;overflow-wrap:anywhere}.agent-thread>header .eyebrow{margin:0}
 .agent-thread-status{margin:0;font-size:11px;color:var(--muted)}.agent-thread-status:empty{display:none}
 .agent-messages{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;overflow-y:auto;min-height:0}
@@ -471,6 +471,7 @@ body.terminal-open .issue-detail-layout{grid-template-columns:minmax(0,1fr)}
 [data-theme="dark"] .agent-status{background:var(--surface);color:#ddd}[data-theme="dark"] .agent-status-completed{background:#213d25;color:#bfe6c4}[data-theme="dark"] .agent-status-running,[data-theme="dark"] .agent-status-launching,[data-theme="dark"] .agent-status-stopping{background:#1f354b;color:#c4dcf4}[data-theme="dark"] .agent-status-waiting,[data-theme="dark"] .agent-status-checking{background:#4a3a1c;color:#f2dcae}[data-theme="dark"] .agent-status-failed,[data-theme="dark"] .agent-status-interrupted{background:#4a2522;color:#f2c4bf}[data-theme="dark"] .agent-error{color:#f2a79c!important}
 .agent-subsection{margin-top:12px;border:1px solid var(--line);border-radius:9px;background:var(--white);padding:14px 18px}.agent-subhead{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:8px}.agent-subhead h3{margin:0;font-size:12px;font-weight:700;letter-spacing:.02em}.agent-subhead>span{font-size:11px;color:var(--muted)}.agent-subsection .priority-issue-list{border-top:0}.agent-subsection .priority-issue-list li:last-child .priority-issue-row{border-bottom:0}.agent-subsection #priority-issues-note{margin:6px 0 0}.agent-subsection #priority-issues-note:empty{display:none}
 .project-dashboard{align-items:start}
+.agent-main>.project-dashboard{max-width:none;margin:0;padding:0;grid-template-columns:minmax(0,1fr)}
 .project-git-strip{max-width:1500px;margin:0 auto;padding:0 42px 18px}@media(max-width:650px){.project-git-strip{padding:0 20px 16px}}
 .agent-summary{margin:0;font:normal 18px/1.4 Georgia,serif;color:var(--muted)}.home-owner{flex-wrap:wrap}.home-owner-name{flex:0 1 200px}.home-owner .agent-owner-state{flex:0 0 140px;font-size:12px}.home-owner-work{flex:1 1 220px}.agent-owner-waiting::before,.agent-owner-attention::before{background:#c98b1d}.agent-owner-none::before{background:var(--line)}
 .home-agents{padding-top:0}
@@ -488,7 +489,8 @@ body.terminal-open .issue-detail-layout{grid-template-columns:minmax(0,1fr)}
 .agent-waiting button{margin-left:auto;padding:4px 10px;font-size:11px}
 [data-theme="dark"] .agent-waiting{background:#3a2c14;color:#f3d49a}
 .agent-cli{display:flex;flex-direction:column;gap:10px;height:clamp(360px,62vh,560px);overflow:hidden}
-.agent-thread.agent-cli-mode{grid-template-rows:none;grid-auto-rows:auto;max-height:none}
+/* Only the message list grows or shrinks, so the message box stays at the bottom of the card. */
+.agent-thread>*{flex:none}.agent-thread>.agent-messages{flex:1 1 auto;min-height:160px}
 .agent-cli-screen{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
 .agent-cli-screen:empty{display:none}
 .agent-cli-history{flex:none;max-height:140px;overflow:auto}

@@ -209,9 +209,18 @@ export function mountProjectAgent(host,{project,api,modal,notify,flows,owner,onR
     notify('Mandate saved. No work was started.');refresh();
    });
  }
+ // Keep the message box in the window: the pinned card is sized to the space below its top, so
+ // the messages scroll inside it while the page scrolls around it.
+ const thread=q('.agent-thread');let frame=0;
+ const fit=()=>{frame=0;if(!host.isConnected){stop();return;}if(getComputedStyle(thread).position!=='sticky'||thread.classList.contains('agent-cli-mode')){thread.style.maxHeight='';return;}const list=q('#agent-messages'),end=list.scrollHeight-list.scrollTop-list.clientHeight<24;thread.style.maxHeight=Math.max(320,innerHeight-Math.max(18,thread.getBoundingClientRect().top)-18)+'px';if(end)list.scrollTop=list.scrollHeight;};
+ const queue=()=>{if(!frame)frame=requestAnimationFrame(fit);};
+ const stop=()=>{cancelAnimationFrame(frame);layout.disconnect();removeEventListener('scroll',queue,{capture:true});removeEventListener('resize',queue);};
+ // Widgets above the card load later and move it, so layout changes refit it too.
+ const layout=new ResizeObserver(queue);layout.observe(document.body);
+ addEventListener('scroll',queue,{passive:true,capture:true});addEventListener('resize',queue);queue();
  refresh();
  timer=setInterval(()=>{if(!host.isConnected){clearInterval(timer);return;}if(document.visibilityState==='visible'&&!composer.sending())refresh();},15000);
- return {refresh,openMandate,destroy(){clearInterval(timer);coordinator.destroy();}};
+ return {refresh,openMandate,destroy(){clearInterval(timer);stop();coordinator.destroy();}};
 }
 
 const ownerStates={working:'Running',waiting:'Waiting for you',attention:'Needs attention',active:'Active',paused:'Paused',none:'No mandate'};
