@@ -116,3 +116,19 @@ test('get_project_instructions reads the project CLAUDE.md for routing',async t=
  const receipts=(await f.api('controllers')).body.controllers.find(c=>c.name==='Workbench coordinator');assert(receipts,'coordinator grant exists');
  const log=readFileSync(path.join(f.root,'data','controllers.json'),'utf8');assert.match(log,/get_project_instructions/);
 });
+
+test('a project agent the user stopped stays stopped: orchestrator messages wait until the user starts it',async t=>{
+ const f=await setup(t);await f.enable();const austin=f.projects.Austin.id;
+ await f.api(`projects/${austin}/messages`,{text:'first job',requestKey:'s1'});await f.until(async()=>(await f.thread('coordinator')).some(m=>/Done: first job/.test(m.text)),'first report');
+ const live=(await f.agent('Austin')).session;await f.api('coordinator/sessions/'+live.id+'/stop',{});await f.until(async()=>!(await f.agent('Austin')).session,'stopped');
+ const before=f.sessions().filter(s=>s.role==='project').length;
+ await f.api('coordinator/messages',{text:'email about Austin: new hours',requestKey:'s2'});
+ await f.until(async()=>(await f.thread(austin)).some(m=>/^From the orchestrator: email about Austin: new hours/.test(m.text)),'held message saved in the conversation');
+ await delay(400);assert.equal((await f.agent('Austin')).session,null,'The orchestrator cannot start an agent the user stopped.');assert.equal(f.sessions().filter(s=>s.role==='project').length,before);
+ // The user's own message starts it; the held orchestrator message follows.
+ await f.api(`projects/${austin}/messages`,{text:'back to work',requestKey:'s3'});
+ await f.until(async()=>{const t=await f.thread('coordinator');return t.some(m=>/Done: back to work[\s\S]*email about Austin: new hours/.test(m.text));},'held message delivered after the user started it');
+ // Stopped again, Start session (the user's button) also releases it.
+ const again=(await f.agent('Austin')).session;await f.api('coordinator/sessions/'+again.id+'/stop',{});await f.until(async()=>!(await f.agent('Austin')).session,'stopped again');
+ assert.equal((await f.api('coordinator/sessions',{threadKey:austin})).status,201);await f.until(async()=>(await f.agent('Austin')).session,'started by the user');
+});

@@ -76,7 +76,10 @@ read-only GitHub browsing with explicit agent proposal and apply actions.
   must not spawn another process; restarting the server must not resume execution.
 - The orchestrator and project agent CLIs run in the session host (`scripts/session-host.mjs`, client
   `lib/session-host.js`), a separate detached process that owns their PTYs. A server restart leaves them
-  running and the next start reattaches them (`CoordinatorSessions.restore`); nothing is relaunched. Stop, idle
+  running and the next start reattaches them (`CoordinatorSessions.restore`); nothing is relaunched.
+  A project agent the person stops stays stopped: `message_project_agent` saves the message in its conversation
+  and holds it (`stoppedAgents`), and only the person's own message or Start session starts it again, with the
+  held messages in its first prompt. Stop, idle
   and settings changes still end them. Keep the host small and dependency-free beyond node-pty: changing it
   means stopping every live agent. Tests use in-process PTYs (no `sessionHost` option).
 - Normal execution worktrees remain for review. Do not add automatic merge or

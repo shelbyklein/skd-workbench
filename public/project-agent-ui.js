@@ -123,7 +123,11 @@ function coordinatorPanel(host,{key,api,modal,notify,refresh,p='agent'}){
   }
   if(e.target.closest('[data-coordinator-open-cli]')){cliModes.set(key,'cli');viewing=null;apply();}
   const start=e.target.closest('[data-coordinator-start]');
-  if(start){start.disabled=true;viewing=null;api('coordinator/sessions','POST',{threadKey:key}).then(()=>refresh(),error=>{start.disabled=false;notify(error.message);});return;}
+  if(start){
+   const go=()=>{start.disabled=true;viewing=null;api('coordinator/sessions','POST',{threadKey:key}).then(()=>refresh(),error=>{start.disabled=false;notify(error.message);});};
+   // After you stopped it, starting again is a deliberate choice; held orchestrator messages are delivered then.
+   if(c?.history?.[0]?.endReason==='stopped'&&!c.session){modal('Start this session again?',`<p>You stopped this ${key==='coordinator'?'coordinator':'agent'} session. Starting it again${key==='coordinator'?'':' delivers any orchestrator messages that waited while it was stopped, and'} lets it work again.</p>`,[{label:'Cancel',close:true},{label:'Start session',primary:true,submit:true}],async()=>go());return;}
+   go();return;}
   if(e.target.closest('[data-coordinator-settings]')){if(key!=='coordinator'&&c?.enabled)openProjectAgentSettings({api,modal,notify,projectID:key,onSaved:()=>refresh()});else openCoordinatorSettings({api,modal,notify,onSaved:()=>refresh()});}
  });
  return {
