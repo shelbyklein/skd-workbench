@@ -660,3 +660,4 @@ main.no-topbar .projects-section>.overview-section-heading{margin-top:0}
 .home-alerts .agent-list{border:1px solid #c98b1d66;border-radius:10px;background:var(--white)}
 .home-alerts-error:empty{display:none}.home-alerts-error{font-size:12px;color:var(--muted)}
 @media(max-width:650px){.home-alerts{padding:0 20px}}
+.agent-dot-question{background:#c98b1d}
