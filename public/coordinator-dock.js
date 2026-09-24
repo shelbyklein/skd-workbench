@@ -1,4 +1,4 @@
-// Side panel on every page, always open: the all-projects coordinator and, on project pages, that project's agent.
+// Side panel on every page, always open: the all-projects coordinator, or inside a project that project's agent.
 // It lives on the body, so page navigation never rebuilds it; open state, tab and width are remembered.
 import {mountCoordinatorConversation,mountProjectConversation} from './project-agent-ui.js';
 const read=(key,fallback)=>{try{return localStorage.getItem(key)??fallback;}catch{return fallback;}};
@@ -50,7 +50,8 @@ export function createCoordinatorDock({api,modal,notify}){
   if(!panel)return;const slot=q('.dock-project'),split=!!currentProject;
   if(projectView&&projectView.projectID!==currentProject?.id){projectView.destroy();projectView=null;slot.innerHTML='';}
   if(currentProject&&!projectView)projectView=mountProjectConversation(slot,{project:currentProject,api,modal,notify});
-  slot.hidden=!split;panel.classList.toggle('dock-split',split);document.body.classList.toggle('dock-project-split',split&&!panel.hidden);
+  // Inside a project the panel is that project's agent only; the coordinator is on Home and the global pages.
+  slot.hidden=!split;q('.dock-conversation').hidden=split;panel.classList.toggle('dock-project-only',split);document.body.classList.toggle('dock-project-split',split&&!panel.hidden);
  }
  function hide(){if(!panel)return;panel.hidden=true;layout(false);document.body.classList.remove('dock-project-split');write('skd-dock-open','0');}
  document.addEventListener('coordinator-dock-open',e=>show(e.detail?.tab||tab));

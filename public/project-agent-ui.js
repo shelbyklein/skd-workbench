@@ -45,6 +45,12 @@ function renderMessages(host,t,name,p='agent'){
 }
 
 const effortLabel=e=>e?e[0].toUpperCase()+e.slice(1):'';
+// Timeline entries (newest first) as a compact list: time, who, kind and text; open questions are marked.
+const timelineKinds={update:'Update',question:'Question',action:'Action needed',you:'',request:'Request',agent:'Message'};
+export function timelineMarkup(entries,empty='No activity yet.'){
+ if(!entries.length)return `<li class="widget-empty">${esc(empty)}</li>`;
+ return entries.map(e=>`<li class="timeline-entry timeline-${esc(e.kind)}"><div class="timeline-meta"><time datetime="${esc(e.at)}">${esc(when(e.at))}</time><strong>${esc(e.who)}</strong>${timelineKinds[e.kind]===''?'':`<span class="timeline-kind">${esc(timelineKinds[e.kind]||e.kind)}${e.answered===false?' · waiting for you':e.answered?' · answered':''}</span>`}</div><p>${esc(e.text.length>600?e.text.slice(0,600)+'…':e.text)}</p></li>`).join('');
+}
 const providerLabels={claude:'Claude Code',codex:'Codex'},endReasons={stopped:'stopped',idle:'ended after 30 minutes idle',settings:'ended by a settings change',server:'ended when the server stopped',exited:'exited'};
 // Chat or CLI view per conversation, kept while navigating.
 const cliModes=new Map();
@@ -215,6 +221,7 @@ export function mountProjectAgent(host,{project,api,modal,notify,flows,owner,onR
  <section aria-labelledby="agent-current"><h2 id="agent-current">Current work</h2><div id="agent-current-body" aria-live="polite"></div></section>
  <section aria-labelledby="agent-next"><div class="agent-section-head"><h2 id="agent-next">Issues</h2><button type="button" class="text-button" data-agent-issues>All issues</button></div><div id="agent-next-body" hidden></div>
   <div class="agent-subsection"><div class="agent-subhead"><h3>Priority issues</h3><span id="priority-issues-meta">Loading…</span></div><ol id="priority-issues-list" class="priority-issue-list" aria-live="polite"><li class="widget-empty">Loading issues…</li></ol><p class="field-help" id="priority-issues-note"></p></div></section>
+ <section aria-labelledby="agent-timeline"><h2 id="agent-timeline">Timeline</h2><ol class="project-timeline" id="agent-timeline-list" aria-live="polite"><li class="widget-empty">Loading…</li></ol></section>
  <section aria-labelledby="agent-recent"><h2 id="agent-recent">Recent result</h2><div id="agent-recent-body"></div>
   <div class="agent-subsection session-report-widget"><div class="agent-subhead"><h3>Last session</h3><button type="button" class="text-button" id="import-project-chat">Import</button></div><div id="last-session-report" aria-live="polite"><p class="widget-empty">Loading session…</p></div></div></section></div>
  ${threadAside('Project agent','PROJECT AGENT',false)}`;
@@ -226,7 +233,7 @@ export function mountProjectAgent(host,{project,api,modal,notify,flows,owner,onR
   const ref=e.target.closest('[data-agent-ref]');if(ref){if(ref.dataset.agentRef==='run')onRun(ref.dataset.refId);else if(ref.dataset.agentRef==='issue'){const n=issueNumber(ref.dataset.refId)||Number(ref.dataset.refId);if(n)onIssue(n);}return;}
   const run=e.target.closest('[data-agent-run]');if(run){onRun(run.dataset.agentRun);return;}
   const issue=e.target.closest('[data-agent-issue]');if(issue){onIssue(Number(issue.dataset.agentIssue));return;}
-  if(e.target.closest('[data-agent-open-cli]')){coordinator.openCLI();return;}
+  if(e.target.closest('[data-agent-open-cli]')){coordinator.openCLI();document.dispatchEvent(new CustomEvent('project-agent-open-cli',{detail:{projectID:project.id}}));return;}
   // Reply goes to this project's agent: the side panel's lower pane, or the page card when the panel is away.
   if(e.target.closest('[data-agent-reply]')){const box=[document.querySelector('#dockp-message'),q('#agent-message')].find(el=>el?.offsetParent);box?.focus();return;}
   if(e.target.closest('[data-agent-mandate]'))openMandate();
@@ -260,6 +267,7 @@ export function mountProjectAgent(host,{project,api,modal,notify,flows,owner,onR
   // Mandates are off the main path (#18); the conversation card is the project's live agent.
  }
  async function refresh(announce=false){
+  api('projects/'+encodeURIComponent(project.id)+'/timeline').then(t=>{if(host.isConnected)q('#agent-timeline-list').innerHTML=timelineMarkup(t.entries,'No agent activity yet. Reports from this project\'s agent appear here.');},error=>{if(host.isConnected)q('#agent-timeline-list').innerHTML=`<li class="widget-empty">${esc(error.message)}</li>`;});
   try{const next=await api('projects/'+encodeURIComponent(project.id)+'/agent');if(!host.isConnected)return;state=next;renderOwner();renderMain();renderThread();if(announce)notify('Project agent refreshed.');}
   catch(error){if(host.isConnected)q('#agent-decisions-body').innerHTML=`<p class="widget-empty">${esc(error.message)}</p>`;}
  }
@@ -364,6 +372,8 @@ export function mountProjectConversation(host,{project,api,modal,notify}){
  const composer=bindComposer(host,{key:project.id,p,send:body=>api('projects/'+encodeURIComponent(project.id)+'/messages','POST',body).then(r=>{if(r.deliveryError)notify(r.deliveryError);return r;}),sent:()=>refresh()});
  const coordinator=coordinatorPanel(host,{key:project.id,api,modal,notify,refresh:()=>refresh(),p});
  q('#dockp-refresh').onclick=()=>refresh(true);
+ // The project page's Open CLI (decisions list) switches this pane to the agent's CLI.
+ const openCLI=e=>{if(e.detail?.projectID===project.id&&host.isConnected)coordinator.setMode('cli');};document.addEventListener('project-agent-open-cli',openCLI);
  async function refresh(announce=false){
   try{
    const state=await api('projects/'+encodeURIComponent(project.id)+'/agent');if(!host.isConnected)return;
@@ -375,5 +385,5 @@ export function mountProjectConversation(host,{project,api,modal,notify}){
  }
  refresh();
  timer=setInterval(()=>{if(!host.isConnected){clearInterval(timer);return;}if(document.visibilityState==='visible'&&!composer.sending())refresh();},15000);
- return {projectID:project.id,refresh,destroy(){clearInterval(timer);clearTimeout(fast);coordinator.destroy();}};
+ return {projectID:project.id,refresh,destroy(){clearInterval(timer);clearTimeout(fast);document.removeEventListener('project-agent-open-cli',openCLI);coordinator.destroy();}};
 }

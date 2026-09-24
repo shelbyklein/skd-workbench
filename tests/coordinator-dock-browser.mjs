@@ -23,9 +23,9 @@ try{
  // Resize by dragging the edge; the width is remembered.
  const before=await dock.boundingBox();await page.mouse.move(before.x,300);await page.mouse.down();await page.mouse.move(before.x-120,300,{steps:4});await page.mouse.up();
  const resized=(await dock.boundingBox()).width;assert(resized>before.width+100,`panel resized from ${before.width} to ${resized}`);
- // Project page: the panel splits and the page's own card steps aside.
+ // Project page: the panel shows that project's agent and the page's own card steps aside.
  await page.evaluate(id=>location.hash='#project/'+id,project.id);await dock.locator('.dock-project #dockp-composer').waitFor();
- await page.waitForFunction(name=>document.querySelector('#dockp-thread-title')?.textContent===name,project.name);assert.equal(await page.locator('.project-agent>.agent-thread').isVisible(),false);assert.equal(await dock.locator('.dock-conversation #dock-composer').isVisible(),true);
+ await page.waitForFunction(name=>document.querySelector('#dockp-thread-title')?.textContent===name,project.name);assert.equal(await page.locator('.project-agent>.agent-thread').isVisible(),false);assert.equal(await dock.locator('.dock-conversation').isVisible(),false,'Inside a project the panel is that project\'s agent only.');
  await page.screenshot({path:'output/coordinator-dock-split.png'});
  // Other pages keep one coordinator pane; reload keeps the panel open at the same width.
  await page.evaluate(()=>location.hash='#workflows');await page.waitForFunction(()=>document.querySelector('.dock-project')?.hidden===true);

@@ -284,6 +284,8 @@ Run `npm install` after updating: xterm.js renders the terminal and node-pty pro
 
 ## GitHub issues
 
+Each project page has a **Timeline**: newest first, its agent's reports to the orchestrator (updates, questions, action requests, marked answered or waiting) with your messages and the orchestrator's requests; an issue page shows the entries that mention its number (#N). It is built from stored conversation messages.
+
 The issue page shows the issue itself: title, author, labels, its **priority** (from labels such as `priority: urgent`) and how it is planned, read from the issue's *Work preparation* section (**Solo** or **Orchestrated**, with the named models; **Not planned** when absent). Discussion stays on GitHub. The Review, Work plan and Add to a workflow panels were removed; project agents and the orchestrator now take on that work. Editing with an agent (header button) is unchanged.
 
 Issue detail offers **Review with an agent** (shared model selector, contextual read-only CLI in a side panel) and **Add to a workflow** (an unsaved issue input in an eligible project workflow). Open review reconnects to the existing terminal. Adding input does not run or save the workflow. See [issue review actions](instructions/2026-09-21-issue-review-actions.md) for captured context and limits.
@@ -442,7 +444,7 @@ Use **Tools → Install MCP server…** (see *Tools: skills and MCP servers*). W
 
 ### Side panel
 
-The coordinator side panel is always open on the right of every page; there is no toggle. Each pane has one header row: its title, a Chat / CLI switch and a refresh icon. On a project page the panel splits: the all-projects coordinator on top and that project's agent below (the page's own agent card steps aside). Previous sessions open from a button in the CLI view. Drag the panel's left edge to resize it; the width is remembered. While an agent session terminal is shown it takes that side of the screen, and the panel returns when the terminal is hidden or closed. At 900 px and below the panel follows the page content instead of covering it.
+The side panel is always open on the right of every page; there is no toggle. On Home and the global pages it is the all-projects coordinator; inside a project (overview, issues, sessions…) it is that project's agent, full height. Each pane has one header row: its title, a Chat / CLI switch and a refresh icon. On a project page the panel splits: the all-projects coordinator on top and that project's agent below (the page's own agent card steps aside). Previous sessions open from a button in the CLI view. Drag the panel's left edge to resize it; the width is remembered. While an agent session terminal is shown it takes that side of the screen, and the panel returns when the terminal is hidden or closed. At 900 px and below the panel follows the page content instead of covering it.
 
 The Workbench folder shell (formerly the panel's **Shell** tab and `/api/workspace-terminal`) has been removed.
 
