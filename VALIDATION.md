@@ -1542,3 +1542,14 @@ Plan: `instructions/2026-09-23-hub-orchestrator.md` · Tracker Trapper `EAAFEE50
   providers not run (HO-07). Shell cache `skd-shell-0.5.0-117`.
 - Full run: `npm test` 420/420 (controller catalog/integration counts updated to 25 tools); all 41 browser suites
   pass, including `editor.mjs` this run (`projects-browser` now opens Workflows by route).
+
+## Sidebar Settings placement — 2026-09-24
+
+- Moved the global Settings gear to the bottom-right of the left sidebar beside
+  Appearance, on Home and project pages. Removed the duplicate Home-header gear.
+- `node tests/sidebar-browser.mjs` and `node tests/settings-browser.mjs` passed
+  against temporary stores. Desktop/mobile sidebar screenshots inspected at
+  `output/projects-sidebar-desktop.png` and `output/projects-sidebar-mobile.png`.
+- Settings behavior and Appearance controls are preserved. Shell cache bumped
+  to `skd-shell-0.5.0-140`; installed PWAs use the existing explicit Update app action.
+- No live server restart, provider execution, or remote push performed.
