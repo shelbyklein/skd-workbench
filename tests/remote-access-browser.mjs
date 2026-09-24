@@ -28,7 +28,7 @@ try{
    assert.doesNotMatch(text,/launcher/i);
    await page.screenshot({path:'output/remote-access-expired.png'});
    await page.unroute(`${origin}/api/state`);await page.getByRole('button',{name:'Reload',exact:true}).click();
-   await page.locator('#home-decisions, [data-view-link], .page-heading h1').first().waitFor();assert.equal(loads.length,3);
+   await page.locator('.projects-section, [data-view-link], .page-heading h1').first().waitFor();assert.equal(loads.length,3);
   }
   assert.deepEqual(errors,[]);await page.unrouteAll({behavior:'ignoreErrors'});await context.close();
  }

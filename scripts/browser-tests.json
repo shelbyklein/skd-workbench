@@ -38,5 +38,6 @@
  "tests/coordinator-cli-browser.mjs",
  "tests/remote-access-browser.mjs",
  "tests/remove-project-browser.mjs",
- "tests/tools-browser.mjs"
+ "tests/tools-browser.mjs",
+ "tests/home-project-overview-browser.mjs"
 ]

@@ -617,4 +617,26 @@ body.dock-project-split .project-agent>.agent-thread{display:none}
 }
 /* Banners center on the page area beside the always-open panel */
 @media(min-width:901px){.coordinator-dock-open .pwa-banner{left:calc((100vw - var(--workspace-terminal-width,clamp(400px,40vw,640px)))/2);z-index:31}}
+
+.sidebar-footer{display:flex;align-items:center;gap:10px;margin-top:18px;flex-shrink:0}
+.sidebar-footer .theme-control{flex:1;min-width:0;margin:0;gap:6px}
+.sidebar-footer [data-global-settings]{flex-shrink:0;margin-left:auto}
+
+.projects-section>.home-project-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.home-project-card{min-width:0;border:1px solid var(--line);border-radius:10px;background:var(--paper);padding:20px;display:flex;flex-direction:column}
+.home-project-card>header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
+.home-project-card .project-card{font:600 20px/1.25 Georgia,serif;text-align:left;overflow-wrap:anywhere;min-width:0}
+.home-project-card .project-card-menu{position:static;flex-shrink:0}
+.home-project-card .project-tags:empty{display:none}
+.home-project-card .project-tags:not(:empty){margin-bottom:12px}
+.home-issue-heading{display:flex;justify-content:space-between;gap:12px;font-size:11px;color:var(--muted);margin-bottom:8px}
+.home-project-card .priority-issue-row{color:var(--ink);text-decoration:none;min-height:64px}
+.home-project-card .priority-issue-row:hover{background:var(--white)}
+.home-project-card>footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:auto;padding-top:14px;font-size:10px;color:var(--muted)}
+.home-project-card>footer a{margin-left:auto;white-space:nowrap;color:var(--ink)}
+.home-secondary{margin:0 42px 32px;border-top:1px solid var(--line);padding-top:16px}
+.home-secondary>summary{cursor:pointer;color:var(--muted);font-size:13px}
+.home-secondary>.workflow-overview{padding-left:0;padding-right:0}
+@media(max-width:1050px){.projects-section>.home-project-grid{grid-template-columns:1fr}}
+@media(max-width:650px){.home-secondary{margin:0 20px 24px}.home-project-card{padding:16px}}
 main.no-topbar{padding-top:30px}
