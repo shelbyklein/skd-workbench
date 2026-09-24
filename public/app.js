@@ -1,8 +1,6 @@
 import {createCoordinatorDock} from './coordinator-dock.js';
-import {mountLifecycle} from './lifecycle-ui.js';
 import {mountDelegation} from './delegations-ui.js';
 import {openSessionImport} from './session-import-ui.js';
-import {mountQuickActions} from './quick-actions-ui.js';
 import {mountGitStatus,gitDrift,driftLimits} from './git-status-ui.js';
 import {mountProjectBriefing,mountHomeBriefings,homeLine} from './briefing-ui.js';
 import {mountProjectAgent,mountHomeAgents} from './project-agent-ui.js';
@@ -29,7 +27,7 @@ let knowledgeView=null;
 let skillsView=null,connectionsView=null,playbooksView=null,toolsView=null,toolsProject=null;
 let workflowView=null,workflowRunID=null;
 let delegationView=null,delegationRunID=null;
-let quickActionsView=null,gitStatusView=null,lifecycleView=null,briefingView=null,projectAgentView=null;
+let gitStatusView=null,briefingView=null,projectAgentView=null;
 let codexView=null,codexRunID=null,codexPrefill='';
 let projectID='unassigned';
 const connections=new Map();
@@ -58,8 +56,8 @@ const currentProject=()=>data.projects.find(p=>p.id===projectID)||data.projects[
 function markDirty() { dirty=true; const save=$('#save'); if(save) save.disabled=false; }
 function confirmLeave(action) {
   if($('#dialog').dataset.sessionImport){toast('Finish or close the import dialog before leaving.');return;}
-  if(lifecycleView?.isPending()||gitStatusView?.isPending()||delegationView?.isPending()||quickActionsView?.isPending()||issuesView?.isPending()||codexView?.isPending()||workflowView?.isPending()||skillsView?.isPending()||connectionsView?.isPending()||playbooksView?.isPending()){toast('Wait for the current request to finish before leaving.');return;}
-  if(!dirty&&!lifecycleView?.isDirty()&&!gitStatusView?.isDirty()&&!delegationView?.isDirty()&&!issuesView?.isDirty()&&!codexView?.isDirty()&&!workflowView?.isDirty()&&!skillsView?.isDirty()&&!connectionsView?.isDirty()&&!playbooksView?.isDirty()) return action();
+  if(gitStatusView?.isPending()||delegationView?.isPending()||issuesView?.isPending()||codexView?.isPending()||workflowView?.isPending()||skillsView?.isPending()||connectionsView?.isPending()||playbooksView?.isPending()){toast('Wait for the current request to finish before leaving.');return;}
+  if(!dirty&&!gitStatusView?.isDirty()&&!delegationView?.isDirty()&&!issuesView?.isDirty()&&!codexView?.isDirty()&&!workflowView?.isDirty()&&!skillsView?.isDirty()&&!connectionsView?.isDirty()&&!playbooksView?.isDirty()) return action();
   modal('Keep your changes?', '<p>You have unsaved changes. Save them or discard them before leaving.</p>', [{label:'Keep editing',close:true},{label:'Discard changes',run:()=>{dirty=false;action();}}]);
 }
 function openFlow(flowID) { confirmLeave(()=>{const flow=data.flows.find(f=>f.id===flowID); if(!flow)return; projectID=flow.projectID;draft=clone(flow);selected=null;view='flow';dirty=false;render();}); }
@@ -199,10 +197,10 @@ function bindCommon() {
   if($('[data-action="history"]'))$('[data-action="history"]').onclick=()=>confirmLeave(()=>{view='history';selected=null;render();});
 }
 function render() {
-  lifecycleView?.dispose();lifecycleView=null;
+
   gitStatusView?.dispose();gitStatusView=null;
   briefingView?.dispose();briefingView=null;
-  quickActionsView=null;
+
   delegationView?.dispose();delegationView=null;toolsView?.dispose();toolsView=null;connectionsView?.dispose();connectionsView=null;skillsView?.dispose();skillsView=null;playbooksView?.dispose();playbooksView=null;knowledgeView?.dispose();knowledgeView=null;planningView?.dispose();planningView=null;issuesView?.dispose();issuesView=null;codexView?.dispose();codexView=null;workflowView?.dispose();workflowView=null;
   const nextHash='#'+routePath();if(location.hash!==nextHash)history.pushState(null,'',nextHash);lastRenderedHash=nextHash;
   if(view==='invalid')renderInvalidRoute();else if(view==='tools')renderTools();else if(view==='briefing-global')renderBriefing();else if(view==='projects')renderProjects();else if(view==='workflows-global')renderGlobalWorkflows();else if(view==='knowledge-global')renderKnowledgeHome();else if(view==='knowledge')renderKnowledgeProject();else if(view==='skills-global'||view==='skills')renderSkills();else if(view==='connections-global'||view==='connections')renderConnections();else if(view==='playbooks-global'||view==='playbooks')renderAgents();else if(view==='project')renderProjectOverview();else if(view==='planning')renderPlanning();else if(view==='system')renderSystem();else if(view==='issues')renderIssues();else if(view==='overview')renderOverview();else if(view==='delegation')renderDelegation();else if(view==='workflow')renderWorkflow();else if(view==='codex')renderCodex();else if(view==='flow')renderFlow(); else if(view==='run')renderRun(); else if(view==='compare')renderCompare();else renderHistory();
@@ -238,15 +236,16 @@ async function fillHomeBriefings(){
 // unmerged commits, and a reconcile warning when drift passes the limits in gitDrift.
 async function fillHomeGit(){
  const nodes=[...document.querySelectorAll('[data-home-git]')];
+ let saved={defaults:driftLimits,projects:{}};try{saved=await api('reconcile-limits');}catch{}
  async function worker(){
   while(nodes.length){
    const host=nodes.shift();if(!host.isConnected)continue;const summary=host.querySelector('.home-git-summary'),branch=host.querySelector('.home-git-branch');
    try{
-    const d=gitDrift(await api('projects/'+encodeURIComponent(host.dataset.homeGit)+'/git-status'));if(!host.isConnected)continue;
+    const limits=saved.projects[host.dataset.homeGit]||saved.defaults,d=gitDrift(await api('projects/'+encodeURIComponent(host.dataset.homeGit)+'/git-status'),limits);if(!host.isConnected)continue;
     if(!d){branch.textContent='Git';host.querySelector('.home-git-stats').textContent='Not a Git checkout';host.classList.add('home-git-muted');continue;}
     branch.textContent=d.branch;host.querySelector('.home-git-state').textContent=d.dirty?'Uncommitted changes':'Clean';host.querySelector('.home-git-state').classList.toggle('is-dirty',d.dirty);
     const stat=(n,label,warn,title)=>`<span class="home-git-stat${warn?' is-warn':''}" title="${esc(title)}"><strong>${n}</strong> ${esc(label)}</span>`;
-    host.querySelector('.home-git-stats').innerHTML=stat(d.behind,'behind',d.behind>=driftLimits.behind,`Branches behind ${d.target}`)+stat(d.unmerged,'unmerged',d.unmerged>=driftLimits.unmerged,`Branches with commits not on ${d.target}`)+(d.remote?stat(`${d.remote.ahead}↑ ${d.remote.behind}↓`,'remote',d.remote.ahead>=driftLimits.remote||d.remote.behind>=driftLimits.remote,`${d.branch} against its remote`):'');
+    host.querySelector('.home-git-stats').innerHTML=stat(d.behind,'behind',d.behind>=limits.behind,`Branches behind ${d.target}`)+stat(d.unmerged,'unmerged',d.unmerged>=limits.unmerged,`Branches with commits not on ${d.target}`)+(d.remote?stat(`${d.remote.ahead}↑ ${d.remote.behind}↓`,'remote',d.remote.ahead>=limits.remote||d.remote.behind>=limits.remote,`${d.branch} against its remote`):'');
     host.classList.toggle('home-git-warn',d.reasons.length>0);
     host.querySelector('.home-git-reconcile')?.remove();
     if(d.reasons.length)host.insertAdjacentHTML('beforeend',`<p class="home-git-reconcile" role="status" title="${esc(d.reasons.join('; '))}"><strong>Needs reconciling</strong> · merge, push and clean up branches</p>`);
@@ -311,17 +310,15 @@ async function loadPriorityIssues(project){
   host.querySelectorAll('[data-priority-issue]').forEach(button=>button.onclick=()=>openProjectIssue(Number(button.dataset.priorityIssue)));
  }catch(error){if(host?.isConnected){meta.textContent='Unavailable';host.innerHTML=`<li class="widget-empty">${esc(error.message)}</li>`;}}
 }
-async function loadLastSession(project){
- const host=$('#last-session-report');
- try{
-  const sessions=await api('sessions?projectID='+encodeURIComponent(project.id));if(!host?.isConnected)return;
-  const session=[...sessions].sort((a,b)=>b.createdAt.localeCompare(a.createdAt))[0];
-  if(!session){host.innerHTML='<p class="widget-empty">No sessions yet.</p><button type="button" id="start-project-session">Start a session</button>';$('#start-project-session').onclick=()=>openProjectSession(null);return;}
-  if(session.kind==='imported'){host.innerHTML=`<div class="session-report-heading"><span class="session-state">Imported chat</span></div><strong class="session-report-task">${esc(session.task)}</strong><p class="field-help">Saved project context · execution status unknown</p><div class="widget-footer"><span>${esc(new Date(session.createdAt).toLocaleString())}</span><button type="button" id="open-last-session">Open transcript <span aria-hidden="true">↗</span></button></div>`;$('#open-last-session').onclick=()=>openProjectSession(session.id);return;}
-  const status=sessionStatus(session),blockers=status.blocker?esc(status.blocker):status.active?'Not reported yet':'None reported';
-  host.innerHTML=`<div class="session-report-heading"><span class="session-state session-state-${esc(session.status)}">${esc(status.label)}</span><span>${esc(session.agent==='claude'?'Claude':'Codex')} · ${esc(session.model)}</span></div><strong class="session-report-task">${esc(session.task||'Interactive session')}</strong><dl class="session-report-facts"><div><dt>Finished</dt><dd>${status.finished?'Yes':status.active?'No · still running':'No · '+esc(status.label.toLowerCase())}</dd></div><div><dt>Blockers</dt><dd class="${status.blocker?'has-blocker':''}">${blockers}</dd></div></dl><div class="widget-footer"><span>${esc(new Date(session.createdAt).toLocaleString())}</span><button type="button" id="open-last-session">Open session <span aria-hidden="true">↗</span></button></div>`;
-  $('#open-last-session').onclick=()=>openProjectSession(session.id);
- }catch(error){if(host?.isConnected)host.innerHTML=`<p class="widget-empty">${esc(error.message)}</p>`;}
+// When Home shows "Needs reconciling" for this project. Workbench only warns; ask the agent to reconcile.
+async function mountReconcileLimits(host,project){
+ const fields=[['unmerged','Branches with unmerged commits'],['behind','Branches behind main'],['remote','Commits ahead of or behind the remote']];
+ let all;try{all=await api('reconcile-limits');}catch(error){host.innerHTML=`<h2>Reconcile warning</h2><p class="widget-empty">${esc(error.message)}</p>`;return;}
+ if(!host.isConnected)return;const limits=all.projects[project.id]||all.defaults;
+ host.innerHTML=`<h2>Reconcile warning</h2><p class="field-help">Home shows <strong>Needs reconciling</strong> on this project's card when any of these reaches its limit.</p><form class="reconcile-form">${fields.map(([k,label])=>`<label>${label}<input type="number" name="${k}" min="1" max="999" step="1" required value="${limits[k]}"></label>`).join('')}<div class="reconcile-actions"><button type="submit" class="primary">Save limits</button><span class="field-help" role="status" data-reconcile-status></span></div></form>`;
+ host.querySelector('form').onsubmit=async e=>{e.preventDefault();const form=new FormData(e.target),status=host.querySelector('[data-reconcile-status]'),button=e.target.querySelector('button');button.disabled=true;status.textContent='';
+  try{await api('projects/'+encodeURIComponent(project.id)+'/reconcile-limits','PUT',Object.fromEntries(fields.map(([k])=>[k,Number(form.get(k))])));if(host.isConnected)status.textContent='Saved.';}
+  catch(error){if(host.isConnected)status.textContent=error.message;}finally{button.disabled=false;}};
 }
 function mountProjectWidgets(project){
  // The page heading renders inside the top bar; widgets follow the bar.
@@ -333,15 +330,13 @@ function mountProjectWidgets(project){
   onRun:id=>confirmLeave(()=>{if(projectID!==project.id)return;workflowRunID=id;view='workflow';render();}),
   onIssue:number=>confirmLeave(()=>{if(projectID===project.id)openProjectIssue(number);}),
   onIssues:()=>confirmLeave(()=>{issueNumber=null;issueProposalID=null;issueEditMode=false;view='issues';render();})});
- $('#import-project-chat').onclick=()=>openSessionImport({project,api,onSaved:()=>{loadLastSession(project);toast('Chat imported.');}});
  const gitStrip=document.createElement('section');gitStrip.className='project-git-strip';gitStrip.setAttribute('aria-label','Git');agentHost.before(gitStrip);const gitWidget=document.createElement('article');gitWidget.className='project-widget git-status-widget';gitStrip.append(gitWidget);
- gitStatusView=mountGitStatus(gitWidget,project,api,{onLifecycle:id=>{if(projectID===project.id)lifecycleView?.openRecord(id);},onSession:id=>{if(projectID!==project.id)return;openProjectSession(id);}});
- const lifecycleHost=document.createElement('article');lifecycleHost.className='project-widget';dashboard.append(lifecycleHost);lifecycleView=mountLifecycle(lifecycleHost,{project,api,onSession:openProjectSession,onContinue:id=>{if(projectID===project.id)gitStatusView?.openTask(id);}});
+ gitStatusView=mountGitStatus(gitWidget,project,api,{onSession:id=>{if(projectID!==project.id)return;openProjectSession(id);}});
+ const limitsHost=document.createElement('article');limitsHost.className='project-widget reconcile-widget';dashboard.append(limitsHost);mountReconcileLimits(limitsHost,project);
  const briefingHost=document.createElement('article');briefingHost.className='project-widget';dashboard.prepend(briefingHost);briefingView=mountProjectBriefing(briefingHost,{project,api,onIssue:number=>{if(projectID===project.id)openProjectIssue(number);}});
- const quickHost=document.createElement('section');dashboard.prepend(quickHost);quickActionsView=mountQuickActions(quickHost,{project,api,confirmLeave,onOpen:openProjectSession});
  // The widgets share the left column with the agent sections so the conversation card stays pinned beside the whole page.
  agentHost.querySelector('#agent-main')?.append(dashboard);
- loadPriorityIssues(project);loadLastSession(project);
+ loadPriorityIssues(project);
 }
 function renderProjectOverview(){
  const project=currentProject();
@@ -585,7 +580,7 @@ function renderHistory(){
   });
   $('#compare-runs').onclick=()=>{view='compare';render();};
 }
-const hasUnsaved=()=>dirty||lifecycleView?.isDirty()||lifecycleView?.isPending()||gitStatusView?.isDirty()||gitStatusView?.isPending()||delegationView?.isDirty()||delegationView?.isPending()||quickActionsView?.isPending()||issuesView?.isDirty()||issuesView?.isPending()||codexView?.isDirty()||workflowView?.isDirty()||skillsView?.isDirty()||skillsView?.isPending()||connectionsView?.isDirty()||connectionsView?.isPending()||playbooksView?.isDirty()||playbooksView?.isPending()||[...reviewDrafts.values()].some(Boolean)||$('#dialog').open||busy;
+const hasUnsaved=()=>dirty||gitStatusView?.isDirty()||gitStatusView?.isPending()||delegationView?.isDirty()||delegationView?.isPending()||issuesView?.isDirty()||issuesView?.isPending()||codexView?.isDirty()||workflowView?.isDirty()||skillsView?.isDirty()||skillsView?.isPending()||connectionsView?.isDirty()||connectionsView?.isPending()||playbooksView?.isDirty()||playbooksView?.isPending()||[...reviewDrafts.values()].some(Boolean)||$('#dialog').open||busy;
 let loaded=false;
 window.addEventListener('beforeunload',e=>{if(hasUnsaved()){e.preventDefault();e.returnValue='';}});
 let lastRenderedHash='';

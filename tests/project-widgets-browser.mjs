@@ -25,17 +25,22 @@ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const url=`http
 const browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL||'chrome',headless:true});
 try{
  const page=await browser.newPage({viewport:{width:1440,height:1100},colorScheme:'dark'}),errors=[];page.on('pageerror',error=>errors.push(error.message));
- await page.goto(url+'/#project/'+project.id);await page.getByRole('heading',{name:'Priority issues',exact:true}).waitFor();await page.getByRole('heading',{name:'Last session',exact:true}).waitFor();
+ await page.goto(url+'/#project/'+project.id);await page.getByRole('heading',{name:'Priority issues',exact:true}).waitFor();
+ for(const gone of ['Last session','Recent result'])assert.equal(await page.getByRole('heading',{name:gone,exact:true}).count(),0,gone+' is not on the project page.');assert.equal(await page.locator('.project-quick-actions').count(),0);
  assert.deepEqual(await page.locator('.priority-pill').evaluateAll(p=>p.map(x=>[x.className.replace('priority-pill priority-',''),x.title])),[['urgent','Urgent'],['high','High'],['medium','Medium'],['low','Low'],['none','No priority'],['none','No priority']],'The pill color and title carry the priority; its text is the issue number.');
  assert.ok((await page.locator('.priority-pill').allTextContents()).every(t=>/^#\d+$/.test(t)));
  assert.deepEqual(await page.locator('.priority-issue-copy strong').allTextContents(),['Urgent issue','High issue','Medium issue','Low issue','No priority issue','Second unprioritized issue']);
  assert.equal(await page.locator('.priority-urgent').evaluate(element=>getComputedStyle(element).backgroundColor),'rgb(182, 2, 5)');
  assert.equal(await page.locator('#priority-issues-meta').textContent(),'6 open issues');
- assert.match(await page.locator('#last-session-report').textContent(),/Completed.*Implement the project dashboard.*FinishedYes.*BlockersNone reported/s);
- assert.doesNotMatch(await page.locator('#last-session-report').textContent(),/Internal proposal/);
+ // Reconcile warning replaces Work lifecycle: three limits, saved for this project.
+ assert.equal(await page.getByRole('heading',{name:'Work lifecycle',exact:true}).count(),0);
+ const limits=page.locator('.reconcile-widget');await limits.getByRole('heading',{name:'Reconcile warning',exact:true}).waitFor();
+ assert.equal(await limits.getByLabel('Branches with unmerged commits').inputValue(),'3');
+ await limits.getByLabel('Branches with unmerged commits').fill('1');await limits.getByRole('button',{name:'Save limits',exact:true}).click();await limits.getByText('Saved.').waitFor();
+ assert.equal((await(await fetch(url+'/api/reconcile-limits')).json()).projects[project.id].unmerged,1);
+ await limits.screenshot({path:'output/reconcile-widget.png'});
  mkdirSync('output',{recursive:true});await page.screenshot({path:'output/project-widgets-desktop.png',fullPage:true});
  await page.locator('[data-priority-issue="3"]').click();await page.waitForURL('**/#issues/'+project.id+'/3');await page.getByRole('heading',{name:'Urgent issue',exact:true}).waitFor();
- await page.locator('#project-home').click();await page.locator('#open-last-session').click();await page.waitForURL('**/#sessions/'+project.id+'/user-session');await page.getByRole('heading',{name:'Finished · review the result',exact:true}).waitFor();
  await page.locator('#project-home').click();await page.setViewportSize({width:390,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({path:'output/project-widgets-mobile.png',fullPage:true});
- assert.deepEqual(errors,[]);console.log('Project widgets passed: priority sorting/pills, PR exclusion, issue/session links, internal-run exclusion, completion/blocker report and mobile.');
+ assert.deepEqual(errors,[]);console.log('Project widgets passed: priority sorting/pills, PR exclusion, issue links, no Last session / Recent result / quick actions / lifecycle, reconcile warning settings, and mobile.');
 }finally{await browser.close();server.shutdownCodex();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));rmSync(root,{recursive:true,force:true});}

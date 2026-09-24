@@ -38,6 +38,8 @@ read-only GitHub browsing with explicit agent proposal and apply actions.
 - `lib/coordinator-sessions.js`, `lib/session-host.js`, `scripts/session-host.mjs`: agent CLI sessions and the
   host process that keeps them alive across restarts.
 - `lib/benchmarks.js`: pinned baselines, workspace archives and guarded cleanup.
+- `lib/reconcile-limits.js`: per-project limits for Home's "Needs reconciling" warning (set on the project page;
+  Workbench only warns, the person asks an agent to reconcile). The lifecycle backend (`lib/lifecycle-*.js`) has no UI.
 - `lib/tools.js`, `public/tools-ui.js`: Tools inventory of each CLI's skills and MCP servers, and Install MCP server.
 - `lib/issues.js`, `public/issues-ui.js`: GitHub reads and persisted title/body edit
   proposals. Browsing and drafting must never publish; only explicit Apply may write.
