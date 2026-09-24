@@ -9,7 +9,7 @@ const root=mkdtempSync(path.join(tmpdir(),'skd-tools-browser-')),home=path.join(
 const skill=(dir,name,description)=>{mkdirSync(path.join(dir,name),{recursive:true});writeFileSync(path.join(dir,name,'SKILL.md'),`---\nname: ${name}\ndescription: ${description}\n---\nBody`);};
 skill(path.join(home,'.codex','skills'),'dev-plan','Turn a request into a tracked plan');skill(path.join(home,'.claude','skills'),'dev-plan','Turn a request into a tracked plan');skill(path.join(home,'.claude','skills'),'handoff','Write handoff notes');
 mkdirSync(path.join(home,'.codex'),{recursive:true});writeFileSync(path.join(home,'.codex','config.toml'),'[mcp_servers.node_repl]\ncommand="node"\nargs=["repl.js"]\n[mcp_servers.vispix]\nurl="https://vispix.test/mcp"\nenabled=false\n');
-writeFileSync(path.join(home,'.claude.json'),JSON.stringify({mcpServers:{'tracker-trapper':{command:'tt',args:['mcp'],env:{TT_TOKEN:'tt-secret-value-9'}}}}));
+writeFileSync(path.join(home,'.claude.json'),JSON.stringify({mcpServers:{'tracker-trapper':{command:'tt',args:['mcp'],env:{TT_TOKEN:'tt-secret-value-9'}}},claudeAiMcpEverConnected:['claude.ai Mobbin']}));
 mkdirSync(folder);skill(path.join(folder,'.agents','skills'),'release','Cut a release for this app');
 const cli=name=>{const file=path.join(root,name);writeFileSync(file,`#!/usr/bin/env node\nrequire('node:fs').appendFileSync(${JSON.stringify(log)},JSON.stringify({cli:${JSON.stringify(name)},args:process.argv.slice(2)})+'\\n');console.log('Added');`,{mode:0o755});return file;};
 const server=createServer({directory:path.join(root,'data'),connectionsOptions:{home,enumerateCodex:async()=>[]},toolsOptions:{home,codexBinary:cli('codex'),claudeBinary:cli('claude')}});
@@ -21,7 +21,7 @@ try{
  const page=await browser.newPage({viewport:{width:1280,height:900}});page.setDefaultTimeout(15000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(url);await page.locator('[data-global-tools]').click();await page.getByRole('heading',{name:'Tools',exact:true}).waitFor();
  const codex=page.locator('.tools-column').filter({has:page.getByRole('heading',{name:'Codex',exact:true})}),claude=page.locator('.tools-column').filter({has:page.getByRole('heading',{name:'Claude Code',exact:true})});
- await codex.getByText('node_repl').waitFor();assert.match(await codex.textContent(),/vispix.*http · off/s);assert.match(await claude.textContent(),/tracker-trapper/);assert.match(await claude.textContent(),/handoff/);
+ await codex.getByText('node_repl').waitFor();assert.match(await codex.textContent(),/vispix.*http · off/s);assert.match(await claude.textContent(),/tracker-trapper/);assert.match(await claude.textContent(),/handoff/);assert.match(await claude.locator('li',{hasText:'Mobbin'}).textContent(),/claude\.ai connector/);
  assert.match(await codex.locator('li',{hasText:'dev-plan'}).textContent(),/both/);assert(!(await page.locator('#tools-view').textContent()).includes('tt-secret-value-9'),'Secret values never shown.');
  assert.equal(await page.getByText('release',{exact:true}).count(),0,'No project skills until a project is chosen.');
  await page.locator('#tools-project').selectOption(project.id);await codex.getByText('release',{exact:true}).waitFor();assert.equal(new URL(page.url()).hash,'#tools/'+project.id);
