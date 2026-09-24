@@ -66,12 +66,12 @@ function coordinatorPanel(host,{key,api,modal,notify,refresh,p='agent'}){
   if(termID===session.id&&termLive===live)return;clear();termID=session.id;termLive=live;
   term=mountTerminal({session,api,onChange:s=>{if(s.status!=='running')refresh();},inline:{host:q('#'+p+'-cli-screen'),endpoint:'coordinator-terminal/',stopPath:id=>'coordinator/sessions/'+encodeURIComponent(id)+'/stop',
    eyebrow:`${providerLabels[session.provider]} · ${session.model}`,title:live?(key==='coordinator'?'Orchestrator session':'Project agent session'):'Previous session',endLabel:'Stop session',
-   footer:live?'Messages from the message box are typed here, and lines typed here are copied to Chat. Answer permission prompts in this terminal.':`Read-only transcript. This session ${endReasons[session.endReason]||'ended'}.`}});
+   footer:live?'Type here. Lines you type are copied to Chat. Answer permission prompts in this terminal.':`Read-only transcript. This session ${endReasons[session.endReason]||'ended'}.`}});
  }
  function apply(){
   const cli=mode()==='cli'&&!!c;
-  // The message box stays in both views: Chat and CLI are the same live session.
-  q('#'+p+'-messages').hidden=cli;q('#'+p+'-cli').hidden=!cli;q('.agent-thread').classList.toggle('agent-cli-mode',cli);
+  // Chat and CLI are the same live session. The CLI takes typing itself, so it shows no message box.
+  q('#'+p+'-messages').hidden=cli;q('#'+p+'-cli').hidden=!cli;q('#'+p+'-composer').hidden=cli;q('.agent-thread').classList.toggle('agent-cli-mode',cli);
   host.querySelectorAll('[data-coordinator-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.coordinatorMode===mode())));
   if(!cli){clear();return;}
   if(!c.enabled){clear();q('#'+p+'-cli-empty').innerHTML='<span>The coordinator agent is off</span><button type="button" class="agent-start" data-coordinator-settings>Set up</button>';q('#'+p+'-cli-history').innerHTML='';q('#'+p+'-cli').classList.add('agent-cli-idle');return;}
