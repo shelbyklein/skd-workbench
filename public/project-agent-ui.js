@@ -17,18 +17,21 @@ function progress(steps){return `<ol class="agent-steps" aria-label="Workflow st
 // Shared conversation panel: one draft and request key per scope (project ID or coordinator).
 function threadAside(label,eyebrow,card,p='agent'){return `<aside class="agent-thread" aria-label="${label}"><header><div><div id="${p}-view-switch" class="agent-view-switch-slot"></div><span class="eyebrow">${eyebrow}</span><h2 id="${p}-thread-title"></h2></div><button type="button" class="text-button" id="${p}-refresh">Refresh</button></header>
  <p class="agent-thread-status" id="${p}-thread-status"></p><ol class="agent-messages" id="${p}-messages" aria-live="polite"></ol><div class="agent-cli" id="${p}-cli" hidden><div id="${p}-cli-screen" class="agent-cli-screen"></div><p class="field-help agent-cli-empty" id="${p}-cli-empty"></p><div class="agent-cli-history" id="${p}-cli-history"></div></div>${card?'<button type="button" class="agent-mandate-card" id="'+p+'-mandate-card"></button>':''}<div class="agent-coordinator" id="${p}-coordinator"></div>
- <form class="agent-composer" id="${p}-composer"><label for="${p}-message" id="${p}-message-label">Message</label><textarea id="${p}-message" rows="3" maxlength="8000"></textarea><div class="agent-composer-actions"><span class="field-help" id="${p}-message-help"></span><button type="submit" class="primary" id="${p}-send">Send</button></div><p class="form-error" id="${p}-send-error" role="alert"></p></form></aside>`;}
+ <form class="agent-composer" id="${p}-composer"><label for="${p}-message" id="${p}-message-label" class="visually-hidden">Message</label><div class="agent-composer-box"><textarea id="${p}-message" rows="2" maxlength="8000"></textarea><div class="agent-composer-bar"><span class="agent-composer-agent" id="${p}-composer-agent"></span><button type="submit" class="agent-send" id="${p}-send" aria-label="Send" title="Send (⌘↵)"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button></div></div><p class="field-help agent-composer-help" id="${p}-message-help"></p><p class="form-error" id="${p}-send-error" role="alert"></p></form></aside>`;}
 function bindComposer(host,{key,send,sent,p='agent'}){
  const q=s=>host.querySelector(s),input=q('#'+p+'-message');let sending=false;
  input.value=drafts.get(key)?.text||'';
- input.oninput=()=>{drafts.set(key,{text:input.value,key:null});saveDrafts();};
+ // The label stays for screen readers; its text is the placeholder, and the box grows with the draft.
+ const label=q('#'+p+'-message-label'),grow=()=>{input.style.height='auto';input.style.height=Math.min(input.scrollHeight,220)+'px';};
+ new MutationObserver(()=>{input.placeholder=label.textContent;}).observe(label,{childList:true,characterData:true,subtree:true});input.placeholder=label.textContent;
+ input.oninput=()=>{drafts.set(key,{text:input.value,key:null});saveDrafts();grow();};requestAnimationFrame(grow);
  input.onkeydown=e=>{if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)){e.preventDefault();q('#'+p+'-composer').requestSubmit();}};
  q('#'+p+'-composer').onsubmit=async e=>{
   e.preventDefault();if(sending)return;const text=input.value.trim();if(!text){q('#'+p+'-send-error').textContent='Write a message first.';return;}
   // Keep one request key per unsent draft so an ambiguous failure can be retried without a duplicate.
   const draft=drafts.get(key)||{text:input.value,key:null};draft.key??=crypto.randomUUID();drafts.set(key,draft);saveDrafts();
   sending=true;q('#'+p+'-send').disabled=true;q('#'+p+'-send-error').textContent='';
-  try{await send({text,requestKey:draft.key});if(!host.isConnected)return;drafts.delete(key);saveDrafts();input.value='';await sent();}
+  try{await send({text,requestKey:draft.key});if(!host.isConnected)return;drafts.delete(key);saveDrafts();input.value='';grow();await sent();}
   catch(error){if(host.isConnected)q('#'+p+'-send-error').textContent=error.message+' Your draft is kept.';}
   finally{sending=false;if(host.isConnected)q('#'+p+'-send').disabled=false;}
  };
@@ -40,6 +43,7 @@ function renderMessages(host,t,name,p='agent'){
  list.scrollTop=list.scrollHeight;
 }
 
+const effortLabel=e=>e?e[0].toUpperCase()+e.slice(1):'';
 const providerLabels={claude:'Claude Code',codex:'Codex'},endReasons={stopped:'stopped',idle:'ended after 30 minutes idle',settings:'ended by a settings change',server:'ended when the server stopped',exited:'exited'};
 // Chat or CLI view per conversation, kept while navigating.
 const cliModes=new Map();
@@ -49,6 +53,7 @@ export const openCoordinatorCLI=key=>cliModes.set(key,'cli');
 function coordinatorPanel(host,{key,api,modal,notify,refresh,p='agent'}){
  const q=s=>host.querySelector(s);let c=null,term=null,termID=null,termLive=false,viewing=null;
  const mode=()=>cliModes.get(key)||'chat';
+ const effortMenu=effortPopover(host,{key,api,notify,p,state:()=>c,refresh});
  const clear=()=>{term?.dispose();term=null;termID=null;};
  function mount(session,live){
   if(termID===session.id&&termLive===live)return;clear();termID=session.id;termLive=live;
@@ -69,6 +74,8 @@ function coordinatorPanel(host,{key,api,modal,notify,refresh,p='agent'}){
   q('#'+p+'-cli-history').innerHTML=c.history.length?`<h3>Previous sessions</h3><ul>${c.history.map(h=>`<li><button type="button" class="text-button" data-coordinator-history="${esc(h.id)}" aria-pressed="${h.id===termID}">${esc(when(h.startedAt))} · ${esc(providerLabels[h.provider])} · ${esc(endReasons[h.endReason]||'ended')}</button></li>`).join('')}</ul>${saved&&c.session?'<button type="button" class="text-button" data-coordinator-history="">Back to current session</button>':''}`:'';
  }
  host.addEventListener('click',e=>{
+  if(e.target.closest('[data-effort-menu]')){effortMenu.toggle(e.target.closest('[data-effort-menu]'));return;}
+  if(e.target.closest('[data-coordinator-settings]'))effortMenu.close();
   const m=e.target.closest('[data-coordinator-mode]');if(m){cliModes.set(key,m.dataset.coordinatorMode);viewing=null;apply();if(mode()==='cli')q('#'+p+'-cli .xterm-helper-textarea')?.focus();return;}
   const h=e.target.closest('[data-coordinator-history]');if(h){viewing=h.dataset.coordinatorHistory||null;apply();return;}
   if(e.target.closest('[data-coordinator-open-cli]')){cliModes.set(key,'cli');viewing=null;apply();}
@@ -88,6 +95,8 @@ function coordinatorPanel(host,{key,api,modal,notify,refresh,p='agent'}){
    slot.innerHTML=c?.enabled?`<span class="agent-coordinator-state agent-owner-${s?.waiting?'waiting':s?'active':'none'}">${esc(who)} · ${esc(status)}</span><button type="button" class="text-button" data-coordinator-settings>Settings</button>`
     :`<span class="agent-coordinator-state agent-owner-none">Coordinator agent off</span><button type="button" class="text-button" data-coordinator-settings>Set up</button>`;
    if(s?.waiting)slot.insertAdjacentHTML('beforeend',`<p class="agent-waiting" role="status"><strong>Waiting for you in the CLI.</strong> Answer the permission prompt to continue.${mode()==='cli'?'':' <button type="button" class="primary" data-coordinator-open-cli>Open CLI</button>'}</p>`);
+   // Model and effort sit in the message box, like a model menu; choosing them opens the agent's settings.
+   const pick=c?.agent||c;q('#'+p+'-composer-agent').innerHTML=c?.enabled&&pick?.model?`<button type="button" class="agent-model-button" data-effort-menu aria-haspopup="dialog" aria-expanded="false" title="Effort">${esc(pick.model)} <span>${esc(effortLabel(pick.effort))}</span><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg></button>`:'';
    q('#'+p+'-message-help').textContent=!c?.enabled?'Messages are saved. Turn on the coordinator agent to get replies.':c.agent?`Messages go to this project's agent. It works with the project's own instructions and tools, reports to the orchestrator, and asks in its CLI before edits and commands.`:'Messages go to the orchestrator. It hands work to project agents and relays their questions here.';
    if(viewing&&!c.history.some(h=>h.id===viewing))viewing=null;
    // A session that just ended stays on screen as its read-only transcript.
@@ -97,6 +106,43 @@ function coordinatorPanel(host,{key,api,modal,notify,refresh,p='agent'}){
   },
   destroy:clear
  };
+}
+// Effort popover for the message box: a slider with one stop per effort the model supports.
+// Saving uses the same settings endpoints as the dialogs, so a running session ends when effort changes.
+const effortCatalog={};
+function effortPopover(host,{key,api,notify,p,state,refresh}){
+ let panel=null,anchor=null,saving=false,pending=null,timer=0;
+ const settingsPath=key==='coordinator'?'coordinator':'projects/'+encodeURIComponent(key)+'/agent-settings';
+ const models=async provider=>effortCatalog[provider]??=(await api('agents/'+provider)).models||[];
+ function close(){if(!panel)return;panel.remove();panel=null;anchor?.setAttribute('aria-expanded','false');removeEventListener('pointerdown',outside,true);removeEventListener('keydown',escape,true);}
+ const outside=e=>{if(panel&&!panel.contains(e.target)&&!anchor?.contains(e.target))close();};
+ const escape=e=>{if(e.key==='Escape'&&panel){e.preventDefault();close();anchor?.focus();}};
+ async function save(effort){
+  if(saving){pending=effort;return;}saving=true;panel?.querySelector('.effort-slider')?.setAttribute('aria-busy','true');
+  try{const current=await api(settingsPath);const body=key==='coordinator'?{version:current.version,enabled:current.enabled,provider:current.provider,model:current.model,effort}:{version:current.version,provider:current.agent.provider,model:current.agent.model,effort,workspace:current.agent.workspace};
+   await api(settingsPath,'PUT',body);notify(`Effort set to ${effortLabel(effort)}.`);refresh();}
+  catch(error){notify(error.message);}
+  finally{saving=false;panel?.querySelector('.effort-slider')?.removeAttribute('aria-busy');if(pending!==null){const next=pending;pending=null;save(next);}}
+ }
+ async function open(button){
+  const c=state(),pick=c?.agent||c;if(!pick?.model)return;anchor=button;
+  let efforts=[],name=pick.model;try{const m=(await models(pick.provider)).find(m=>m.id===pick.model);efforts=m?.efforts||[];name=m?.name||pick.model;}catch(error){notify(error.message);return;}
+  if(!efforts.length){notify('No effort levels are listed for this model.');return;}
+  const index=Math.max(0,efforts.indexOf(pick.effort)),reset=efforts.includes('default')?'default':null;
+  panel=document.createElement('div');panel.className='effort-popover';panel.setAttribute('role','dialog');panel.tabIndex=-1;panel.setAttribute('aria-label','Effort');
+  panel.innerHTML=`<div class="effort-head"><span></span><div class="effort-title"><button type="button" class="effort-name" data-coordinator-settings title="All agent settings"><span id="${p}-effort-value">${esc(effortLabel(efforts[index]))}</span><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button><small>${esc(name)}</small></div>${reset?'<button type="button" class="effort-reset" aria-label="Reset effort to default" title="Reset to default"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></button>':'<span></span>'}</div>
+   <div class="effort-slider" style="--stops:${efforts.length}"><div class="effort-dots" aria-hidden="true">${efforts.map(()=>'<i></i>').join('')}</div><input type="range" min="0" max="${efforts.length-1}" step="1" value="${index}" aria-label="Effort" aria-valuetext="${esc(effortLabel(efforts[index]))}"></div>
+   ${c.session?'<p class="effort-note">Changing effort ends the running session.</p>':''}`;
+  button.closest('.agent-composer-box').append(panel);button.setAttribute('aria-expanded','true');
+  const range=panel.querySelector('input'),value=panel.querySelector('#'+p+'-effort-value');
+  range.oninput=()=>{const e=efforts[range.value];value.textContent=effortLabel(e);range.setAttribute('aria-valuetext',effortLabel(e));};
+  // Keyboard steps commit on every key; save once the slider settles so a running session ends only once.
+  let saved=pick.effort;const commit=e=>{clearTimeout(timer);timer=setTimeout(()=>{if(e!==saved){saved=e;save(e);}},400);};
+  range.onchange=()=>commit(efforts[range.value]);
+  panel.querySelector('.effort-reset')?.addEventListener('click',()=>{range.value=efforts.indexOf(reset);range.oninput();commit(reset);});
+  addEventListener('pointerdown',outside,true);addEventListener('keydown',escape,true);panel.focus();
+ }
+ return {toggle(button){if(panel)close();else open(button);},close};
 }
 // Per-project agent: provider, model, effort and where it works. Saving ends a running session for that project.
 export async function openProjectAgentSettings({api,modal,notify,projectID,onSaved}){

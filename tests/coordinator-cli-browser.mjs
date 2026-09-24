@@ -30,6 +30,11 @@ try{
  await page.locator('#dialog [name=enabled]').check();await page.locator('#dialog [name=provider]').selectOption('claude');await page.locator('#dialog [name=model]').selectOption('fixture');await page.locator('#dialog [name=effort]').selectOption('low');
  await page.getByRole('button',{name:'Save',exact:true}).click();
  await page.waitForFunction(()=>/Claude Code · fixture · No session/.test(document.querySelector('#dock-coordinator')?.textContent));
+ // The message box's model button opens the effort slider; reset returns to the model default and saves once.
+ await dock.locator('#dock-composer [data-effort-menu]').click();const effort=dock.locator('.effort-popover');await effort.waitFor();
+ assert.match(await effort.textContent(),/Low/);await effort.getByRole('button',{name:'Reset effort to default'}).click();
+ await page.waitForFunction(()=>/fixture Default/.test(document.querySelector('#dock-composer [data-effort-menu]')?.textContent||''));
+ assert.equal((await api('coordinator')).effort,'default');await page.keyboard.press('Escape');await effort.waitFor({state:'detached'});
  // Chat: the message goes into a new live session and the agent posts its reply.
  await page.locator('#dock-message').fill('hi from browser');await page.locator('#dock-send').click();
  await page.getByText('Echo: hi from browser (1 granted project)').waitFor();

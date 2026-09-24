@@ -536,3 +536,34 @@ body.terminal-open .issue-detail-layout{grid-template-columns:minmax(0,1fr)}
 [data-theme="dark"] .danger-outline{color:#f2a79c;border-color:#7a4038}[data-theme="dark"] .primary.danger-action{background:#b8483a;border-color:#b8483a}
 .removed-project-list{list-style:none;margin:0;padding:0}.removed-project-list li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
 .removed-project-list span{display:flex;flex-direction:column;gap:2px;min-width:0}.removed-project-list small{color:var(--muted);overflow-wrap:anywhere}
+/* Chat composer: one rounded box with the draft, the agent in use and a round send button */
+.agent-composer .agent-composer-box{display:flex;flex-direction:column;gap:6px;border:1px solid var(--line);border-radius:18px;background:var(--surface);padding:12px 12px 10px 16px;transition:border-color .15s}
+.agent-composer .agent-composer-box:focus-within{border-color:var(--muted)}
+.agent-composer .agent-composer-box textarea{border:0;background:transparent;padding:2px 0;min-height:44px;max-height:220px;resize:none;outline:none;box-shadow:none;font-size:15px;line-height:1.45;color:var(--ink)}
+.agent-composer .agent-composer-box textarea::placeholder{color:var(--muted)}
+.agent-composer-bar{display:flex;align-items:center;justify-content:flex-end;gap:10px}
+.agent-composer-agent{margin-right:auto;min-width:0}
+.agent-model-button{display:inline-flex;align-items:center;gap:4px;max-width:100%;border:0;background:transparent;padding:4px 8px;margin-left:-8px;border-radius:8px;font-size:13px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.agent-model-button span{color:var(--muted)}.agent-model-button svg{width:14px;height:14px;flex:none;color:var(--muted)}
+@media(hover:hover) and (pointer:fine){.agent-model-button:hover:not(:disabled){background:var(--line)}}
+.agent-send{flex:none;width:34px;height:34px;padding:0;border-radius:50%;border:0;display:grid;place-items:center;background:var(--ink);color:var(--white)}
+.agent-send svg{width:18px;height:18px}.agent-send:disabled{opacity:.4;cursor:default}
+[data-theme="dark"] .agent-send,[data-theme="dark"] .agent-send:hover:not(:disabled){background:#f2f2f2;color:#111;border:0}
+.agent-composer .agent-composer-help{margin:2px 4px 0;font-size:11px}.agent-composer .agent-composer-help:empty{display:none}
+/* Effort popover above the message box */
+.agent-composer-box{position:relative}
+.effort-popover{position:absolute;left:8px;bottom:calc(100% + 8px);z-index:20;width:min(320px,calc(100% - 16px));padding:12px 14px 14px;border:1px solid var(--line);border-radius:18px;background:var(--white);box-shadow:0 12px 32px #0003;display:grid;gap:10px}
+.effort-head{display:grid;grid-template-columns:28px 1fr 28px;align-items:start}
+.effort-title{display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center}.effort-title small{font-size:13px;color:var(--muted)}
+.effort-name{display:inline-flex;align-items:center;gap:2px;border:0;background:transparent;padding:0 4px;font-size:17px;font-weight:600;color:#3b82f6}.effort-name svg{width:16px;height:16px;color:var(--muted)}
+.effort-reset{border:0;background:transparent;padding:4px;color:var(--muted);border-radius:8px}.effort-reset svg{width:18px;height:18px;display:block}
+.effort-slider{position:relative;height:36px;border-radius:18px;background:var(--surface);border:1px solid var(--line)}
+.effort-slider[aria-busy]{opacity:.6}
+.effort-dots{position:absolute;inset:0 14px;display:flex;align-items:center;justify-content:space-between;pointer-events:none}.effort-dots i{width:6px;height:6px;border-radius:50%;background:var(--muted);opacity:.7}
+.effort-slider input{position:absolute;inset:0;width:100%;height:100%;margin:0;background:transparent;appearance:none;-webkit-appearance:none;cursor:pointer}
+.effort-slider input::-webkit-slider-runnable-track{height:34px;background:transparent}
+.effort-slider input::-webkit-slider-thumb{-webkit-appearance:none;width:34px;height:34px;border-radius:50%;background:#fff;box-shadow:0 1px 4px #0004;margin-top:0}
+.effort-slider input::-moz-range-thumb{width:34px;height:34px;border:0;border-radius:50%;background:#fff;box-shadow:0 1px 4px #0004}
+.effort-slider input:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:18px}
+.effort-popover:focus{outline:none}.effort-note{margin:0;font-size:11px;color:var(--muted);text-align:center}
+[data-theme="dark"] .effort-popover{background:#2a2a2a;border-color:#3a3a3a}[data-theme="dark"] .effort-name{color:#6ea2ff}[data-theme="dark"] .effort-slider{background:#383838;border-color:#444}
