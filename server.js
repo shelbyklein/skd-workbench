@@ -18,6 +18,7 @@ import {createFolderPicker} from './lib/folder-picker.js';
 import {captureIssueSteps} from './lib/issue-steps.js';
 import {GitHubIssues,IssueProposals,WorkbenchIssues} from './lib/issues.js';
 import {IssueWork} from './lib/issue-work.js';
+import {Attachments,attachmentLimit} from './lib/attachments.js';
 import {TerminalSessions} from './lib/terminals.js';
 import http from 'node:http';
 import { readFileSync } from 'node:fs';
@@ -51,6 +52,14 @@ const root = path.dirname(fileURLToPath(import.meta.url));
 const files = {'/coordinator-dock.js':'coordinator-dock.js','/project-agent-ui.js':'project-agent-ui.js','/sidebar-texture.png':'sidebar-texture.png','/briefing-ui.js':'briefing-ui.js','/controllers-ui.js':'controllers-ui.js','/connection-editor.js':'connection-editor.js','/agent-profile-picker.js':'agent-profile-picker.js','/issue-actions-ui.js':'issue-actions-ui.js','/workspace-tasks-ui.js':'workspace-tasks-ui.js','/delegations-ui.js':'delegations-ui.js','/session-import-ui.js':'session-import-ui.js','/git-status-ui.js':'git-status-ui.js','/agent-card.js':'agent-card.js','/planning-ui.js':'planning-ui.js','/knowledge-ui.js':'knowledge-ui.js','/skills-ui.js':'skills-ui.js','/tools-ui.js':'tools-ui.js','/connections-ui.js':'connections-ui.js','/playbooks-ui.js':'playbooks-ui.js','/settings-ui.js':'settings-ui.js','/markdown.js':'markdown.js','/theme.js':'theme.js','/':'index.html','/app.js':'app.js','/pwa.js':'pwa.js','/issues-ui.js':'issues-ui.js','/terminal-ui.js':'terminal-ui.js','/codex-ui.js':'codex-ui.js','/workflows-ui.js':'workflows-ui.js','/sw.js':'sw.js','/style.css':'style.css','/icon.svg':'icon.svg','/manifest.webmanifest':'manifest.webmanifest',
   '/icons/icon-192.png':'icons/icon-192.png','/icons/icon-512.png':'icons/icon-512.png','/icons/maskable-512.png':'icons/maskable-512.png','/icons/apple-touch-icon.png':'icons/apple-touch-icon.png'};
 const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
+// Raw upload for message attachments: the file name travels URI-encoded in X-File-Name.
+async function upload(req,limit) {
+  assert(req.headers['content-type']?.split(';')[0]==='application/octet-stream','Expected a file.',415);
+  const chunks=[];let length=0;
+  for await (const chunk of req) { length+=chunk.length;assert(length<=limit,'Attachments are limited to 20 MiB.',413);chunks.push(chunk); }
+  let name='';try{name=decodeURIComponent(String(req.headers['x-file-name']||''));}catch{}
+  return {name,bytes:Buffer.concat(chunks)};
+}
 async function body(req,limit=1024*1024) {
   assert(req.headers['content-type']?.split(';')[0] === 'application/json','Expected JSON.',415);
   const chunks=[];let length=0;
@@ -61,6 +70,7 @@ async function body(req,limit=1024*1024) {
 export function createServer({directory = process.env.FLOW_BENCH_DATA || path.join(root,'.data'), publicDirectory=path.join(root,'public'), codexOptions={},claudeOptions={},terminalOptions={},githubOptions={},skillsOptions={},connectionsOptions={},gitStatusOptions={},briefingOptions={},folderPicker=createFolderPicker(),remoteAccessOptions={},coordinatorOptions={},toolsOptions={},workbenchIssueOptions={}} = {}) {
   const toolsHome=toolsOptions.home||connectionsOptions.home||undefined;
   const store = new Store(directory);
+  const attachments=new Attachments(directory);
   const remoteAccess=new RemoteAccess(directory,remoteAccessOptions);
   const imports=new ImportedSessions(directory);
   const gitStatus=new GitStatus(gitStatusOptions);
@@ -278,6 +288,7 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
       const waitingDecisions=key=>coordinator.view().waiting.filter(w=>key===undefined||w.threadKey===key).map(w=>{const project=w.threadKey===COORDINATOR?null:store.snapshot().projects.find(p=>p.id===w.threadKey);return {kind:'coordinator',sessionID:w.id,threadKey:w.threadKey,projectID:project?.id||null,projectName:project?.name||'Coordinator',title:'Waiting for you in the coordinator CLI',detail:'Answer the permission prompt in the CLI view.',status:'waiting'};});
       const withWaiting=(overview,key)=>{const waiting=[...waitingDecisions(key),...coordinator.openQuestions(key)];return {...overview,decisions:[...waiting,...overview.decisions],...(overview.counts?{counts:{...overview.counts,decisions:overview.counts.decisions+waiting.length}}:{})};};
       if(pathname==='/api/agents/overview'&&req.method==='GET')return json({...withWaiting(portfolioOverview({projects:store.snapshot().projects,mandates,threads,runs:workflows.runs,executorOwner:codex.owner,coordinator:COORDINATOR})),coordinator:coordinator.state(COORDINATOR)});
+      if(pathname==='/api/attachments'&&req.method==='POST'){const file=await upload(req,attachmentLimit);return json(attachments.save(file.name,file.bytes),201);}
       if(pathname==='/api/coordinator/messages'){if(req.method==='GET')return json(threads.list(COORDINATOR,{cursor:Math.max(0,Number(url.searchParams.get('cursor'))||0),limit:50}));if(req.method==='POST'){const input=await body(req,16*1024);assert(Object.keys(input).every(k=>['text','requestKey','refs'].includes(k)),'Unknown message field.');const message=threads.post({id:COORDINATOR},{...input,author:'user'});return json({...message,...await deliver(COORDINATOR,message,{})},201);}}
       if(pathname==='/api/coordinator'&&req.method==='GET')return json(coordinator.view());
       if(pathname==='/api/coordinator'&&req.method==='PUT')return json(await coordinator.save(await body(req,16*1024),`http://${host}/api/controller/call`));

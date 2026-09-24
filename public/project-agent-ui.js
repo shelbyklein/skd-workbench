@@ -18,21 +18,48 @@ function progress(steps){return `<ol class="agent-steps" aria-label="Workflow st
 // One compact header row: the title on the left; the Chat / CLI switch and a refresh icon on the right.
 function threadAside(label,eyebrow,card,p='agent'){return `<aside class="agent-thread" aria-label="${label}"><header class="agent-thread-head"><div class="agent-thread-heading"><h2 id="${p}-thread-title"></h2><div class="agent-coordinator" id="${p}-coordinator"></div></div><div class="agent-thread-tools"><div id="${p}-view-switch" class="agent-view-switch-slot"></div><button type="button" class="icon-button thread-history" id="${p}-history" data-coordinator-history-open hidden><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg></button><button type="button" class="icon-button thread-refresh" id="${p}-refresh" aria-label="Refresh" title="Refresh"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 6.1A8 8 0 0 1 19.5 10M4.5 14a8 8 0 0 0 13.4 3.9"/></svg></button><span class="agent-settings-slot" id="${p}-settings"></span></div></header>
  <p class="agent-thread-status" id="${p}-thread-status"></p><ol class="agent-messages" id="${p}-messages" aria-live="polite"></ol><div class="agent-cli" id="${p}-cli" hidden><div id="${p}-cli-screen" class="agent-cli-screen"></div><p class="field-help agent-cli-empty" id="${p}-cli-empty"></p><div class="agent-cli-history" id="${p}-cli-history"></div></div>${card?'<button type="button" class="agent-mandate-card" id="'+p+'-mandate-card"></button>':''}<div class="agent-waiting-slot" id="${p}-waiting"></div>
- <form class="agent-composer" id="${p}-composer"><label for="${p}-message" id="${p}-message-label" class="visually-hidden">Message</label><div class="agent-composer-box"><textarea id="${p}-message" rows="2" maxlength="8000"></textarea><div class="agent-composer-bar"><span class="agent-composer-agent" id="${p}-composer-agent"></span><button type="submit" class="agent-send" id="${p}-send" aria-label="Send" title="Send (⌘↵)"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button></div></div><p class="field-help agent-composer-help" id="${p}-message-help"></p><p class="form-error" id="${p}-send-error" role="alert"></p></form></aside>`;}
+ <form class="agent-composer" id="${p}-composer"><label for="${p}-message" id="${p}-message-label" class="visually-hidden">Message</label><div class="agent-composer-box" id="${p}-composer-box"><ul class="agent-attachments" id="${p}-attachments" aria-label="Attachments"></ul><textarea id="${p}-message" rows="2" maxlength="8000"></textarea><div class="agent-composer-bar"><button type="button" class="agent-attach" id="${p}-attach" aria-label="Attach files" title="Attach files (or paste / drop them)"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m21 11-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.9-8.9a3.7 3.7 0 0 1 5.2 5.2l-8.9 8.9a1.8 1.8 0 0 1-2.6-2.6L15 6.6"/></svg></button><input type="file" id="${p}-attach-input" multiple hidden><span class="agent-composer-agent" id="${p}-composer-agent"></span><button type="submit" class="agent-send" id="${p}-send" aria-label="Send" title="Send (⌘↵)"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button></div></div><p class="field-help agent-composer-help" id="${p}-message-help"></p><p class="form-error" id="${p}-send-error" role="alert"></p></form></aside>`;}
+// Attached files per conversation, kept with the draft until the message is sent.
+const attachedFiles=new Map();
+const fileSize=n=>n<1024?n+' B':n<1048576?Math.round(n/1024)+' KB':(n/1048576).toFixed(1)+' MB';
+async function uploadAttachment(file){
+ const name=file.name&&file.name!=='image.png'?file.name:`pasted-${new Date().toISOString().replace(/[:.]/g,'-')}.${(file.type.split('/')[1]||'bin').replace(/[^a-z0-9]/g,'')}`;
+ const response=await fetch('/api/attachments',{method:'POST',headers:{'Content-Type':'application/octet-stream','X-File-Name':encodeURIComponent(name)},body:file});
+ const result=await response.json().catch(()=>({error:'Upload failed.'}));if(!response.ok)throw new Error(result.error||'Upload failed.');return result;
+}
 function bindComposer(host,{key,send,sent,p='agent'}){
- const q=s=>host.querySelector(s),input=q('#'+p+'-message');let sending=false;
+ const q=s=>host.querySelector(s),input=q('#'+p+'-message');let sending=false,uploading=0;
  input.value=drafts.get(key)?.text||'';
+ const files=()=>attachedFiles.get(key)||[];
+ const renderFiles=()=>{q('#'+p+'-attachments').innerHTML=files().map((f,i)=>`<li class="agent-attachment"><span title="${esc(f.path)}">${esc(f.name)}</span><small>${esc(fileSize(f.size))}</small><button type="button" class="icon-button" data-remove-attachment="${i}" aria-label="Remove ${esc(f.name)}">×</button></li>`).join('')+(uploading?`<li class="agent-attachment agent-attachment-pending">Uploading ${uploading} file${uploading>1?'s':''}…</li>`:'');};
+ async function attach(list){
+  const picked=[...list];if(!picked.length)return;uploading+=picked.length;renderFiles();q('#'+p+'-send-error').textContent='';
+  for(const file of picked){try{const saved=await uploadAttachment(file);attachedFiles.set(key,[...files(),saved]);}catch(error){q('#'+p+'-send-error').textContent=`${file.name||'File'}: ${error.message}`;}finally{uploading--;if(host.isConnected)renderFiles();}}
+ }
+ renderFiles();
+ q('#'+p+'-attach').onclick=()=>q('#'+p+'-attach-input').click();
+ q('#'+p+'-attach-input').onchange=e=>{attach(e.target.files);e.target.value='';};
+ q('#'+p+'-attachments').onclick=e=>{const b=e.target.closest('[data-remove-attachment]');if(!b)return;const next=files().slice();next.splice(Number(b.dataset.removeAttachment),1);attachedFiles.set(key,next);renderFiles();input.focus();};
+ // Pasted files (screenshots included) attach; pasted text goes into the box as usual.
+ input.addEventListener('paste',e=>{const list=[...(e.clipboardData?.files||[])];if(!list.length)return;if(!e.clipboardData.getData('text/plain'))e.preventDefault();attach(list);});
+ const box=q('#'+p+'-composer-box');
+ box.addEventListener('dragover',e=>{if([...(e.dataTransfer?.types||[])].includes('Files')){e.preventDefault();box.classList.add('agent-drop');}});
+ box.addEventListener('dragleave',e=>{if(!box.contains(e.relatedTarget))box.classList.remove('agent-drop');});
+ box.addEventListener('drop',e=>{box.classList.remove('agent-drop');if(!e.dataTransfer?.files?.length)return;e.preventDefault();attach(e.dataTransfer.files);});
  // The label stays for screen readers; its text is the placeholder, and the box grows with the draft.
  const label=q('#'+p+'-message-label'),grow=()=>{input.style.height='auto';input.style.height=Math.min(input.scrollHeight,220)+'px';};
  new MutationObserver(()=>{input.placeholder=label.textContent;}).observe(label,{childList:true,characterData:true,subtree:true});input.placeholder=label.textContent;
  input.oninput=()=>{drafts.set(key,{text:input.value,key:null});saveDrafts();grow();};requestAnimationFrame(grow);
  input.onkeydown=e=>{if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)){e.preventDefault();q('#'+p+'-composer').requestSubmit();}};
  q('#'+p+'-composer').onsubmit=async e=>{
-  e.preventDefault();if(sending)return;const text=input.value.trim();if(!text){q('#'+p+'-send-error').textContent='Write a message first.';return;}
+  e.preventDefault();if(sending)return;
+  if(uploading){q('#'+p+'-send-error').textContent='Wait for the attachments to finish uploading.';return;}
+  const typed=input.value.trim(),list=files();if(!typed&&!list.length){q('#'+p+'-send-error').textContent='Write a message first.';return;}
+  const text=list.length?`${typed}${typed?'\n\n':''}Attached file${list.length>1?'s':''}:\n${list.map(f=>f.path).join('\n')}`:typed;
   // Keep one request key per unsent draft so an ambiguous failure can be retried without a duplicate.
   const draft=drafts.get(key)||{text:input.value,key:null};draft.key??=crypto.randomUUID();drafts.set(key,draft);saveDrafts();
   sending=true;q('#'+p+'-send').disabled=true;q('#'+p+'-send-error').textContent='';
-  try{await send({text,requestKey:draft.key});if(!host.isConnected)return;drafts.delete(key);saveDrafts();input.value='';grow();await sent();}
+  try{await send({text,requestKey:draft.key});attachedFiles.delete(key);if(!host.isConnected)return;drafts.delete(key);saveDrafts();input.value='';grow();renderFiles();await sent();}
   catch(error){if(host.isConnected)q('#'+p+'-send-error').textContent=error.message+' Your draft is kept.';}
   finally{sending=false;if(host.isConnected)q('#'+p+'-send').disabled=false;}
  };

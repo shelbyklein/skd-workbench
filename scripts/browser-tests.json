@@ -34,5 +34,6 @@
  "tests/remote-access-browser.mjs",
  "tests/remove-project-browser.mjs",
  "tests/tools-browser.mjs",
- "tests/home-project-overview-browser.mjs"
+ "tests/home-project-overview-browser.mjs",
+ "tests/composer-attachments-browser.mjs"
 ]

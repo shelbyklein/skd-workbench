@@ -719,3 +719,13 @@ main.no-topbar .projects-section>.overview-section-heading{margin-top:0}
 .dock-agent-pill[data-state="off"]{color:var(--muted)}.dock-agent-pill[data-state="off"] .dock-agent-dot{background:#8b8f94}
 @keyframes dock-agent-pulse{0%,100%{box-shadow:0 0 0 0 #2f6fdb99}50%{box-shadow:0 0 0 5px #2f6fdb00}}
 @media(prefers-reduced-motion:reduce){.dock-agent-pill[data-state="working"] .dock-agent-dot{animation:none}}
+/* Message box attachments: a paperclip in the bar, chips above the text, and a highlight while dragging files over it. */
+.agent-attach{flex:none;width:30px;height:30px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--muted);display:grid;place-items:center;margin-left:-6px}
+.agent-attach:hover{color:var(--ink);background:var(--line)}.agent-attach svg{width:17px;height:17px}
+.agent-attachments{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}.agent-attachments:empty{display:none}
+.agent-attachment{display:inline-flex;align-items:center;gap:6px;max-width:100%;padding:3px 4px 3px 10px;border:1px solid var(--line);border-radius:999px;font-size:12px}
+.agent-attachment span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}.agent-attachment small{color:var(--muted)}
+.agent-attachment button{width:20px;height:20px;padding:0;border:0;border-radius:50%;background:transparent;line-height:1;font-size:15px}
+.agent-attachment-pending{color:var(--muted);padding-right:10px}
+.agent-composer .agent-composer-box.agent-drop{border-color:var(--ink);border-style:dashed}
+.agent-composer input[type=file][hidden]{display:none}
