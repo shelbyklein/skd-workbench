@@ -119,8 +119,9 @@ function effortPopover(host,{key,api,notify,p,state,refresh}){
  const escape=e=>{if(e.key==='Escape'&&panel){e.preventDefault();close();anchor?.focus();}};
  async function save(effort){
   if(saving){pending=effort;return;}saving=true;panel?.querySelector('.effort-slider')?.setAttribute('aria-busy','true');
-  try{const current=await api(settingsPath);const body=key==='coordinator'?{version:current.version,enabled:current.enabled,provider:current.provider,model:current.model,effort}:{version:current.version,provider:current.agent.provider,model:current.agent.model,effort,workspace:current.agent.workspace};
-   await api(settingsPath,'PUT',body);notify(`Effort set to ${effortLabel(effort)}.`);refresh();}
+  try{const change=typeof effort==='string'?{effort}:effort,current=await api(settingsPath),base=key==='coordinator'?current:current.agent;
+   const body={version:current.version,provider:change.provider||base.provider,model:change.model||base.model,effort:change.effort,...(key==='coordinator'?{enabled:current.enabled}:{workspace:base.workspace})};
+   await api(settingsPath,'PUT',body);notify(change.model?`Next session uses ${providerLabels[body.provider]} · ${change.name||body.model}.`:`Effort set to ${effortLabel(change.effort)}.`);refresh();}
   catch(error){notify(error.message);}
   finally{saving=false;panel?.querySelector('.effort-slider')?.removeAttribute('aria-busy');if(pending!==null){const next=pending;pending=null;save(next);}}
  }
@@ -130,9 +131,10 @@ function effortPopover(host,{key,api,notify,p,state,refresh}){
   if(!efforts.length){notify('No effort levels are listed for this model.');return;}
   const index=Math.max(0,efforts.indexOf(pick.effort)),reset=efforts.includes('default')?'default':null;
   panel=document.createElement('div');panel.className='effort-popover';panel.setAttribute('role','dialog');panel.tabIndex=-1;panel.setAttribute('aria-label','Effort');
-  panel.innerHTML=`<div class="effort-head"><span></span><div class="effort-title"><button type="button" class="effort-name" data-coordinator-settings title="All agent settings"><span id="${p}-effort-value">${esc(effortLabel(efforts[index]))}</span><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button><small>${esc(name)}</small></div>${reset?'<button type="button" class="effort-reset" aria-label="Reset effort to default" title="Reset to default"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></button>':'<span></span>'}</div>
+  panel.innerHTML=`<div class="effort-head"><span></span><div class="effort-title"><button type="button" class="effort-name" data-effort-models aria-expanded="false" title="Choose agent and model"><span id="${p}-effort-value">${esc(effortLabel(efforts[index]))}</span><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button><small>${esc(name)}</small></div>${reset?'<button type="button" class="effort-reset" aria-label="Reset effort to default" title="Reset to default"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></button>':'<span></span>'}</div>
    <div class="effort-slider" style="--stops:${efforts.length}"><div class="effort-dots" aria-hidden="true">${efforts.map(()=>'<i></i>').join('')}</div><input type="range" min="0" max="${efforts.length-1}" step="1" value="${index}" aria-label="Effort" aria-valuetext="${esc(effortLabel(efforts[index]))}"></div>
-   ${c.session?'<p class="effort-note">Changing effort ends the running session.</p>':''}`;
+   <div class="effort-models" hidden></div>
+   ${c.session?'<p class="effort-note">Changing the agent, model or effort ends the running session.</p>':''}`;
   button.closest('.agent-composer-box').append(panel);button.setAttribute('aria-expanded','true');
   const range=panel.querySelector('input'),value=panel.querySelector('#'+p+'-effort-value');
   range.oninput=()=>{const e=efforts[range.value];value.textContent=effortLabel(e);range.setAttribute('aria-valuetext',effortLabel(e));};
@@ -140,6 +142,23 @@ function effortPopover(host,{key,api,notify,p,state,refresh}){
   let saved=pick.effort;const commit=e=>{clearTimeout(timer);timer=setTimeout(()=>{if(e!==saved){saved=e;save(e);}},400);};
   range.onchange=()=>commit(efforts[range.value]);
   panel.querySelector('.effort-reset')?.addEventListener('click',()=>{range.value=efforts.indexOf(reset);range.oninput();commit(reset);});
+  // Agent and model list: Codex and Claude Code models from each CLI's catalog.
+  const list=panel.querySelector('.effort-models'),toggle=panel.querySelector('[data-effort-models]');
+  toggle.onclick=async()=>{
+   const show=list.hidden;list.hidden=!show;toggle.setAttribute('aria-expanded',String(show));panel.querySelector('.effort-slider').hidden=show;if(!show)return;
+   list.innerHTML='<p class="effort-note">Loading models…</p>';
+   const groups=await Promise.all(['codex','claude'].map(async provider=>{try{return {provider,models:await models(provider)};}catch(error){return {provider,error:error.message};}}));
+   if(!panel)return;
+   list.innerHTML=groups.map(g=>`<section><h4>${esc(providerLabels[g.provider])}</h4>${g.error?`<p class="effort-note">${esc(g.error)}</p>`:g.models.length?g.models.map(m=>`<button type="button" class="effort-model" data-provider="${esc(g.provider)}" data-model="${esc(m.id)}" aria-pressed="${g.provider===pick.provider&&m.id===pick.model}">${esc(m.name||m.id)}</button>`).join(''):'<p class="effort-note">No models available.</p>'}</section>`).join('')+'<button type="button" class="text-button effort-all" data-coordinator-settings>All settings…</button>';
+   list.querySelector('[aria-pressed="true"]')?.focus();
+  };
+  list.addEventListener('click',e=>{
+   const b=e.target.closest('.effort-model');if(!b||b.getAttribute('aria-pressed')==='true')return;
+   const g=effortCatalog[b.dataset.provider]||[],m=g.find(x=>x.id===b.dataset.model),options=m?.efforts||[];
+   // Keep the current effort when the new model has it; otherwise its default, then its first level.
+   const effort=options.includes(pick.effort)?pick.effort:options.includes('default')?'default':options[0];
+   save({provider:b.dataset.provider,model:b.dataset.model,name:m?.name,effort});close();
+  });
   addEventListener('pointerdown',outside,true);addEventListener('keydown',escape,true);panel.focus();
  }
  return {toggle(button){if(panel)close();else open(button);},close};

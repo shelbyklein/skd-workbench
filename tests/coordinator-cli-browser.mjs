@@ -35,6 +35,13 @@ try{
  assert.match(await effort.textContent(),/Low/);await effort.getByRole('button',{name:'Reset effort to default'}).click();
  await page.waitForFunction(()=>/fixture Default/.test(document.querySelector('#dock-composer [data-effort-menu]')?.textContent||''));
  assert.equal((await api('coordinator')).effort,'default');await page.keyboard.press('Escape');await effort.waitFor({state:'detached'});
+ // The heading opens the agent and model list: switch to Codex, then back to Claude Code for the rest of the test.
+ const pickModel=async(group,provider)=>{await dock.locator('#dock-composer [data-effort-menu]').click();await effort.waitFor();await effort.locator('[data-effort-models]').click();
+  await effort.locator('section',{hasText:group}).getByRole('button',{name:'Fixture'}).waitFor();await page.screenshot({path:'output/coordinator-model-list.png'});
+  await effort.locator(`.effort-model[data-provider="${provider}"]`).click();await effort.waitFor({state:'detached'});
+  for(let i=0;i<80&&(await api('coordinator')).provider!==provider;i++)await page.waitForTimeout(50);assert.equal((await api('coordinator')).provider,provider);};
+ await pickModel('Codex','codex');await page.waitForFunction(()=>/Codex · fixture/.test(document.querySelector('#dock-coordinator')?.textContent||''));
+ await pickModel('Claude Code','claude');await page.waitForFunction(()=>/Claude Code · fixture · No session/.test(document.querySelector('#dock-coordinator')?.textContent||''));
  // Chat: the message goes into a new live session and the agent posts its reply.
  await page.locator('#dock-message').fill('hi from browser');await page.locator('#dock-send').click();
  await page.getByText('Echo: hi from browser (1 granted project)').waitFor();
