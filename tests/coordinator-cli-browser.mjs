@@ -49,13 +49,10 @@ try{
  await page.waitForFunction(()=>/Session running/.test(document.querySelector('#dock-coordinator')?.textContent));
  // CLI: the same session, with the tool calls, live.
  await tab('CLI').click();await page.locator('.coordinator-terminal').waitFor();
- assert.equal(await page.locator('#dock-messages').isHidden(),true);assert.equal(await page.locator('#dock-composer').isVisible(),true,'The message box stays in CLI mode.');
+ assert.equal(await page.locator('#dock-messages').isHidden(),true);assert.equal(await page.locator('#dock-composer').isHidden(),true,'CLI is the terminal alone, with no message box.');
  assert.equal(await tab('CLI').getAttribute('aria-pressed'),'true');
  await waitScreen(/> hi from browser/);assert.match(await screen(),/workbench - list_projects \(MCP\)/);
  await page.screenshot({path:'output/coordinator-cli-live.png'});
- // The message box types into the same session without leaving the CLI view.
- await page.locator('#dock-message').fill('from the box in cli');await page.locator('#dock-send').click();
- await waitScreen(/> from the box in cli/);assert.equal(await tab('CLI').getAttribute('aria-pressed'),'true');assert.equal(await page.locator('#dock-message').inputValue(),'');
  // Typing in the CLI reaches the session; the reply still lands in the chat.
  await page.locator('.coordinator-terminal .terminal-screen').click();await page.keyboard.type('typed in cli');await page.keyboard.press('Enter');
  await waitScreen(/> typed in cli/);
