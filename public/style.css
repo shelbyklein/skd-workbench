@@ -606,27 +606,12 @@ body.dock-project-split .project-agent>.agent-thread{display:none}
 .thread-refresh{width:30px;height:30px;padding:0;display:grid;place-items:center;border-radius:8px}.thread-refresh svg{width:16px;height:16px}
 .agent-cli-history{display:flex;gap:10px;flex-wrap:wrap;max-height:none}
 .session-history-list{list-style:none;margin:0 0 8px;padding:0;display:grid;gap:2px}.session-history-list button[aria-pressed="true"]{font-weight:600}
-/* Shell and Hide: icon tabs hanging from the panel's top-right edge, shaped like folder tabs */
-.coordinator-dock{padding-top:30px}
-.dock-edge-tabs{position:absolute;top:0;right:18px;display:flex;gap:2px;z-index:2}
-.dock-edge-tabs button{position:relative;width:40px;height:26px;padding:0;border:0;background:transparent;color:var(--muted);display:grid;place-items:center;isolation:isolate}
-.dock-edge-tabs button::before{content:"";position:absolute;inset:0;z-index:-1;border:1px solid var(--line);border-top:0;border-radius:0 0 7px 7px;background:var(--surface);transform:perspective(24px) rotateX(-7deg);transform-origin:top}
+/* Shell and Hide: icon tabs sticking out of the panel's left edge, stacked, shaped like side folder tabs */
+.dock-edge-tabs{position:absolute;top:18px;right:100%;display:flex;flex-direction:column;gap:4px;z-index:2}
+.dock-edge-tabs button{position:relative;width:32px;height:38px;padding:0 0 0 2px;border:0;background:transparent;color:var(--muted);display:grid;place-items:center;isolation:isolate}
+.dock-edge-tabs button::before{content:"";position:absolute;inset:0;z-index:-1;border:1px solid var(--line);border-right:0;border-radius:8px 0 0 8px;background:var(--white);transform:perspective(26px) rotateY(-7deg);transform-origin:right}
 .dock-edge-tabs button svg{width:16px;height:16px}
-.dock-edge-tabs button[aria-pressed="true"]{color:var(--ink)}.dock-edge-tabs button[aria-pressed="true"]::before{background:var(--white);border-color:var(--muted)}
-@media(hover:hover) and (pointer:fine){.dock-edge-tabs button:hover{color:var(--ink);background:transparent}}
-/* Split panes are half height: give the terminal the room, keep the message box compact until used */
-.coordinator-dock.dock-split .coordinator-terminal footer{display:none}
-.coordinator-dock.dock-split .coordinator-terminal .terminal-header{padding:6px 10px}
-.coordinator-dock.dock-split .coordinator-terminal .terminal-status{padding:0 10px;font-size:11px}
-.coordinator-dock.dock-split .agent-thread>.agent-cli{min-height:200px;gap:6px}
-.coordinator-dock.dock-split .agent-composer-box{padding:8px 10px 8px 14px;gap:2px}
-.coordinator-dock.dock-split .agent-composer-box textarea{min-height:24px}
-.coordinator-dock.dock-split .agent-thread{gap:8px}
-/* CLI view with no terminal: one quiet centered line */
-.agent-cli.agent-cli-idle{flex-direction:row;align-items:center;justify-content:center;flex-wrap:wrap;gap:14px;border:1px dashed var(--line);border-radius:10px}
-.agent-cli-idle .agent-cli-empty,.agent-cli-idle .agent-cli-history{flex:none;display:flex;align-items:center;gap:14px;margin:0;max-height:none}
-.agent-cli-idle .agent-cli-empty span{font-size:13px;color:var(--muted)}
-.agent-start{padding:6px 14px;border-radius:999px;font-size:13px;font-weight:600;background:var(--ink);color:var(--white);border:0}
-[data-theme="dark"] .agent-start,[data-theme="dark"] .agent-start:hover:not(:disabled){background:#f2f2f2;color:#111;border:0}
-.agent-cli-idle .agent-cli-history .text-button{font-size:13px;color:var(--muted)}
+.dock-edge-tabs button[aria-pressed="true"]{color:var(--ink)}.dock-edge-tabs button[aria-pressed="true"]::before{background:var(--surface);border-color:var(--muted)}
 [data-theme] .dock-edge-tabs button:hover:not(:disabled){background:transparent;border:0;color:var(--ink)}
+/* A full-width phone panel has no outside edge: the tabs sit inside its top-right corner */
+@media(max-width:650px){.dock-edge-tabs{right:12px;top:0;flex-direction:row}.dock-edge-tabs button::before{border-right:1px solid var(--line);border-top:0;border-radius:0 0 8px 8px;transform:none}.coordinator-dock{padding-top:40px}}
