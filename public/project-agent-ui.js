@@ -302,11 +302,9 @@ const ownerStates={working:'Running',waiting:'Waiting for you',attention:'Needs 
 export function mountHomeAgents(host,{api,modal,notify,onProject,onRun}){
  let state=null,timer=null,fast=null;
  const pace=pending=>{if(pending&&!fast)fast=setTimeout(()=>{fast=null;if(host.isConnected)refresh();},1500);};
- host.className='project-agent home-agents';host.setAttribute('aria-label','Project owners');
- host.innerHTML=`<div class="agent-main"><p class="agent-summary" id="home-agent-summary" aria-live="polite">Loading project owners…</p>
- <section aria-labelledby="home-decisions"><h2 id="home-decisions">Needs your decision</h2><div id="home-decisions-body"></div></section>
- <section aria-labelledby="home-recent"><h2 id="home-recent">Recent results</h2><div id="home-recent-body"></div></section></div>
- `;
+ // Home alert strip: shown only while a review, failed run, waiting agent or mandate needs the person.
+ host.className='home-alerts';host.setAttribute('aria-label','Needs your attention');host.hidden=true;
+ host.innerHTML=`<h2 id="home-decisions" class="home-alerts-title"></h2><div id="home-decisions-body" aria-live="polite"></div><p class="home-alerts-error" id="home-agent-summary" role="status"></p>`;
  const q=s=>host.querySelector(s);
  host.addEventListener('click',e=>{
   const ref=e.target.closest('[data-agent-ref]');if(ref){if(ref.dataset.agentRef==='project')onProject(ref.dataset.refId);else if(ref.dataset.agentRef==='run'){const owner=state?.projects.find(p=>p.current?.id===ref.dataset.refId||p.recent?.id===ref.dataset.refId)||state?.recent.find(r=>r.id===ref.dataset.refId);if(owner)onRun(owner.projectID,ref.dataset.refId);}return;}
@@ -315,16 +313,14 @@ export function mountHomeAgents(host,{api,modal,notify,onProject,onRun}){
   const project=e.target.closest('[data-home-project]');if(project)onProject(project.dataset.homeProject);
  });
  function render(){
-  const c=state.counts;
-  q('#home-agent-summary').textContent=[`${c.working} running`,`${c.decisions} need${c.decisions===1?'s':''} a decision`].join(' · ');
+  const n=state.decisions.length;host.hidden=!n;q('#home-agent-summary').textContent='';
+  q('#home-decisions').textContent=`${n} ${n===1?'thing needs':'things need'} your attention`;
   q('#home-decisions-body').innerHTML=state.decisions.length?`<ul class="agent-list">${state.decisions.map(d=>`<li class="agent-decision"><span class="agent-dot agent-dot-${esc(d.kind)}" aria-hidden="true"></span><span class="agent-copy"><strong>${esc(d.projectName)} · ${esc(d.title)}</strong><small>${esc(d.detail)}</small></span>${d.runID?`<button type="button" class="primary" data-run-project="${esc(d.projectID)}" data-home-run="${esc(d.runID)}">${d.kind==='review'?'Review':'Inspect'}</button>`:d.kind==='coordinator'?`<button type="button" class="primary" data-home-open-cli="${esc(d.projectID||'')}">Open CLI</button>`:`<button type="button" data-home-project="${esc(d.projectID)}">Open project</button>`}</li>`).join('')}</ul>`:'<p class="widget-empty">No decisions waiting.</p>';
-  // Project owners (mandates) are off the main path (#18).
-  q('#home-recent-body').innerHTML=state.recent.length?`<ul class="agent-list">${state.recent.map(r=>`<li class="agent-result"><span class="agent-copy"><strong>${esc(r.projectName)} · ${esc(r.flowName)}</strong><small>${esc(r.task)}</small></span><span class="agent-status agent-status-${esc(r.status)}">${esc(statusLabels[r.status]||r.status)}</span><span class="agent-result-facts">${r.approvals?`${r.approvals} review${r.approvals===1?'':'s'} approved`:'No review approval recorded'}</span><button type="button" class="text-button" data-run-project="${esc(r.projectID)}" data-home-run="${esc(r.id)}">View evidence</button></li>`).join('')}</ul>`:'<p class="widget-empty">No finished workflow runs.</p>';
   pace(state.decisions.some(d=>d.kind==='coordinator'));
  }
  async function refresh(announce=false){
   try{const next=await api('agents/overview');if(!host.isConnected)return;state=next;render();if(announce)notify('Project owners refreshed.');}
-  catch(error){if(host.isConnected)q('#home-agent-summary').textContent=error.message;}
+  catch(error){if(host.isConnected){host.hidden=false;q('#home-decisions').textContent='Attention items unavailable';q('#home-agent-summary').textContent=error.message;}}
  }
  refresh();
  timer=setInterval(()=>{if(!host.isConnected){clearInterval(timer);return;}if(document.visibilityState==='visible')refresh();},15000);

@@ -90,7 +90,7 @@ try{
  // An all-projects prompt: Home's Open CLI opens the side panel on CLI; declining starts nothing.
  await api('coordinator/messages',{text:'please launch the pilot',requestKey:'c1'});
  await page.goto(url+'#home');
- await page.locator('.home-secondary > summary').click();await page.getByText('Coordinator · Waiting for you in the coordinator CLI').waitFor();
+ await page.getByText('Coordinator · Waiting for you in the coordinator CLI').waitFor();
  await page.locator('[data-home-open-cli=""]').click();await dock.waitFor();assert.equal(await tab('CLI').getAttribute('aria-pressed'),'true');
  await waitScreen(/Do you want to allow workbench - start_run\?/);await page.screenshot({path:'output/coordinator-dock-prompt.png'});
  await page.locator('.coordinator-terminal .terminal-screen').click();await page.keyboard.type('n');
