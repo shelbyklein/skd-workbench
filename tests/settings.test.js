@@ -63,3 +63,12 @@ test('primary color persists and older clients preserve it',t=>{
  assert.equal(new Settings(dir).data.primaryColor,'#125678');
  assert.throws(()=>settings.save({...settings.data,primaryColor:'red'}),/valid primary/);
 });
+test('projects hidden from Home persist, survive saves that omit them, and drop removed projects',t=>{
+ const dir=mkdtempSync(path.join(tmpdir(),'skd-settings-hidden-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));
+ const settings=new Settings(dir),projects=[{id:'a'},{id:'b'}];
+ assert.deepEqual(settings.data.hiddenProjects,[]);
+ settings.save({...settings.data,hiddenProjects:['a','a','gone']},projects);
+ assert.deepEqual(new Settings(dir).data.hiddenProjects,['a']);
+ const {hiddenProjects,...rest}=settings.data;settings.save(rest,projects);assert.deepEqual(settings.data.hiddenProjects,['a']);
+ assert.throws(()=>settings.save({...settings.data,hiddenProjects:['unassigned']}),/Invalid hidden projects/);
+});
