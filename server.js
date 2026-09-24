@@ -103,6 +103,14 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
   const activeRun=new Set(['launching','starting','running','stopping','preparing','waiting','checking','queued','cleaning']);
   coordinator.projectBusy=projectID=>!!(codex.owner||codex.active||codex.starting||codex.cleaning)&&[codex.runs,workflows.runs,terminals.runs,delegations.runs].some(runs=>(runs||[]).some(r=>r.projectID===projectID&&activeRun.has(r.status)));
   // Posting is idempotent by requestKey; a retried send must not type the same message into the CLI twice.
+  // Work that still runs in a project blocks removing it; removal never stops anything itself.
+  const projectWork=projectID=>{
+   if(coordinator.sessions.isLive(projectID))return 'The project agent session is running. Stop it in the project conversation first.';
+   if(workflows.runs.some(r=>r.projectID===projectID&&!['completed','cancelled'].includes(r.status)))return 'A workflow run in this project is still open (it can still continue or retry). Finish or stop it first.';
+   if(codex.active&&codex.runs.find(r=>r.id===codex.active.id)?.projectID===projectID)return 'An agent session is running in this project. Stop it first.';
+   if(terminals.list(projectID).some(t=>['launching','running','stopping'].includes(t.status)))return 'An agent terminal is running in this project. Stop it first.';
+   return null;
+  };
   const delivered=new Set();
   const deliver=async(key,message,scope)=>{
    if(delivered.has(message.id))return {session:coordinator.sessions.current(key)};
@@ -317,6 +325,15 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
         const input=await body(req);input.folderPath=await canonicalFolder(input.folderPath);
         return json(store.createProject(input),201);
       }
+      if(req.method==='GET'&&pathname==='/api/removed-projects')return json(store.removedProjects());
+      const restoreProject=pathname.match(/^\/api\/removed-projects\/([\w-]+)\/restore$/);
+      if(restoreProject&&req.method==='POST'){const restored=store.restoreProject(restoreProject[1]);coordinator.syncGrant();return json(restored);}
+      const removeProject=pathname.match(/^\/api\/projects\/([\w-]+)\/remove$/);
+      if(removeProject&&req.method==='POST'){
+        const input=await body(req);assert(Object.keys(input).every(k=>['version','confirm'].includes(k))&&input.confirm===true,'Confirm removing this project.');
+        const busy=projectWork(removeProject[1]);assert(!busy,busy,409);
+        const removed=store.removeProject(removeProject[1],input.version);coordinator.syncGrant();return json(removed);
+      }
       const project=pathname.match(/^\/api\/projects\/([\w-]+)$/);
       if(project&&req.method==='PUT'){
         const input=await body(req);input.folderPath=await canonicalFolder(input.folderPath);
@@ -417,7 +434,7 @@ export function createServer({directory = process.env.FLOW_BENCH_DATA || path.jo
         return res.end(readFileSync(path.join(publicDirectory,name)));
       }
       throw new Problem('Not found.',404);
-    } catch(e) { json({error:e instanceof Problem?e.message:'Could not save or load data. Your previous saved state is intact.'},e.status||500); if(!(e instanceof Problem)) console.error(e); }
+    } catch(e) { json({error:e instanceof Problem?e.message:'Could not save or load data. Your previous saved state is intact.',...(e instanceof Problem&&e.detail?e.detail:{})},e.status||500); if(!(e instanceof Problem)) console.error(e); }
   });
   server.on('close',()=>{controllerCommands.shutdown();mcpConnections.shutdown();terminals.shutdown();delegations.shutdown();workflows.shutdown();});
   const terminalStreams=attachTerminalStreams(server,{workspace:workspaceTerminal,agents:terminals,coordinator:coordinator.sessions,remoteAccess});

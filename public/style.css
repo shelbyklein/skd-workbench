@@ -530,3 +530,9 @@ body.terminal-open .issue-detail-layout{grid-template-columns:minmax(0,1fr)}
 .dock-shell-empty:empty{display:none}
 .dock-shell .coordinator-terminal{flex:1 1 auto}
 @media(max-width:650px){.coordinator-dock{width:100vw}}
+/* Remove project */
+.remove-project h3{margin:0 0 4px}.remove-project .field-help{margin:0 0 10px}
+.danger-outline{color:#a43b29;border-color:#d9a497}.primary.danger-action{background:#a43b29;border-color:#a43b29}
+[data-theme="dark"] .danger-outline{color:#f2a79c;border-color:#7a4038}[data-theme="dark"] .primary.danger-action{background:#b8483a;border-color:#b8483a}
+.removed-project-list{list-style:none;margin:0;padding:0}.removed-project-list li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.removed-project-list span{display:flex;flex-direction:column;gap:2px;min-width:0}.removed-project-list small{color:var(--muted);overflow-wrap:anywhere}

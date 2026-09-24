@@ -1,3 +1,19 @@
+# Remove project, pinned chat box and CLI lines in chat — 2026-09-23
+
+- Issue #19 adds Remove project (archive) and Restore. The store moves the project and its saved workflows to
+  `removedProjects` after writing a backup; runs, threads, mandates and agent settings stay keyed by ID. The server
+  refuses removal while the project agent session is live or a workflow run in the project is not completed or
+  cancelled, and re-syncs the orchestrator grant on remove and restore. Nothing on disk outside the data store changes.
+- `tests/remove-project.test.js` (4 tests, fixture CLI in a real PTY): archive, backup, restore with the same IDs,
+  refusals, removed-folder 409 with `removedProjectID`, live-agent and waiting-workflow guards, grant, overview and
+  404s after removal. `tests/remove-project-browser.mjs` drives Project details, the removed route, System restore,
+  the Add-project restore offer, the empty state, dark and 390 px; screenshots `output/remove-project-*.png` inspected.
+- Chat: the message box stays visible in the coordinator CLI view; lines typed in the CLI are copied to the thread as
+  "You · in CLI" (arrow-key-edited lines are dropped). The project conversation card stays pinned beside the whole
+  page and sizes to the window, so only the messages scroll. Fixture CLI only; not yet tried against real
+  Claude Code or Codex sessions.
+- Not yet done: removing the live "SKD Workbench" project (the person's action after merge and restart).
+
 # Sequential delegation — 2026-09-21
 
 - Issue #10 adds Workflows → Delegate task: one registered task/run/workspace,

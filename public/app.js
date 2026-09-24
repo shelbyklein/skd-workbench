@@ -48,7 +48,7 @@ async function api(route,method='GET',body) {
    if(!recent)location.reload();
    throw new Error('Remote sign-in expired. Reload the page to sign in again. Check the saved state before retrying this action.');
   }
-  const result=await response.json(); serverAvailable(result.code!=='SERVER_UNAVAILABLE'); if(!response.ok) throw new Error(result.error||'Request failed.'); return result;
+  const result=await response.json(); serverAvailable(result.code!=='SERVER_UNAVAILABLE'); if(!response.ok){const error=new Error(result.error||'Request failed.');error.detail=result;throw error;} return result;
 }
 async function reload() { data=await api('state'); }
 const scopedFlows=()=>data.flows.filter(f=>f.projectID===projectID);
@@ -64,7 +64,7 @@ function confirmLeave(action) {
 function openFlow(flowID) { confirmLeave(()=>{const flow=data.flows.find(f=>f.id===flowID); if(!flow)return; projectID=flow.projectID;draft=clone(flow);selected=null;view='flow';dirty=false;render();}); }
 function modal(title,content,buttons=[],onSubmit=null) {
   const d=$('#dialog');
-  d.innerHTML=`<form id="dialog-form"><div class="dialog-head"><h2>${esc(title)}</h2><button type="button" class="icon-button" data-close aria-label="Close dialog">×</button></div>${content}<p class="form-error" id="dialog-error" role="alert"></p><div class="dialog-actions">${buttons.map((b,i)=>`<button type="${b.submit?'submit':'button'}" data-modal="${i}" class="${b.primary?'primary':''}">${esc(b.label)}</button>`).join('')}</div></form>`;
+  d.innerHTML=`<form id="dialog-form"><div class="dialog-head"><h2>${esc(title)}</h2><button type="button" class="icon-button" data-close aria-label="Close dialog">×</button></div>${content}<p class="form-error" id="dialog-error" role="alert"></p><div class="dialog-actions">${buttons.map((b,i)=>`<button type="${b.submit?'submit':'button'}" data-modal="${i}" class="${b.primary?'primary':''}${b.danger?' danger-action':''}">${esc(b.label)}</button>`).join('')}</div></form>`;
   if(!d.open)d.showModal();
   d.onkeydown=e=>{
     if(e.key!=='Tab')return;
@@ -549,7 +549,8 @@ let lastRenderedHash='';
 function routePath(){return view==='invalid'?(location.hash.slice(1)||'home'):view==='projects'?'home':view==='workflows-global'?'workflows':view==='knowledge-global'?'knowledge':view==='knowledge'?'knowledge/'+projectID:view==='skills-global'?'skills':view==='skills'?'skills/'+projectID:view==='connections-global'?'connections':view==='connections'?'connections/'+projectID:view==='playbooks-global'?'agents':view==='playbooks'?'agents/'+projectID:view==='issues'?'issues/'+projectID+(issueNumber?'/'+issueNumber:'')+(issueProposalID?'/proposals/'+issueProposalID:issueEditMode?'/edit':''):view==='planning'?'planning/'+projectID+'/'+planningRunID:view==='system'?'system/'+projectID:view==='overview'?'workflows/'+projectID:view==='delegation'?'delegation/'+projectID+(delegationRunID?'/'+delegationRunID:''):view==='workflow'?'workflow/'+projectID+(workflowRunID?'/'+workflowRunID:''):view==='codex'?'sessions/'+projectID+(codexRunID?'/'+codexRunID:''):view==='compare'?'compare/'+compareIDs.join(','):view==='run'?'run/'+runID:view==='flow'&&draft?'flow/'+draft.id:view==='history'?'history/'+projectID:'project/'+projectID;}
 function applyRoute(hash=location.hash){
  const route=hash.slice(1).split('/');if(route[0]==='agents')route[0]='playbooks';view='projects';routeError='';issueNumber=null;issueProposalID=null;issueEditMode=false;planningRunID=null;delegationRunID=null;workflowRunID=null;codexRunID=null;runID=null;compareIDs=[];
- if(route[0]==='planning'){projectID=route[1];planningRunID=route[2];view='planning';}
+ if(route[1]&&route[0]!=='run'&&(data.removedProjects||[]).some(r=>r.project.id===route[1])){view='invalid';routeError='This project was removed. Restore it from System › Removed projects to open it again.';}
+ else if(route[0]==='planning'){projectID=route[1];planningRunID=route[2];view='planning';}
  else if(route[0]==='knowledge'&&!route[1])view='knowledge-global';
  else if(route[0]==='knowledge'&&data.projects.some(p=>p.id===route[1])){projectID=route[1];view='knowledge';}
  else if(route[0]==='skills'&&!route[1])view='skills-global';
@@ -623,7 +624,9 @@ function projectDialog(project=null){
   }
   const edit=Boolean(project);
   modal(edit?'Project details':'Add a project',`<label>Project name<input name="name" maxlength="100" required autofocus value="${esc(project?.name||'')}" placeholder="e.g. Newton"></label><label>Local folder<input name="folderPath" maxlength="4096" required value="${esc(project?.folderPath||'')}" placeholder="/Users/you/Projects/newton"></label><button type="button" id="choose-folder">Choose folder…</button>${edit?'<div class="settings-divider"></div><div class="connection-heading"><h3>Git connection</h3><button type="button" class="refresh-button" id="refresh-git" aria-label="Refresh Git connection" title="Refresh Git connection"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 6.1A8 8 0 0 1 19.5 10M4.5 14a8 8 0 0 0 13.4 3.9"/></svg></button></div><p class="field-help">Information for the saved folder. Save to connect a different folder.</p><div id="connection-details"></div>':''}`, [...(edit?[{label:project.benchmark?'Benchmark settings':'Set up benchmark',run:()=>benchmarkDialog(project)}]:[]),{label:'Cancel',close:true},{label:edit?'Save project':'Add project',submit:true,primary:true}],async form=>{
-    const saved=await api(edit?'projects/'+project.id:'projects',edit?'PUT':'POST',{name:form.get('name'),folderPath:form.get('folderPath'),...(edit?{version:project.version}:{})});
+    let saved;
+    try{saved=await api(edit?'projects/'+project.id:'projects',edit?'PUT':'POST',{name:form.get('name'),folderPath:form.get('folderPath'),...(edit?{version:project.version}:{})});}
+    catch(e){const removed=!edit&&e.detail?.removedProjectID;if(!removed)throw e;setTimeout(()=>offerRestore(removed,e.message));return;}
     await reload();
     if(edit){connections.delete(saved.id+':'+saved.version);render();refreshConnection(true);}else switchProject(saved.id);
     toast(edit?'Project saved.':'Project connected. Add a workflow or move one here.');
@@ -644,7 +647,26 @@ function projectDialog(project=null){
       finally{if(button?.isConnected)button.disabled=false;}
     };
     $('#refresh-git').onclick=refresh;refresh();
+    $('#connection-details').insertAdjacentHTML('afterend','<div class="settings-divider"></div><div class="remove-project"><h3>Remove project</h3><p class="field-help">Hides it from Workbench and the orchestrator. The folder, Git data, workflows, runs and conversation stay; restore it from System.</p><button type="button" class="danger-outline" id="remove-project">Remove project…</button></div>');
+    $('#remove-project').onclick=()=>confirmRemoveProject(project);
   }
+}
+// Removal archives the project; nothing on disk changes. Running work blocks it on the server.
+function confirmRemoveProject(project){
+  modal(`Remove ${project.name}?`,`<p>It leaves the sidebar, Home, project pickers and the orchestrator’s projects.</p><p>The folder <span class="preserve">${esc(project.folderPath)}</span>, its Git data, workflows, runs and conversation stay. Restore it any time from System › Removed projects.</p>`,[{label:'Cancel',close:true},{label:'Remove project',submit:true,primary:true,danger:true}],async()=>{
+    await api('projects/'+project.id+'/remove','POST',{version:project.version,confirm:true});
+    await reload();projectID='unassigned';view='projects';render();toast(`${project.name} removed. Restore it from System › Removed projects.`);
+  });
+}
+function offerRestore(removedID,message){
+  modal('Restore project?',`<p>${esc(message)}</p>`,[{label:'Cancel',close:true},{label:'Restore project',submit:true,primary:true}],async()=>{
+    const restored=await api('removed-projects/'+removedID+'/restore','POST',{});await reload();switchProject(restored.id);toast(`${restored.name} restored.`);
+  });
+}
+async function restoreProject(id,button){
+  button.disabled=true;
+  try{const restored=await api('removed-projects/'+id+'/restore','POST',{});await reload();render();toast(`${restored.name} restored.`);}
+  catch(e){button.disabled=false;toast(e.message);}
 }
 function moveFlow(){
   modal('Move workflow',`<label>Destination project<select name="projectID" aria-label="Destination project">${data.projects.map(p=>`<option value="${p.id}" ${p.id===draft.projectID?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label><p>Moves this workflow, including current edits. Earlier runs keep their original project.</p>`,[{label:'Cancel',close:true},{label:'Move workflow',submit:true,primary:true}],async form=>{
@@ -780,11 +802,18 @@ function bindStepModels(step){
 
 function renderSystem(){
  const project=currentProject();
- shell(`<section class="page-heading"><div><h1>System</h1></div><button id="project-details">Project settings</button></section><section class="workflow-overview"><h2>${esc(project.name)}</h2><p>${esc(project.folderPath||'No local folder')}</p><p class="folder-repository" data-folder-repository="${project.id}"></p><h3>Agent instructions</h3><div id="project-instructions"></div></section>`);
+ shell(`<section class="page-heading"><div><h1>System</h1></div><button id="project-details">Project settings</button></section><section class="workflow-overview"><h2>${esc(project.name)}</h2><p>${esc(project.folderPath||'No local folder')}</p><p class="folder-repository" data-folder-repository="${project.id}"></p><h3>Agent instructions</h3><div id="project-instructions"></div></section><section class="workflow-overview removed-projects" aria-labelledby="removed-projects-title"><h2 id="removed-projects-title">Removed projects</h2>${removedProjectsMarkup()}</section>`);
+ document.querySelectorAll('[data-restore-project]').forEach(b=>b.onclick=()=>restoreProject(b.dataset.restoreProject,b));
  fillFolderRepositories();
  showInstructions($('#project-instructions'),api,'projects/'+project.id+'/instructions');
 }
 
+function removedProjectsMarkup(){
+ const removed=(data.removedProjects||[]).map(r=>r.project&&{...r.project,removedAt:r.removedAt}).filter(Boolean);
+ if(!removed.length)return '<p class="widget-empty">No removed projects.</p>';
+ const date=v=>{try{return new Date(v).toLocaleDateString([],{month:'short',day:'numeric'});}catch{return '';}};
+ return `<ul class="removed-project-list">${removed.map(p=>`<li><span><strong>${esc(p.name)}</strong><small>${esc(p.folderPath)} · removed ${esc(date(p.removedAt))}</small></span><button type="button" data-restore-project="${esc(p.id)}">Restore</button></li>`).join('')}</ul>`;
+}
 async function fillFolderRepositories(){
  await Promise.allSettled([...document.querySelectorAll('[data-folder-repository]')].map(async el=>{
   const p=data.projects.find(p=>p.id===el.dataset.folderRepository);if(!p?.folderPath)return;
