@@ -3,10 +3,11 @@
 import {mountCoordinatorConversation,mountProjectConversation} from './project-agent-ui.js';
 const read=(key,fallback)=>{try{return localStorage.getItem(key)??fallback;}catch{return fallback;}};
 const write=(key,value)=>{try{localStorage.setItem(key,value);}catch{}};
+const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 
 export function createCoordinatorDock({api,modal,notify}){
- let panel=null,conversation=null,projectView=null,currentProject=null,tab=['chat','cli'].includes(read('skd-dock-tab','chat'))?read('skd-dock-tab','chat'):'chat';
+ let panel=null,conversation=null,projectView=null,currentProject=null,running=[],runningLoaded=false,poll=null,splitProject=read('skd-dock-split','')||null,tab=['chat','cli'].includes(read('skd-dock-tab','chat'))?read('skd-dock-tab','chat'):'chat';
  const q=s=>panel.querySelector(s);
  function layout(open){document.body.classList.toggle('coordinator-dock-open',open);document.querySelectorAll('[data-workspace-terminal]').forEach(b=>b.setAttribute('aria-expanded',String(open)));}
  function resizer(edge){
@@ -27,12 +28,15 @@ export function createCoordinatorDock({api,modal,notify}){
 
    <div class="dock-conversation"></div>
    <div class="dock-project" hidden></div>
+   <nav class="dock-agents" aria-label="Running project agents" hidden></nav>
 `;
   document.body.append(panel);resizer(q('.terminal-resize-edge'));
   conversation=mountCoordinatorConversation(q('.dock-conversation'),{api,modal,notify});
   panel.addEventListener('click',e=>{
    if(e.target.closest('[data-coordinator-open-cli]')){show('cli');return;}
+   const row=e.target.closest('[data-dock-agent]');if(row){splitProject=splitProject===row.dataset.dockAgent?null:row.dataset.dockAgent;write('skd-dock-split',splitProject||'');syncProject();return;}
   });
+  poll=setInterval(()=>{if(!panel.hidden&&document.visibilityState==='visible')loadRunning();},10000);
   // Always open, except that an agent session terminal (body.terminal-open) takes this side while it is shown;
   // the panel steps aside and comes back when that terminal is hidden or closed.
   const away=()=>{const covered=document.body.classList.contains('terminal-open');if(panel.hidden!==covered){panel.hidden=covered;layout(!covered);if(!covered)syncProject();}};
@@ -43,15 +47,28 @@ export function createCoordinatorDock({api,modal,notify}){
   tab=['chat','cli'].includes(next)?next:'chat';write('skd-dock-tab',tab);write('skd-dock-open','1');
   if(panel.hidden){document.dispatchEvent(new Event('coordinator-dock-show'));panel.hidden=false;layout(true);}
   panel.querySelectorAll('[data-dock-tab]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.dockTab===tab)));
-  syncProject();conversation.setMode(tab);conversation.refresh();
+  syncProject();conversation.setMode(tab);conversation.refresh();loadRunning();
+ }
+ // Project agents with a live session; on Home and the global pages each gets a row that opens it in a split.
+ async function loadRunning(){try{running=(await api('coordinator')).running||[];runningLoaded=true;}catch{return;}syncProject();}
+ function renderAgents(){
+  const nav=q('.dock-agents'),rows=currentProject?[]:running;nav.hidden=!rows.length;
+  nav.innerHTML=rows.map(r=>{const open=r.projectID===splitProject;return `<button type="button" class="dock-agent-row" data-dock-agent="${esc(r.projectID)}" aria-pressed="${open}"><span class="dock-agent-dot${r.waiting?' is-waiting':''}" aria-hidden="true"></span><span class="dock-agent-name">${esc(r.name)} agent</span><span class="dock-agent-state">${r.waiting?'Waiting for you':'Running'}</span><span class="dock-agent-toggle">${open?'Close':'Open'}</span></button>`;}).join('');
  }
  // On a project page the panel splits: the coordinator on top, that project's agent below (Chat and CLI only).
  function syncProject(){
-  if(!panel)return;const slot=q('.dock-project'),split=!!currentProject;
-  if(projectView&&projectView.projectID!==currentProject?.id){projectView.destroy();projectView=null;slot.innerHTML='';}
-  if(currentProject&&!projectView)projectView=mountProjectConversation(slot,{project:currentProject,api,modal,notify});
-  // Inside a project the panel is that project's agent only; the coordinator is on Home and the global pages.
-  slot.hidden=!split;q('.dock-conversation').hidden=split;panel.classList.toggle('dock-project-only',split);document.body.classList.toggle('dock-project-split',split&&!panel.hidden);
+  if(!panel)return;const slot=q('.dock-project'),inside=!!currentProject;
+  // A split closes when its agent's session ends.
+  const target=inside?null:running.find(r=>r.projectID===splitProject);
+  if(!inside&&splitProject&&!target&&runningLoaded){splitProject=null;write('skd-dock-split','');}
+  const shown=currentProject||(target?{id:target.projectID,name:target.name,folderPath:target.folderPath}:null);
+  if(projectView&&projectView.projectID!==shown?.id){projectView.destroy();projectView=null;slot.innerHTML='';}
+  // Each view gets its own element: a replaced view's listeners and late refreshes then act on nothing.
+  if(shown&&!projectView){const own=document.createElement('div');own.className='dock-project-view';slot.replaceChildren(own);projectView=mountProjectConversation(own,{project:shown,api,modal,notify});}
+  // Inside a project the panel is that project's agent only; on Home and the global pages it is the coordinator,
+  // with a running project agent below it when its row is open.
+  slot.hidden=!shown;q('.dock-conversation').hidden=inside;panel.classList.toggle('dock-project-only',inside);panel.classList.toggle('dock-split',!inside&&!!shown);document.body.classList.toggle('dock-project-split',inside&&!panel.hidden);
+  renderAgents();
  }
  function hide(){if(!panel)return;panel.hidden=true;layout(false);document.body.classList.remove('dock-project-split');write('skd-dock-open','0');}
  document.addEventListener('coordinator-dock-open',e=>show(e.detail?.tab||tab));

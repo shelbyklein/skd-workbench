@@ -103,11 +103,19 @@ try{
  assert.match(await page.locator('#dockp-coordinator').textContent(),/Claude Code · fixture · project folder/);
  await page.screenshot({path:'output/coordinator-project-agent.png'});
  assert.match((await api('coordinator/messages')).items.map(m=>m.text).join('\n'),/Update: Done: update the footer/);
+ // Home: a row for the running project agent opens it below the coordinator, and closes it again.
+ await page.evaluate(()=>location.hash='#home');const row=dock.locator('[data-dock-agent]');await row.waitFor();
+ assert.match(await row.textContent(),/Newton agent.*Running.*Open/);assert.equal(await dock.locator('.dock-project').isHidden(),true);
+ await row.click();await page.waitForFunction(()=>/Newton/.test(document.querySelector('#dockp-thread-title')?.textContent||''));
+ assert.equal(await dock.locator('.dock-conversation').isVisible(),true,'The coordinator stays on top.');assert.equal(await dock.locator('.dock-project').isVisible(),true);
+ assert.equal(await row.getAttribute('aria-pressed'),'true');assert.match(await row.textContent(),/Close/);await page.screenshot({path:'output/coordinator-dock-split.png'});
+ await row.click();await page.waitForFunction(()=>document.querySelector('.dock-project')?.hidden);assert.equal(await row.getAttribute('aria-pressed'),'false');
+ await page.evaluate(id=>location.hash='#project/'+id,project.id);await page.locator('#agent-decisions').waitFor();assert.equal(await dock.locator('[data-dock-agent]').count(),0,'Inside a project the panel is that agent; no rows.');
  // Dark theme and a phone-width CLI view.
  await page.locator('.dock-project').getByRole('button',{name:'CLI',exact:true}).click();await page.locator('.dock-project .coordinator-terminal').waitFor();
  await page.emulateMedia({colorScheme:'dark'});await page.waitForFunction(()=>document.documentElement.dataset.theme==='dark');await page.screenshot({path:'output/coordinator-cli-dark.png'});
  await page.setViewportSize({width:390,height:844});await page.locator('.dock-project .coordinator-terminal').scrollIntoViewIfNeeded();await page.waitForTimeout(400);
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:'output/coordinator-cli-mobile.png'});
  assert.deepEqual(errors,[]);
- console.log('Coordinator CLI browser passed: orchestrator setup and chat in the side panel, Chat/CLI, typing in the CLI, no respawn, stop, history, Start session, all-projects permission prompt via Home Open CLI (declined), project card as live project agent reporting to the orchestrator, keyboard, dark and 390 px. Fixture CLI only.');
+ console.log('Coordinator CLI browser passed: orchestrator setup and chat in the side panel, Chat/CLI, typing in the CLI, no respawn, stop, history, Start session, all-projects permission prompt via Home Open CLI (declined), project card as live project agent reporting to the orchestrator, Home row opens/closes it in a split, keyboard, dark and 390 px. Fixture CLI only.');
 }finally{await browser.close();server.shutdownCodex();server.closeAllConnections();await new Promise(r=>server.close(r));rmSync(root,{recursive:true,force:true});}
