@@ -26,14 +26,15 @@ export function createCoordinatorDock({api,modal,notify}){
  function build(){
   panel=document.createElement('aside');panel.className='coordinator-dock';panel.setAttribute('aria-label','Coordinator panel');panel.hidden=true;
   panel.innerHTML=`<div class="terminal-resize-edge" tabindex="0" role="separator" aria-label="Resize panel" aria-orientation="vertical"></div>
-   <header class="dock-header"><span class="agent-view-switch" role="group" aria-label="Panel view"><button type="button" data-dock-tab="chat">Chat</button><button type="button" data-dock-tab="cli">CLI</button><button type="button" data-dock-tab="shell">Shell</button></span><button type="button" class="text-button" data-dock-hide>Hide</button></header>
+   <div class="dock-edge-tabs" role="group" aria-label="Panel"><button type="button" data-dock-tab="shell" aria-pressed="false">Shell</button><button type="button" data-dock-hide>Hide</button></div>
    <div class="dock-conversation"></div>
    <div class="dock-project" hidden></div>
    <div class="dock-shell" hidden><div class="dock-shell-screen"></div><p class="field-help dock-shell-empty"></p></div>`;
   document.body.append(panel);resizer(q('.terminal-resize-edge'));
   conversation=mountCoordinatorConversation(q('.dock-conversation'),{api,modal,notify});
   panel.addEventListener('click',e=>{
-   const t=e.target.closest('[data-dock-tab]');if(t){show(t.dataset.dockTab,{start:true});return;}
+   // Shell toggles between the workspace shell and the conversations; Chat / CLI live in each pane's header.
+   const t=e.target.closest('[data-dock-tab]');if(t){show(tab==='shell'?conversation.mode():'shell',{start:true});return;}
    if(e.target.closest('[data-dock-hide]')){hide();return;}
    if(e.target.closest('[data-coordinator-open-cli]')){show('cli');return;}
    if(e.target.closest('[data-dock-start-shell]'))startShell();

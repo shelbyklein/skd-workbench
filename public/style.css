@@ -521,7 +521,6 @@ body.terminal-open .issue-detail-layout{grid-template-columns:minmax(0,1fr)}
 /* Messages or the CLI take the free height so the message box stays in view. */
 .coordinator-dock .agent-thread>.agent-messages{flex:1 1 0;min-height:120px}
 
-.coordinator-dock .agent-view-switch-slot{display:none}
 .coordinator-dock .agent-thread>.agent-cli{flex:1 1 0;height:auto;min-height:280px}
 .dock-shell{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:10px}
 .dock-shell-screen{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
@@ -599,3 +598,24 @@ body.terminal-open .issue-detail-layout{grid-template-columns:minmax(0,1fr)}
 .coordinator-dock.dock-split .agent-composer-help{display:none}
 body.dock-project-split .project-agent{grid-template-columns:minmax(0,1fr)}
 body.dock-project-split .project-agent>.agent-thread{display:none}
+/* Compact conversation panes: title left, Chat / CLI and refresh right */
+.agent-thread>.agent-thread-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0}
+.agent-thread-head h2{margin:0;font:normal 22px/1.2 Georgia,serif;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.agent-thread-tools{display:flex;align-items:center;gap:6px;flex:none}
+.agent-thread-tools .agent-view-switch{margin:0}.agent-thread-tools .agent-view-switch button{padding:4px 12px}
+.thread-refresh{width:30px;height:30px;padding:0;display:grid;place-items:center;border-radius:8px}.thread-refresh svg{width:16px;height:16px}
+.agent-cli-history{display:flex;gap:10px;flex-wrap:wrap;max-height:none}
+.session-history-list{list-style:none;margin:0 0 8px;padding:0;display:grid;gap:2px}.session-history-list button[aria-pressed="true"]{font-weight:600}
+/* Shell and Hide sit as tabs on the panel's top-right edge */
+.coordinator-dock{padding-top:26px}
+.dock-edge-tabs{position:absolute;top:0;right:16px;display:flex;z-index:2}
+.dock-edge-tabs button{border:1px solid var(--line);border-top:0;border-radius:0 0 8px 8px;padding:3px 12px;font-size:12px;background:var(--surface);color:var(--muted);margin-left:-1px}
+.dock-edge-tabs button[aria-pressed="true"]{background:var(--white);color:var(--ink);font-weight:600}
+/* Split panes are half height: give the terminal the room, keep the message box compact until used */
+.coordinator-dock.dock-split .coordinator-terminal footer{display:none}
+.coordinator-dock.dock-split .coordinator-terminal .terminal-header{padding:6px 10px}
+.coordinator-dock.dock-split .coordinator-terminal .terminal-status{padding:0 10px;font-size:11px}
+.coordinator-dock.dock-split .agent-thread>.agent-cli{min-height:200px;gap:6px}
+.coordinator-dock.dock-split .agent-composer-box{padding:8px 10px 8px 14px;gap:2px}
+.coordinator-dock.dock-split .agent-composer-box textarea{min-height:24px}
+.coordinator-dock.dock-split .agent-thread{gap:8px}

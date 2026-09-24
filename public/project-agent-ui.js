@@ -15,7 +15,8 @@ function refButton(ref){const label=ref.kind==='project'?'Project':ref.kind==='i
 function progress(steps){return `<ol class="agent-steps" aria-label="Workflow steps">${steps.map(s=>`<li class="agent-step-${s.state}"><span class="agent-step-dot" aria-hidden="true"></span><span>${esc(s.name)}</span><span class="visually-hidden">${s.state==='done'?'done':s.state==='current'?'current step':'pending'}</span></li>`).join('')}</ol>`;}
 
 // Shared conversation panel: one draft and request key per scope (project ID or coordinator).
-function threadAside(label,eyebrow,card,p='agent'){return `<aside class="agent-thread" aria-label="${label}"><header><div><div id="${p}-view-switch" class="agent-view-switch-slot"></div><span class="eyebrow">${eyebrow}</span><h2 id="${p}-thread-title"></h2></div><button type="button" class="text-button" id="${p}-refresh">Refresh</button></header>
+// One compact header row: the title on the left; the Chat / CLI switch and a refresh icon on the right.
+function threadAside(label,eyebrow,card,p='agent'){return `<aside class="agent-thread" aria-label="${label}"><header class="agent-thread-head"><h2 id="${p}-thread-title"></h2><div class="agent-thread-tools"><div id="${p}-view-switch" class="agent-view-switch-slot"></div><button type="button" class="icon-button thread-refresh" id="${p}-refresh" aria-label="Refresh" title="Refresh"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 6.1A8 8 0 0 1 19.5 10M4.5 14a8 8 0 0 0 13.4 3.9"/></svg></button></div></header>
  <p class="agent-thread-status" id="${p}-thread-status"></p><ol class="agent-messages" id="${p}-messages" aria-live="polite"></ol><div class="agent-cli" id="${p}-cli" hidden><div id="${p}-cli-screen" class="agent-cli-screen"></div><p class="field-help agent-cli-empty" id="${p}-cli-empty"></p><div class="agent-cli-history" id="${p}-cli-history"></div></div>${card?'<button type="button" class="agent-mandate-card" id="'+p+'-mandate-card"></button>':''}<div class="agent-coordinator" id="${p}-coordinator"></div>
  <form class="agent-composer" id="${p}-composer"><label for="${p}-message" id="${p}-message-label" class="visually-hidden">Message</label><div class="agent-composer-box"><textarea id="${p}-message" rows="2" maxlength="8000"></textarea><div class="agent-composer-bar"><span class="agent-composer-agent" id="${p}-composer-agent"></span><button type="submit" class="agent-send" id="${p}-send" aria-label="Send" title="Send (⌘↵)"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button></div></div><p class="field-help agent-composer-help" id="${p}-message-help"></p><p class="form-error" id="${p}-send-error" role="alert"></p></form></aside>`;}
 function bindComposer(host,{key,send,sent,p='agent'}){
@@ -71,13 +72,19 @@ function coordinatorPanel(host,{key,api,modal,notify,refresh,p='agent'}){
   const saved=viewing&&c.history.find(h=>h.id===viewing),target=saved||c.session||null;
   if(target)mount(target,!saved&&target===c.session);else clear();
   q('#'+p+'-cli-empty').innerHTML=c.session?'':`${target?'':'No session is running. '}<button type="button" class="primary" data-coordinator-start>Start session</button>`;
-  q('#'+p+'-cli-history').innerHTML=c.history.length?`<h3>Previous sessions</h3><ul>${c.history.map(h=>`<li><button type="button" class="text-button" data-coordinator-history="${esc(h.id)}" aria-pressed="${h.id===termID}">${esc(when(h.startedAt))} · ${esc(providerLabels[h.provider])} · ${esc(endReasons[h.endReason]||'ended')}</button></li>`).join('')}</ul>${saved&&c.session?'<button type="button" class="text-button" data-coordinator-history="">Back to current session</button>':''}`:'';
+  // Previous sessions open in a dialog; the pane keeps one button (and a way back while viewing one).
+  q('#'+p+'-cli-history').innerHTML=c.history.length?`<button type="button" class="text-button" data-coordinator-history-open>Previous sessions (${c.history.length})</button>${saved&&c.session?'<button type="button" class="text-button" data-coordinator-history="">Back to current session</button>':''}`:'';
  }
  host.addEventListener('click',e=>{
   if(e.target.closest('[data-effort-menu]')){effortMenu.toggle(e.target.closest('[data-effort-menu]'));return;}
   if(e.target.closest('[data-coordinator-settings]'))effortMenu.close();
   const m=e.target.closest('[data-coordinator-mode]');if(m){cliModes.set(key,m.dataset.coordinatorMode);viewing=null;apply();if(mode()==='cli')q('#'+p+'-cli .xterm-helper-textarea')?.focus();return;}
   const h=e.target.closest('[data-coordinator-history]');if(h){viewing=h.dataset.coordinatorHistory||null;apply();return;}
+  if(e.target.closest('[data-coordinator-history-open]')){
+   modal('Previous sessions',`<ul class="session-history-list">${c.history.map(h=>`<li><button type="button" class="text-button" data-history-pick="${esc(h.id)}" aria-pressed="${h.id===termID}">${esc(when(h.startedAt))} · ${esc(providerLabels[h.provider])} · ${esc(endReasons[h.endReason]||'ended')}</button></li>`).join('')}</ul><p class="field-help">Opens the read-only transcript in the CLI view.</p>`,[{label:'Close',close:true}]);
+   document.querySelectorAll('#dialog [data-history-pick]').forEach(b=>b.onclick=()=>{viewing=b.dataset.historyPick;document.querySelector('#dialog').close();cliModes.set(key,'cli');apply();});
+   return;
+  }
   if(e.target.closest('[data-coordinator-open-cli]')){cliModes.set(key,'cli');viewing=null;apply();}
   const start=e.target.closest('[data-coordinator-start]');
   if(start){start.disabled=true;viewing=null;api('coordinator/sessions','POST',{threadKey:key}).then(()=>refresh(),error=>{start.disabled=false;notify(error.message);});return;}
@@ -350,7 +357,7 @@ export function mountCoordinatorConversation(host,{api,modal,notify}){
 // The current project's agent conversation for the side panel's lower half (project pages only). It uses the
 // "dockp" ID prefix so it can sit under the coordinator conversation and beside the project page.
 export function mountProjectConversation(host,{project,api,modal,notify}){
- let timer=null,fast=null;const p='dockp',name=`${project.name} agent`;
+ let timer=null,fast=null;const p='dockp',name=`${project.name} agent`,title=project.name;
  const pace=pending=>{if(pending&&!fast)fast=setTimeout(()=>{fast=null;if(host.isConnected)refresh();},1500);};
  host.innerHTML=threadAside('Project agent conversation','PROJECT AGENT',false,p);
  const q=s=>host.querySelector(s);
@@ -360,7 +367,7 @@ export function mountProjectConversation(host,{project,api,modal,notify}){
  async function refresh(announce=false){
   try{
    const state=await api('projects/'+encodeURIComponent(project.id)+'/agent');if(!host.isConnected)return;
-   q('#dockp-thread-title').textContent=name;q('#dockp-thread-status').textContent=state.current?`${statusLabels[state.current.status]||state.current.status}: ${state.current.taskRef||state.current.flowName}`:'';
+   q('#dockp-thread-title').textContent=title;q('#dockp-thread-status').textContent=state.current?`${statusLabels[state.current.status]||state.current.status}: ${state.current.taskRef||state.current.flowName}`:'';
    q('#dockp-message-label').textContent=`Message ${name}`;
    renderMessages(host,state.thread,name,p);pace(coordinator.update(state.coordinator));
    if(announce)notify('Project agent refreshed.');

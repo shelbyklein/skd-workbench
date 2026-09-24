@@ -21,10 +21,10 @@ try{
  const waitScreen=re=>page.waitForFunction(source=>new RegExp(source).test((document.querySelector('.coordinator-terminal .xterm-rows')?.innerText||'').replace(/\n/g,'')),re.source);
  await page.goto(url);await page.locator('#home-decisions').waitFor();
  assert.equal(await page.locator('#agent-composer').count(),0,'Home has no coordinator card; the side panel replaces it.');
- const dock=page.getByRole('complementary',{name:'Coordinator panel',exact:true}),tab=name=>dock.getByRole('button',{name,exact:true});
+ const dock=page.getByRole('complementary',{name:'Coordinator panel',exact:true}),tab=name=>['Shell','Hide'].includes(name)?dock.locator('.dock-edge-tabs').getByRole('button',{name,exact:true}):dock.locator('.dock-conversation').getByRole('button',{name,exact:true});
  await page.getByRole('button',{name:'Toggle coordinator panel',exact:true}).click();await dock.waitFor();
  await page.waitForFunction(()=>/Coordinator agent off/.test(document.querySelector('#dock-coordinator')?.textContent));
- await tab('CLI').click();await dock.getByText('The coordinator agent is off.').waitFor();await tab('Chat').click();
+ assert.equal(await dock.locator('.dock-conversation [data-coordinator-mode]').count(),0,'No Chat / CLI switch until the coordinator is on.');
  await dock.locator('#dock-coordinator [data-coordinator-settings]').click();await page.getByRole('heading',{name:'Coordinator agent'}).waitFor();
  assert.match(await page.locator('#dialog').textContent(),/asks in the CLI before it starts or changes work/);
  await page.locator('#dialog [name=enabled]').check();await page.locator('#dialog [name=provider]').selectOption('claude');await page.locator('#dialog [name=model]').selectOption('fixture');await page.locator('#dialog [name=effort]').selectOption('low');
@@ -69,7 +69,9 @@ try{
  // Stop: the session becomes a read-only transcript in the history.
  await page.getByRole('button',{name:'Stop session',exact:true}).click();
  await page.waitForFunction(()=>/No session/.test(document.querySelector('#dock-coordinator')?.textContent));
- await page.locator('[data-coordinator-history]').first().waitFor();assert.match(await page.locator('.coordinator-terminal footer').textContent(),/Read-only transcript\. This session stopped\./);
+ await page.locator('[data-coordinator-history-open]').waitFor();assert.match(await page.locator('[data-coordinator-history-open]').textContent(),/Previous sessions \(1\)/);
+ // Previous sessions open in a dialog; choosing one shows its read-only transcript.
+ await page.locator('[data-coordinator-history-open]').click();await page.getByRole('heading',{name:'Previous sessions'}).waitFor();await page.locator('#dialog [data-history-pick]').first().click();assert.match(await page.locator('.coordinator-terminal footer').textContent(),/Read-only transcript\. This session stopped\./);
  await waitScreen(/> from chat again/);
  assert.equal(await page.getByRole('button',{name:'Stop session',exact:true}).count(),0,'No Stop on a read-only transcript.');assert.equal(await page.getByText('Back to current session').count(),0);
  await page.screenshot({path:'output/coordinator-cli-history.png'});
