@@ -41,15 +41,16 @@ function remoteMarkup(remote){
 // Drift for the Home card: the checkout branch, branches behind the target, branches with commits not on the
 // target, the checkout against its remote when a remote check has run, and whether it is time to reconcile.
 export const driftLimits={unmerged:3,behind:10,remote:5};
-export function gitDrift(s){
+// Limits come from the project's Reconcile warning settings; these are the defaults.
+export function gitDrift(s,limits=driftLimits){
  if(!s?.target||!s.current?.available)return null;
  const others=s.branches.filter(b=>b.ref!==s.target.ref),count=f=>others.filter(f).length;
  const behind=count(b=>b.comparison?.behind>0),unmerged=count(b=>b.comparison?.ahead>0);
  const r=s.remote?.current,remote=Number.isFinite(r?.ahead)&&Number.isFinite(r?.behind)?{ahead:r.ahead,behind:r.behind}:null;
  const reasons=[];
- if(unmerged>=driftLimits.unmerged)reasons.push(`${unmerged} branches have unmerged commits`);
- if(behind>=driftLimits.behind)reasons.push(`${behind} branches are behind ${s.target.name}`);
- if(remote&&(remote.ahead>=driftLimits.remote||remote.behind>=driftLimits.remote))reasons.push(`${s.current.branch||'checkout'} is ${remote.ahead} ahead · ${remote.behind} behind its remote`);
+ if(unmerged>=limits.unmerged)reasons.push(`${unmerged} branches have unmerged commits`);
+ if(behind>=limits.behind)reasons.push(`${behind} branches are behind ${s.target.name}`);
+ if(remote&&(remote.ahead>=limits.remote||remote.behind>=limits.remote))reasons.push(`${s.current.branch||'checkout'} is ${remote.ahead} ahead · ${remote.behind} behind its remote`);
  return {branch:s.current.detached?'detached':s.current.branch,target:s.target.name,behind,unmerged,remote,dirty:!!s.current.dirty,reasons};
 }
 export function branchSummary(s){
