@@ -110,7 +110,8 @@ try{
  assert.equal(await dock.locator('.dock-conversation').isVisible(),true,'The coordinator stays on top.');assert.equal(await dock.locator('.dock-project').isVisible(),true);
  assert.equal(await row.getAttribute('aria-pressed'),'true');await page.screenshot({path:'output/coordinator-dock-split.png'});
  await row.click();await page.waitForFunction(()=>document.querySelector('.dock-project')?.hidden);assert.equal(await row.getAttribute('aria-pressed'),'false');
- await page.evaluate(id=>location.hash='#project/'+id,project.id);await page.locator('#agent-decisions').waitFor();assert.equal(await dock.locator('[data-dock-agent]').count(),0,'Inside a project the panel is that agent; no rows.');
+ // Double-clicking the pill opens the project page.
+ await row.dblclick();await page.locator('#agent-decisions').waitFor();assert.equal(await page.evaluate(()=>location.hash),'#project/'+project.id);assert.equal(await dock.locator('[data-dock-agent]').count(),0,'Inside a project the panel is that agent; no rows.');
  // Dark theme and a phone-width CLI view.
  await page.locator('.dock-project').getByRole('button',{name:'CLI',exact:true}).click();await page.locator('.dock-project .coordinator-terminal').waitFor();
  await page.emulateMedia({colorScheme:'dark'});await page.waitForFunction(()=>document.documentElement.dataset.theme==='dark');await page.screenshot({path:'output/coordinator-cli-dark.png'});
