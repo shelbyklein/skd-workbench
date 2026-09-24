@@ -36,6 +36,7 @@ read-only GitHub browsing with explicit agent proposal and apply actions.
 - `lib/workflows.js`: execution sequence, handoffs, gates, retries and usage totals.
 - `lib/terminals.js`: interactive PTY sessions, reconnect and process lifecycle.
 - `lib/benchmarks.js`: pinned baselines, workspace archives and guarded cleanup.
+- `lib/tools.js`, `public/tools-ui.js`: Tools inventory of each CLI's skills and MCP servers, and Install MCP server.
 - `lib/issues.js`, `public/issues-ui.js`: GitHub reads and persisted title/body edit
   proposals. Browsing and drafting must never publish; only explicit Apply may write.
 - `public/app.js`: project navigation, flow editor and simulation interface.
@@ -54,7 +55,8 @@ read-only GitHub browsing with explicit agent proposal and apply actions.
   and common Git directory are different facts; distinct worktrees can be projects.
 - Sessions and workflows share execution ownership, with two exceptions. The orchestrator
   (`lib/coordinator-agent.js`, `lib/coordinator-sessions.js`) is one interactive CLI per conversation outside
-  the lock with no worktree, no built-in tools and only the Workbench MCP bridge; read, `post_*` and
+  the lock with no worktree, the person's normal CLI setup plus the Workbench MCP bridge, and no file, shell or
+  web tools (Claude keeps only `Skill`); read, `post_*` and
   `message_project_agent` tools are pre-approved and every other `manage`/`run` tool keeps the native prompt.
   Project agents run the person's normal CLI in the project folder (or one dedicated worktree) under a
   per-project lock: a live project agent blocks global-lock work in that project and vice versa. Their
@@ -66,6 +68,11 @@ read-only GitHub browsing with explicit agent proposal and apply actions.
   failures retain files. Never reset or clean a source checkout as benchmark cleanup.
 - Keep native CLI permission prompts and explicit sandbox boundaries. Launch only
   validated server-selected executables/arguments; do not interpolate shell commands.
+- Sessions use each CLI's own skills and MCP configuration (#20); do not reintroduce per-project skill or MCP
+  selection. Read-only, reconcile, workflow, briefing and issue-proposal runs stay MCP-free. Workbench edits the
+  person's CLI configuration only through Tools → Install MCP server: a validated `codex mcp add` /
+  `claude mcp add -s user` argv, shown for review and run without a shell only after explicit confirmation;
+  environment values are never stored or shown.
 - Preserve loopback binding, Host/origin validation, bounded input/output, and the
   explicit public asset allowlist. Do not expose local records through static serving.
   The only non-loopback Host accepted is the opt-in `remote-access.json` host, and only

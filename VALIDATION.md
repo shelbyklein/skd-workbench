@@ -1,3 +1,19 @@
+# Tools in concert: native skills and MCP — 2026-09-24
+
+- Issue #20. Sessions, quick actions, reviews, project agents and the orchestrator use each CLI's own skills and
+  MCP. `skills.resolve` and `connections.resolve` return `native`; worktree Claude terminals run the normal CLI.
+  Read-only, reconcile, workflow, briefing and issue-proposal runs stay MCP-free. The orchestrator drops the private
+  Codex home and strict Claude flags, keeps the Workbench bridge, prompts and hook, and has no file, shell or web
+  tools (Claude `--tools Skill`). Stored skills, connections, policies and Agent picks are kept, not applied.
+- Tools page and API (`GET /api/tools`, `POST /api/tools/mcp/preview|install`). Read-only inventory checked
+  against the real home: Codex 45 skills / 18 MCP servers, Claude Code 34 skills / 9 MCP servers (~130 ms).
+  Install is fixture-tested only: exact argv, no shell, confirmation required, values masked, per-CLI results.
+  No real `mcp add` has been run.
+- Tests: `tools-inventory.test.js`, rewritten native-launch/orchestrator tests, `tools-browser.mjs` (screenshots
+  `output/tools-*.png`). `resources-browser.mjs` and `managed-connections-browser.mjs` retired with the pages.
+- Limits: Codex orchestrator lists skills but cannot open them without a shell; Claude.ai connectors (account-level)
+  are not in the inventory; the old skills-ui/connections-ui modules are unreachable but not deleted.
+
 # Remove project, pinned chat box and CLI lines in chat — 2026-09-23
 
 - Issue #19 adds Remove project (archive) and Restore. The store moves the project and its saved workflows to
