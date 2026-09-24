@@ -36,7 +36,7 @@ try{
  assert.equal(await page.locator('#agent-composer').count(),1,'Project overview keeps its conversation card.');
  await page.evaluate(()=>location.hash='#workflows');await toggle.waitFor();assert.equal(await dock.isVisible(),true);
  // Chat and CLI tabs switch the conversation view; the conversation has its own IDs beside a project card.
- await tab('CLI').click();await dock.locator('#dock-cli').waitFor();assert.equal(await dock.locator('#dock-composer').isHidden(),true);
+ await tab('CLI').click();await dock.locator('#dock-cli').waitFor();assert.equal(await dock.locator('#dock-composer').isVisible(),true,'The message box stays in CLI view.');
  await tab('Chat').click();await dock.locator('#dock-composer').waitFor();
  // Hide and reopen: back on the last tab, same shell.
  await tab('Shell').click();await dock.getByRole('button',{name:'Hide',exact:true}).click();await dock.waitFor({state:'hidden'});assert.equal(await toggle.getAttribute('aria-expanded'),'false');

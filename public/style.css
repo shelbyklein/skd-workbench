@@ -514,9 +514,13 @@ body.terminal-open .issue-detail-layout{grid-template-columns:minmax(0,1fr)}
 .dock-header .agent-view-switch{margin:0}
 .dock-conversation{flex:1 1 auto;min-height:0;overflow:auto}
 .dock-conversation[hidden],.dock-shell[hidden]{display:none}
-.coordinator-dock .agent-thread{position:static;max-height:none;border:0;padding:0;background:transparent;grid-template-rows:auto auto minmax(160px,1fr) auto auto;min-height:100%}
+.coordinator-dock .agent-thread{position:static;max-height:none;border:0;padding:0;background:transparent;display:flex;flex-direction:column;height:100%}
+.coordinator-dock .agent-thread>*{flex:none}
+/* Messages or the CLI take the free height so the message box stays in view. */
+.coordinator-dock .agent-thread>.agent-messages{flex:1 1 0;min-height:120px}
+
 .coordinator-dock .agent-view-switch-slot{display:none}
-.coordinator-dock .agent-thread.agent-cli-mode .agent-cli{height:calc(100vh - 260px);min-height:320px}
+.coordinator-dock .agent-thread>.agent-cli{flex:1 1 0;height:auto;min-height:280px}
 .dock-shell{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:10px}
 .dock-shell-screen{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
 .dock-shell-screen:empty{display:none}
