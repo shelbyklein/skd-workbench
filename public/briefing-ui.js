@@ -118,5 +118,5 @@ export function homeLine(view){
  if(Date.now()-Date.parse(report.evidence.interval?.end||report.updatedAt)>2*DAY)return null;
  if(s.headline)return twoSentences(s.headline);
  if(report.evidence.activity.length)return summaryText(s)?twoSentences(summaryText(s)):null;
- return s.suggestions?.[0]?`Quiet day. Next up: ${s.suggestions[0].title}.`:null;
+ return s.suggestions?.[0]?`Quiet day. Next: ${s.suggestions[0].title}.`:null;
 }
