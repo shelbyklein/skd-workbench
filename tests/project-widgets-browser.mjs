@@ -26,7 +26,8 @@ const browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL||'ch
 try{
  const page=await browser.newPage({viewport:{width:1440,height:1100},colorScheme:'dark'}),errors=[];page.on('pageerror',error=>errors.push(error.message));
  await page.goto(url+'/#project/'+project.id);await page.getByRole('heading',{name:'Priority issues',exact:true}).waitFor();await page.getByRole('heading',{name:'Last session',exact:true}).waitFor();
- assert.deepEqual(await page.locator('.priority-pill').allTextContents(),['Urgent','High','Medium','Low','No priority','No priority']);
+ assert.deepEqual(await page.locator('.priority-pill').evaluateAll(p=>p.map(x=>[x.className.replace('priority-pill priority-',''),x.title])),[['urgent','Urgent'],['high','High'],['medium','Medium'],['low','Low'],['none','No priority'],['none','No priority']],'The pill color and title carry the priority; its text is the issue number.');
+ assert.ok((await page.locator('.priority-pill').allTextContents()).every(t=>/^#\d+$/.test(t)));
  assert.deepEqual(await page.locator('.priority-issue-copy strong').allTextContents(),['Urgent issue','High issue','Medium issue','Low issue','No priority issue','Second unprioritized issue']);
  assert.equal(await page.locator('.priority-urgent').evaluate(element=>getComputedStyle(element).backgroundColor),'rgb(182, 2, 5)');
  assert.equal(await page.locator('#priority-issues-meta').textContent(),'6 open issues');

@@ -29,7 +29,7 @@ try{
  assert.equal(await page.locator('.home-project-grid').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),2);
  const boxes=await page.locator('.home-project-card').evaluateAll(es=>es.map(e=>({x:e.getBoundingClientRect().x,y:e.getBoundingClientRect().y})));
  assert.equal(boxes[0].y,boxes[1].y);assert.equal(boxes[2].y,boxes[3].y);assert(boxes[2].y>boxes[0].y);
- assert.deepEqual(await page.locator('.home-project-card').first().locator('.priority-pill').allTextContents(),['Urgent','High','Medium']);
+ assert.deepEqual(await page.locator('.home-project-card').first().locator('.priority-pill').evaluateAll(p=>p.map(x=>x.title)),['Urgent','High','Medium']);assert.ok((await page.locator('.home-project-card').first().locator('.priority-pill').allTextContents()).every(t=>/^#\d+$/.test(t)),'Pills show the issue number.');
  assert.equal(await page.locator('.home-secondary, .global-pages, #home-briefings').count(),0,'Home is only the project cards (and alerts when needed).');assert.equal(await page.locator('.home-alerts').isHidden(),true,'No alert strip when nothing needs attention.');
  
  mkdirSync('instructions/assets/home-project-overview',{recursive:true});
