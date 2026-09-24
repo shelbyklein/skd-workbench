@@ -652,3 +652,11 @@ main.no-topbar .projects-section>.overview-section-heading{margin-top:0}
 .home-issues-refresh.is-loading svg{animation:home-refresh-spin .9s linear infinite}
 @keyframes home-refresh-spin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){.home-issues-refresh.is-loading svg{animation:none;opacity:.5}}
+/* Home alert strip above the projects, only when something needs attention */
+.home-alerts{max-width:1500px;margin:0 auto 18px;padding:0 42px}
+.home-alerts[hidden]{display:none}
+.home-alerts>*{margin:0}
+.home-alerts-title{font:600 14px/1.3 Inter,-apple-system,sans-serif;margin:0 0 8px!important;color:#b7791f}
+.home-alerts .agent-list{border:1px solid #c98b1d66;border-radius:10px;background:var(--white)}
+.home-alerts-error:empty{display:none}.home-alerts-error{font-size:12px;color:var(--muted)}
+@media(max-width:650px){.home-alerts{padding:0 20px}}

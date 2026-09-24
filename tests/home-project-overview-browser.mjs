@@ -30,13 +30,13 @@ try{
  const boxes=await page.locator('.home-project-card').evaluateAll(es=>es.map(e=>({x:e.getBoundingClientRect().x,y:e.getBoundingClientRect().y})));
  assert.equal(boxes[0].y,boxes[1].y);assert.equal(boxes[2].y,boxes[3].y);assert(boxes[2].y>boxes[0].y);
  assert.deepEqual(await page.locator('.home-project-card').first().locator('.priority-pill').allTextContents(),['Urgent','High','Medium']);
- assert.equal(await page.locator('.home-secondary').getAttribute('open'),null);
- assert(await page.locator('.projects-section').evaluate(el=>el.nextElementSibling.matches('.home-secondary')));
+ assert.equal(await page.locator('.home-secondary, .global-pages, #home-briefings').count(),0,'Home is only the project cards (and alerts when needed).');assert.equal(await page.locator('.home-alerts').isHidden(),true,'No alert strip when nothing needs attention.');
+ 
  mkdirSync('instructions/assets/home-project-overview',{recursive:true});
  await page.screenshot({path:'instructions/assets/home-project-overview/desktop.png',fullPage:true});
  const link=page.locator('.home-project-card').nth(1).locator('.priority-issue-row').first();await link.focus();await page.keyboard.press('Enter');
  await page.waitForURL(`**/#issues/${projects[1].id}/3`);await page.getByRole('heading',{name:issues[2].title,exact:true}).waitFor();
- await page.goto(url);await page.locator('.home-secondary>summary').click();await page.locator('[data-global-tools]').waitFor();
+ await page.goto(url);await page.locator('.sidebar nav a',{hasText:'Tools'}).waitFor();
  await page.setViewportSize({width:390,height:844});await page.reload();await page.waitForFunction(()=>document.querySelectorAll('.home-project-card .priority-issue-row').length===12);
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));assert.equal(await page.locator('.home-project-grid').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),1);
  await page.screenshot({path:'instructions/assets/home-project-overview/mobile.png',fullPage:true});
