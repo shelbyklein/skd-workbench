@@ -68,7 +68,10 @@ read-only GitHub browsing with explicit agent proposal and apply actions.
   `message_project_agent` tools are pre-approved and every other `manage`/`run` tool keeps the native prompt.
   Project agents run the person's normal CLI in the project folder (or one dedicated worktree) under a
   per-project lock: a live project agent blocks global-lock work in that project and vice versa. Their
-  internal grant has only `read` and `report`. Never bypass either CLI's permission prompts. Workflow launches
+  internal grant has only `read` and `report`. Never bypass either CLI's permission prompts unless the person turns on Full
+  permissions in the coordinator settings (off by default; then project agents start with
+  `--dangerously-skip-permissions` / `--dangerously-bypass-approvals-and-sandbox` and the orchestrator's Workbench
+  tools stop prompting, though it still has no file, shell or web tools). Workflow launches
   through controller tools stay mandate-checked and take the lock. Hiding/reopening a terminal
   must not spawn another process; restarting the server must not resume execution.
 - The orchestrator and project agent CLIs run in the session host (`scripts/session-host.mjs`, client
@@ -79,7 +82,8 @@ read-only GitHub browsing with explicit agent proposal and apply actions.
 - Normal execution worktrees remain for review. Do not add automatic merge or
   deletion. Benchmark cleanup requires a successful archive and ownership checks;
   failures retain files. Never reset or clean a source checkout as benchmark cleanup.
-- Keep native CLI permission prompts and explicit sandbox boundaries. Launch only
+- Keep native CLI permission prompts and explicit sandbox boundaries, except for agent CLIs under the person's Full
+  permissions setting. Launch only
   validated server-selected executables/arguments; do not interpolate shell commands.
 - Sessions use each CLI's own skills and MCP configuration (#20); do not reintroduce per-project skill or MCP
   selection. Read-only, reconcile, workflow, briefing and issue-proposal runs stay MCP-free. Workbench edits the
