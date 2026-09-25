@@ -44,6 +44,9 @@ try{
  assert.equal(await page.locator('.home-project-card .priority-issue-row:visible').count(),0,'Issue previews hide in the list.');
  const rows=await page.locator('.home-project-card').evaluateAll(es=>es.map(e=>e.getBoundingClientRect()));
  assert.ok(rows.every(r=>r.height<90)&&rows[1].y>rows[0].y,'Compact stacked rows.');
+ // Without dev/live links, Git still gets the wide column instead of shifting into the links slot.
+ const cells=await page.locator('.home-project-card').evaluateAll(es=>es.map(e=>[e.querySelector('.home-git').getBoundingClientRect().width,e.querySelector('.home-issue-heading').getBoundingClientRect().width]));
+ assert.ok(cells.every(([git,issues])=>git>issues*2),`Git column keeps its width: ${JSON.stringify(cells)}`);
  await page.waitForFunction(()=>/4 open issues/.test(document.querySelector('.home-project-card [data-project-issues]')?.textContent||''));
  assert.deepEqual(await page.locator('[data-home-layout]').evaluateAll(b=>b.map(x=>x.getAttribute('aria-pressed'))),['false','true']);
  await page.mouse.move(0,0); await page.screenshot({path:'output/home-project-list.png'});

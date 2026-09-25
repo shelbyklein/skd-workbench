@@ -789,12 +789,13 @@ main.no-topbar .projects-section>.overview-section-heading{margin-top:0}
 .project-link span{font-weight:700;color:var(--ink);font-size:10px;text-transform:uppercase;letter-spacing:.03em}
 .project-link:hover{color:var(--ink);border-color:var(--muted)}
 .project-title-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-width:0}.project-title-row h1{margin:0}
-/* Home: tag colors as stripes on the right edge instead of pills. */
+/* Home: tag colors as stripes on the left edge instead of pills. */
 .home-project-card.has-tag-edge{box-shadow:var(--tag-edge)}
-.home-project-card.has-tag-edge{padding-right:calc(20px + 10px)}
-.home-project-list .home-project-card.has-tag-edge{padding-right:calc(16px + 10px)}
-.home-project-list .home-project-card{grid-template-columns:9px minmax(140px,1fr) minmax(0,1fr) minmax(0,1.5fr) auto auto}
-.home-project-list .project-links{flex-wrap:nowrap;overflow:hidden}
+.home-project-card.has-tag-edge{padding-left:calc(20px + 10px)}
+.home-project-list .home-project-card.has-tag-edge{padding-left:calc(16px + 10px)}
+/* List rows: the links column sizes to its links and stays in place when a project has none, so Git keeps the wide column. */
+@media(min-width:1051px){.home-project-list .home-project-card{grid-template-columns:9px minmax(140px,1fr) auto minmax(0,2fr) auto auto}.home-project-list .project-links:empty{display:block}}
+.home-project-list .project-links{flex-wrap:nowrap;overflow:hidden;max-width:320px}
 .home-project-card>header .project-links{margin-right:auto}
 /* Card header: the ⋯ menu pinned top right; the name and its links share the rest and wrap under each other. */
 .home-project-grid:not(.home-project-list) .home-project-card>header{position:relative;flex-wrap:wrap;padding-right:40px;column-gap:10px;row-gap:6px}

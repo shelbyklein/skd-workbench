@@ -215,10 +215,10 @@ function projectLinks(p){
  const link=(url,label)=>{let host=url;try{const u=new URL(url);host=u.host+(u.pathname==='/'?'':u.pathname);}catch{}return `<a class="project-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer" title="${esc(label)}: ${esc(url)}"><span>${esc(label)}</span>${esc(host)}</a>`;};
  return `<span class="project-links">${p.devURL?link(p.devURL,'Dev'):''}${p.liveURL?link(p.liveURL,'Live'):''}</span>`;
 }
-// Tag colors as stripes on the card's right edge (first tag outermost); the names stay available to screen readers and on hover.
+// Tag colors as stripes on the card's left edge (first tag outermost); the names stay available to screen readers and on hover.
 function tagEdge(list){
  if(!list.length)return {style:'',label:''};
- return {style:` style="--tag-edge:${list.map((t,i)=>`inset -${(i+1)*5}px 0 0 ${t.color}`).join(',')}"`,label:list.map(t=>t.name).join(', ')};
+ return {style:` style="--tag-edge:${list.map((t,i)=>`inset ${(i+1)*5}px 0 0 ${t.color}`).join(',')}"`,label:list.map(t=>t.name).join(', ')};
 }
 // Home shows projects as cards or as a compact list; the choice is remembered in this browser.
 let homeLayout=(()=>{try{return localStorage.getItem('skd-home-layout')==='list'?'list':'cards';}catch{return 'cards';}})();
