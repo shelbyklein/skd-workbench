@@ -691,8 +691,8 @@ main.no-topbar .projects-section>.overview-section-heading{margin-top:0}
 .home-git-head{display:flex;align-items:center;gap:8px;min-width:0}
 .home-git-icon{width:16px;height:16px;flex:none;color:var(--muted)}
 .home-git-branch{font-weight:700;font-size:13px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-.home-git-state{margin-left:auto;font-size:11px;color:var(--muted);white-space:nowrap}.home-git-state.is-dirty{color:#b7791f}
-.home-git-stats{display:flex;flex-wrap:wrap;gap:6px;font-size:12px;color:var(--muted)}
+.home-git-state{margin-left:auto;font-size:11px;color:var(--muted);white-space:nowrap}.home-git.is-dirty .home-git-icon{color:#b7791f}
+.home-git-stats{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px;margin-left:auto;min-width:0;font-size:12px;color:var(--muted)}
 .home-git-stat{padding:2px 9px;border-radius:999px;background:var(--white);border:1px solid var(--line);white-space:nowrap}
 .home-git-stat strong{color:var(--ink)}
 .home-git-stat.is-warn{border-color:#c98b1d99;background:#c98b1d1f}.home-git-stat.is-warn strong{color:#b7791f}
@@ -773,13 +773,13 @@ main.no-topbar .projects-section>.overview-section-heading{margin-top:0}
 .home-project-list .home-issue-heading{order:5}.home-project-list .home-project-card .project-card-menu{order:6;margin:0}
 .home-project-list .home-project-card .project-tags{margin:0;min-width:0;display:flex;flex-wrap:wrap;gap:4px}.home-project-list .home-project-card .project-tags:empty{display:block}
 .home-project-list .home-briefing,.home-project-list .priority-issue-list,.home-project-list .home-git-reconcile,.home-project-list .home-project-card>footer [data-home-issue-note]{display:none}
-.home-project-list .home-git{margin:0;padding:0;border:0;background:transparent;grid-template-columns:auto minmax(0,1fr);display:grid;align-items:center;column-gap:12px}
-.home-project-list .home-git>*{width:auto}.home-project-list .home-git-state{margin-left:8px}
-.home-project-list .home-git-warn .home-git-branch{color:#b7791f}
+.home-project-list .home-git{margin:0;padding:0;border:0;background:transparent;display:block;min-width:0}
+.home-project-list .home-git>*{width:auto}
+
 .home-project-list .home-issue-heading{margin:0;justify-content:flex-end}.home-project-list .home-issue-heading>span:first-child{display:none}
 .home-project-list .home-project-card>footer{display:none}
 @media(max-width:1050px){.home-project-list .home-project-card{grid-template-columns:9px minmax(0,1fr) auto auto;row-gap:6px}.home-project-list .project-tags,.home-project-list .home-git{grid-column:2/-1;order:7}.home-project-list .project-tags:empty{display:none}}
-.home-project-list .home-git-stats{flex-wrap:nowrap;white-space:nowrap;overflow:hidden;min-width:0}
+.home-project-list .home-git-stats{flex-wrap:nowrap;white-space:nowrap}
 /* Home: projects hidden from Home, shown on request, and the visibility option in the project's ⋯ dialog. */
 .home-hidden-toggle{font-size:12px;color:var(--muted);white-space:nowrap}
 .home-project-card.is-hidden-project{opacity:.55}
@@ -795,8 +795,8 @@ main.no-topbar .projects-section>.overview-section-heading{margin-top:0}
 .home-project-card.has-tag-edge{box-shadow:var(--tag-edge)}
 .home-project-card.has-tag-edge{padding-left:calc(20px + 10px)}
 .home-project-list .home-project-card.has-tag-edge{padding-left:calc(16px + 10px)}
-/* List rows: the links column sizes to its links and stays in place when a project has none, so Git keeps the wide column. */
-@media(min-width:1051px){.home-project-list .home-project-card{grid-template-columns:9px minmax(140px,1fr) auto minmax(0,2fr) auto auto}.home-project-list .project-urls:empty{display:block}}
+/* List rows: the links and Git columns size to their content and the name gives way; the links column stays in place when a project has none. */
+@media(min-width:1051px){.home-project-list .home-project-card{grid-template-columns:9px minmax(140px,1fr) auto auto auto auto}.home-project-list .project-urls:empty{display:block}}
 .home-project-list .project-urls{flex-wrap:nowrap;overflow:hidden;max-width:320px}
 .home-project-card>header .project-urls{margin-right:auto}
 /* Card header: the ⋯ menu pinned top right; the name and its links share the rest and wrap under each other. */
