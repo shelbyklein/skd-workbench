@@ -14,7 +14,7 @@ const shell=s=>"'"+s.replace(/'/g,"'\\''")+"'";
 let login=false;if(existsSync(launcherPlist)){const old=JSON.parse(execFileSync('/usr/bin/plutil',['-convert','json','-o','-',launcherPlist],{encoding:'utf8'}));login=old.RunAtLoad===true;}
 if(args.includes('--login'))login=true;if(args.includes('--no-login'))login=false;
 const command=[process.execPath,path.join(launcherRoot,'scripts/start-local-server.mjs')].map(shell).join(' ');
-const source=`on startWorkbench()\n try\n  do shell script ${apple(command)}\n on error messageText\n  display alert "Workbench could not start" message messageText as warning\n end try\nend startWorkbench\non run\n startWorkbench()\nend run\non open location incomingURL\n if incomingURL is "skd-workbench://start" then\n  startWorkbench()\n else\n  display alert "Unsupported Workbench link" message "Only skd-workbench://start is supported."\n end if\nend open location\n`;
+const source=`on startWorkbench(extra)\n try\n  do shell script ${apple(command)} & extra\n on error messageText\n  display alert "Workbench could not start" message messageText as warning\n end try\nend startWorkbench\non run\n startWorkbench(" --open")\nend run\non open location incomingURL\n if incomingURL is "skd-workbench://start" then\n  startWorkbench("")\n else\n  display alert "Unsupported Workbench link" message "Only skd-workbench://start is supported."\n end if\nend open location\n`;
 const sourcePath=path.join(support,'Launcher.applescript');writeFileSync(sourcePath,source,{mode:0o600});
 if(existsSync(stage))rmSync(stage,{recursive:true});
 execFileSync('/usr/bin/osacompile',['-o',stage,sourcePath]);

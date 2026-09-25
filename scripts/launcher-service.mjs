@@ -2,6 +2,7 @@ import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {homedir} from 'node:os';
 import {execFileSync} from 'node:child_process';
+import {existsSync} from 'node:fs';
 export const launcherRoot=path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 export const launcherLabel='com.shelbyklein.skd-workbench';
 export const launcherPlist=path.join(homedir(),'Library/LaunchAgents',launcherLabel+'.plist');
@@ -17,4 +18,17 @@ export async function startLocalServer(){
  try{execFileSync('/bin/launchctl',['print',service],{stdio:'ignore'});}catch{execFileSync('/bin/launchctl',['bootstrap',domain,launcherPlist],{stdio:'pipe'});}
  // No -k: never terminate a running job, shell, or agent session.
  execFileSync('/bin/launchctl',['kickstart',service],{stdio:'pipe'});
+ await waitUntilRunning();
 }
+// The server takes a moment to listen after launchd starts it; opening the window before that shows it offline.
+export async function waitUntilRunning({status=serverStatus,timeoutMs=15000,intervalMs=300}={}){
+ const deadline=Date.now()+timeoutMs;
+ while(Date.now()<deadline){if(await status()==='running')return true;await new Promise(r=>setTimeout(r,intervalMs));}
+ throw Error('Workbench did not start within 15 seconds. See ~/Library/Logs/SKD Workbench/server-error.log.');
+}
+// The Workbench window: the installed web app when there is one, otherwise the default browser.
+export function workbenchWindow({home=homedir(),exists=existsSync}={}){
+ const app=path.join(home,'Applications','SKD Workbench.app');
+ return exists(app)?['-a',app]:['http://127.0.0.1:4390'];
+}
+export function openWorkbench(){execFileSync('/usr/bin/open',workbenchWindow(),{stdio:'pipe'});}
