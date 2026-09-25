@@ -45,3 +45,11 @@ test('comparison keys distinguish projects, commits and dirty state but not a pr
  const r4=store.createRun(input,{...source,git:{...source.git,commit:'def'}},renamed.version);assert.notEqual(r4.comparisonKey,r2.comparisonKey);
  const moved=store.updateFlow(f.id,{...f,projectID:b.id});const r5=store.createRun({...input,flowVersion:moved.version},{...source,folderPath:b.folderPath},b.version);assert.notEqual(r5.comparisonKey,r2.comparisonKey);
 });
+test('projects keep optional dev and live URLs; older clients that omit them keep the saved links',t=>{
+ const dir=fixture(t),store=new Store(dir),folderPath=mkdtempSync(path.join(tmpdir(),'skd-project-links-'));t.after(()=>rmSync(folderPath,{recursive:true,force:true}));
+ let p=store.createProject({name:'Site',folderPath,devURL:'http://localhost:3000',liveURL:' https://example.com '});
+ assert.equal(p.devURL,'http://localhost:3000/');assert.equal(p.liveURL,'https://example.com/');
+ p=store.updateProject(p.id,{name:'Site',folderPath,version:p.version});assert.equal(p.liveURL,'https://example.com/','Omitted fields keep the saved link.');
+ p=store.updateProject(p.id,{name:'Site',folderPath,version:p.version,devURL:'',liveURL:'https://example.com/new'});assert.equal(p.devURL,undefined);assert.equal(p.liveURL,'https://example.com/new');
+ for(const bad of ['javascript:alert(1)','ftp://example.com','https://user:pw@example.com','not a url'])assert.throws(()=>store.updateProject(p.id,{name:'Site',folderPath,version:p.version,liveURL:bad}),/Live URL must be an http or https address/);
+});
