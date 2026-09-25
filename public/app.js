@@ -212,8 +212,8 @@ function renderInvalidRoute(){shell(`<section class="empty"><h1>Page unavailable
 let projectTagFilters=new Set(),homeSessionTimer=null,showHiddenProjects=false;
 // Dev and live site links beside a project title; the host is shown, the full address is the tooltip.
 function projectLinks(p){
- const link=(url,label)=>{let host=url;try{const u=new URL(url);host=u.host+(u.pathname==='/'?'':u.pathname);}catch{}return `<a class="project-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer" title="${esc(label)}: ${esc(url)}"><span>${esc(label)}</span>${esc(host)}</a>`;};
- return `<span class="project-links">${p.devURL?link(p.devURL,'Dev'):''}${p.liveURL?link(p.liveURL,'Live'):''}</span>`;
+ const link=(url,label)=>{let host=url;try{const u=new URL(url);host=u.host+(u.pathname==='/'?'':u.pathname);}catch{}return `<a class="project-url" href="${esc(url)}" target="_blank" rel="noopener noreferrer" title="${esc(label)}: ${esc(url)}"><span>${esc(label)}</span>${esc(host)}</a>`;};
+ return `<span class="project-urls">${p.devURL?link(p.devURL,'Dev'):''}${p.liveURL?link(p.liveURL,'Live'):''}</span>`;
 }
 // Tag colors as stripes on the card's left edge (first tag outermost); the names stay available to screen readers and on hover.
 function tagEdge(list){
@@ -222,12 +222,12 @@ function tagEdge(list){
 }
 // Home shows projects as cards or as a compact list; the choice is remembered in this browser.
 let homeLayout=(()=>{try{return localStorage.getItem('skd-home-layout')==='list'?'list':'cards';}catch{return 'cards';}})();
-// A dot beside each project name while its agent has a live session: on, working (output in the last seconds) or waiting for you.
+// A dot beside each project name: on, working (output in the last seconds) or waiting for you; an outlined circle when no agent is running.
 async function fillHomeSessions(){
  let running=[];try{running=(await api('coordinator')).running||[];}catch{return;}
- const labels={on:'Session on',working:'Session working',waiting:'Session needs you'};
- document.querySelectorAll('[data-home-session]').forEach(dot=>{const r=running.find(x=>x.projectID===dot.dataset.homeSession&&x.state!=='off');dot.hidden=!r;
-  if(r){dot.dataset.state=r.state;dot.title=labels[r.state]||'Session running';dot.setAttribute('role','img');dot.setAttribute('aria-label',dot.title);}});
+ const labels={on:'Session on',working:'Session working',waiting:'Session needs you',off:'No agent running'};
+ document.querySelectorAll('[data-home-session]').forEach(dot=>{const r=running.find(x=>x.projectID===dot.dataset.homeSession&&x.state!=='off');dot.hidden=false;
+  dot.dataset.state=r?r.state:'off';dot.title=r?labels[r.state]||'Session running':labels.off;dot.setAttribute('role','img');dot.setAttribute('aria-label',dot.title);});
 }
 function watchHomeSessions(){
  clearInterval(homeSessionTimer);fillHomeSessions();
@@ -250,7 +250,7 @@ function renderProjects(){
  document.querySelectorAll('[data-project-tag-filter]').forEach(button=>button.onclick=()=>{const id=button.dataset.projectTagFilter;if(projectTagFilters.has(id))projectTagFilters.delete(id);else projectTagFilters.add(id);renderProjects();[...document.querySelectorAll('[data-project-tag-filter]')].find(item=>item.dataset.projectTagFilter===id)?.focus();});
 
  if(!document.querySelector('[data-project]'))$('.projects-section .overview-grid').innerHTML=projectTagFilters.size?'<p class="overview-empty">No projects with these tags.</p>':'<p class="overview-empty">No projects. Add a project to get started.</p>';
- document.querySelectorAll('[data-project-tags]').forEach(b=>b.onclick=()=>openProjectTags({api,modal,project:data.projects.find(p=>p.id===b.dataset.projectTags),onSaved:()=>{render();toast('Saved.');}}));
+ document.querySelectorAll('[data-project-tags]').forEach(b=>b.onclick=()=>openProjectTags({api,modal,project:data.projects.find(p=>p.id===b.dataset.projectTags),onSaved:async()=>{await reload();render();toast('Saved.');}}));
  document.querySelectorAll('[data-project]').forEach(b=>b.onclick=()=>confirmLeave(()=>switchProject(b.dataset.project)));
 }
 // Each card's last 24 hours in a sentence or two, from the saved briefing; reading starts no agent.

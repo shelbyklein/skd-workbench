@@ -11,8 +11,10 @@ export function tagMarkup(tag){
 }
 export async function openProjectTags({api,modal,project,onSaved}){
  let draft;try{draft=structuredClone(await loadSettings(api));}catch(e){modal('Project tags','<p>'+esc(e.message)+'</p>',[{label:'Close',close:true}]);return;}
- modal(project.name,`<div class="tag-project-list">${draft.projectTags.map(tag=>`<label><input type="checkbox" name="tag" value="${esc(tag.id)}" ${tag.projectIDs.includes(project.id)?'checked':''}>${tagMarkup(tag)}</label>`).join('')||'<p>No tags. Create tags in Global settings → Project tags.</p>'}</div><label class="tag-project-hide"><input type="checkbox" name="hidden" ${(draft.hiddenProjects||[]).includes(project.id)?'checked':''}> Hide from Home</label>`,[{label:'Cancel',close:true},{label:'Save',submit:true,primary:true}],async form=>{
-  const selected=new Set(form.getAll('tag'));
+ modal(project.name,`<div class="tag-project-list">${draft.projectTags.map(tag=>`<label><input type="checkbox" name="tag" value="${esc(tag.id)}" ${tag.projectIDs.includes(project.id)?'checked':''}>${tagMarkup(tag)}</label>`).join('')||'<p>No tags. Create tags in Global settings → Project tags.</p>'}</div><div class="tag-project-urls"><label>Dev URL<input name="devURL" type="url" maxlength="2048" value="${esc(project.devURL||'')}" placeholder="http://localhost:3000"></label><label>Live URL<input name="liveURL" type="url" maxlength="2048" value="${esc(project.liveURL||'')}" placeholder="https://example.com"></label></div><label class="tag-project-hide"><input type="checkbox" name="hidden" ${(draft.hiddenProjects||[]).includes(project.id)?'checked':''}><span>Hide from Home</span></label>`,[{label:'Cancel',close:true},{label:'Save',submit:true,primary:true}],async form=>{
+  const selected=new Set(form.getAll('tag')),devURL=form.get('devURL').trim(),liveURL=form.get('liveURL').trim();
+  // The links live on the project itself, so they save through the project; unchanged links skip that write.
+  if(devURL!==(project.devURL||'')||liveURL!==(project.liveURL||''))await api('projects/'+project.id,'PUT',{name:project.name,folderPath:project.folderPath,devURL,liveURL,version:project.version});
   draft.hiddenProjects=[...(draft.hiddenProjects||[]).filter(id=>id!==project.id),...(form.get('hidden')==='on'?[project.id]:[])];
   draft.projectTags=draft.projectTags.map(tag=>({...tag,projectIDs:[...tag.projectIDs.filter(id=>id!==project.id),...(selected.has(tag.id)?[project.id]:[])]}));
   settings=await api('settings','PUT',draft);onSaved();

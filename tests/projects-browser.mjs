@@ -27,9 +27,9 @@ try{
  await page.waitForFunction(()=>document.querySelector('[data-sidebar-project][aria-current]')?.textContent.replace('▱','').trim()==='Newton');assert.equal(await page.locator('[data-overview-flow]').count(),0);
  const projectA=await page.locator('[data-sidebar-project][aria-current]').getAttribute('data-sidebar-project');
  // Dev and live links sit beside the title on the project page and on the Home card.
- {const here=page.url();await page.goto(url+'/#project/'+projectA);await page.locator('.project-title-row .project-link').first().waitFor();
-  assert.deepEqual(await page.locator('.project-title-row .project-link').evaluateAll(a=>a.map(x=>[x.textContent,x.getAttribute('href'),x.target])),[['Devlocalhost:5173','http://localhost:5173/','_blank'],['Livenewton.example.com','https://newton.example.com/','_blank']]);
-  await page.goto(url+'/#home');await page.locator(`[data-home-project="${projectA}"] header .project-link`).nth(1).waitFor();await page.screenshot({path:'output/project-links-home.png'});
+ {const here=page.url();await page.goto(url+'/#project/'+projectA);await page.locator('.project-title-row .project-url').first().waitFor();
+  assert.deepEqual(await page.locator('.project-title-row .project-url').evaluateAll(a=>a.map(x=>[x.textContent,x.getAttribute('href'),x.target])),[['Devlocalhost:5173','http://localhost:5173/','_blank'],['Livenewton.example.com','https://newton.example.com/','_blank']]);
+  await page.goto(url+'/#home');await page.locator(`[data-home-project="${projectA}"] header .project-url`).nth(1).waitFor();await page.screenshot({path:'output/project-links-home.png'});
   await page.goto(here);await page.reload();await page.getByRole('button',{name:'Project details',exact:true}).waitFor();}
  await openDetails();
  await page.waitForFunction(()=>document.querySelector('#connection-details').textContent.includes('github.com'));

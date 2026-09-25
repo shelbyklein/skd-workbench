@@ -761,6 +761,7 @@ main.no-topbar .projects-section>.overview-section-heading{margin-top:0}
 .home-session-dot{flex:none;width:9px;height:9px;border-radius:50%;background:#3f8f4f}.home-session-dot[hidden]{display:none}
 .home-session-dot[data-state="working"]{background:#2f6fdb;animation:dock-agent-pulse 1.2s ease-in-out infinite}
 .home-session-dot[data-state="waiting"]{background:#e0a91b}
+.home-session-dot[data-state="off"]{background:transparent;box-shadow:inset 0 0 0 1.5px var(--muted)}
 @media(prefers-reduced-motion:reduce){.home-session-dot[data-state="working"]{animation:none}}
 /* List: one compact row per project — name, tags, Git and the open-issue count; briefing and issue previews hide. */
 .projects-section>.home-project-grid.home-project-list{grid-template-columns:1fr;gap:0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
@@ -782,23 +783,24 @@ main.no-topbar .projects-section>.overview-section-heading{margin-top:0}
 /* Home: projects hidden from Home, shown on request, and the visibility option in the project's ⋯ dialog. */
 .home-hidden-toggle{font-size:12px;color:var(--muted);white-space:nowrap}
 .home-project-card.is-hidden-project{opacity:.55}
-.tag-project-hide{display:flex;align-items:center;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.tag-project-hide{display:flex;align-items:center;justify-content:flex-start;gap:8px;margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line)}.tag-project-hide input[type=checkbox]{width:auto;margin:0;flex-shrink:0}
+.tag-project-urls{display:grid;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}.tag-project-urls label{margin:0}
 /* Project dev / live links beside the title (Home cards, list rows, project page). */
-.project-links{display:inline-flex;align-items:center;gap:6px;min-width:0;flex-wrap:wrap}.project-links:empty{display:none}
-.project-link{display:inline-flex;align-items:baseline;gap:5px;max-width:220px;padding:2px 8px;border:1px solid var(--line);border-radius:999px;font-size:11px;color:var(--muted);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.project-link span{font-weight:700;color:var(--ink);font-size:10px;text-transform:uppercase;letter-spacing:.03em}
-.project-link:hover{color:var(--ink);border-color:var(--muted)}
+.project-urls{display:inline-flex;align-items:center;gap:6px;min-width:0;flex-wrap:wrap}.project-urls:empty{display:none}
+.project-url{display:inline-flex;align-items:baseline;gap:5px;max-width:220px;padding:2px 8px;border:1px solid var(--line);border-radius:999px;font-size:11px;color:var(--muted);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.project-url span{font-weight:700;color:var(--ink);font-size:10px;text-transform:uppercase;letter-spacing:.03em}
+.project-url:hover{color:var(--ink);border-color:var(--muted)}
 .project-title-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-width:0}.project-title-row h1{margin:0}
 /* Home: tag colors as stripes on the left edge instead of pills. */
 .home-project-card.has-tag-edge{box-shadow:var(--tag-edge)}
 .home-project-card.has-tag-edge{padding-left:calc(20px + 10px)}
 .home-project-list .home-project-card.has-tag-edge{padding-left:calc(16px + 10px)}
 /* List rows: the links column sizes to its links and stays in place when a project has none, so Git keeps the wide column. */
-@media(min-width:1051px){.home-project-list .home-project-card{grid-template-columns:9px minmax(140px,1fr) auto minmax(0,2fr) auto auto}.home-project-list .project-links:empty{display:block}}
-.home-project-list .project-links{flex-wrap:nowrap;overflow:hidden;max-width:320px}
-.home-project-card>header .project-links{margin-right:auto}
+@media(min-width:1051px){.home-project-list .home-project-card{grid-template-columns:9px minmax(140px,1fr) auto minmax(0,2fr) auto auto}.home-project-list .project-urls:empty{display:block}}
+.home-project-list .project-urls{flex-wrap:nowrap;overflow:hidden;max-width:320px}
+.home-project-card>header .project-urls{margin-right:auto}
 /* Card header: the ⋯ menu pinned top right; the name and its links share the rest and wrap under each other. */
 .home-project-grid:not(.home-project-list) .home-project-card>header{position:relative;flex-wrap:wrap;padding-right:40px;column-gap:10px;row-gap:6px}
 .home-project-grid:not(.home-project-list) .home-project-card>header .project-card{flex:0 1 auto;overflow-wrap:normal}
-.home-project-grid:not(.home-project-list) .home-project-card>header .project-links{margin-right:0}
+.home-project-grid:not(.home-project-list) .home-project-card>header .project-urls{margin-right:0}
 .home-project-grid:not(.home-project-list) .home-project-card>header .project-card-menu{position:absolute;top:0;right:0;margin:0}

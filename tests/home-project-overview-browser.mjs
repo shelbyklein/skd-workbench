@@ -38,7 +38,7 @@ try{
  await page.waitForURL(`**/#issues/${projects[1].id}/3`);await page.getByRole('heading',{name:issues[2].title,exact:true}).waitFor();
  await page.goto(url);await page.locator('.sidebar nav a',{hasText:'Tools'}).waitFor();
  // List view: one row per project with name, Git and the open-issue count; remembered after a reload.
- assert.equal(await page.locator('[data-home-session]:visible').count(),0,'No session dots without live sessions.');
+ await page.locator('[data-home-session][data-state=off]').first().waitFor();assert.equal(await page.locator('[data-home-session]:not([data-state=off])').count(),0,'Outlined circles without live sessions.');
  await page.getByRole('button',{name:'List',exact:true}).click();
  assert.equal(await page.locator('.home-project-grid').evaluate(el=>el.classList.contains('home-project-list')),true);
  assert.equal(await page.locator('.home-project-card .priority-issue-row:visible').count(),0,'Issue previews hide in the list.');
