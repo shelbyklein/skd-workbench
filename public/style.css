@@ -804,3 +804,23 @@ main.no-topbar .projects-section>.overview-section-heading{margin-top:0}
 .home-project-grid:not(.home-project-list) .home-project-card>header .project-card{flex:0 1 auto;overflow-wrap:normal}
 .home-project-grid:not(.home-project-list) .home-project-card>header .project-urls{margin-right:0}
 .home-project-grid:not(.home-project-list) .home-project-card>header .project-card-menu{position:absolute;top:0;right:0;margin:0}
+
+/* Issues list: Home's conventions — section heading with muted subline, segmented switch, bordered compact rows. */
+.issues-list-heading{margin:0 0 16px}.issues-list-heading .projects-title h2{margin:0}
+.issues-list-heading .issues-filters{gap:10px}
+.issues-state-switch button{height:28px;padding:0 12px;border:0;border-radius:7px;background:transparent;color:var(--muted);font-size:12px;font-weight:600}
+.issues-state-switch button[aria-pressed="true"]{background:var(--line);color:var(--ink)}
+.issue-list-panel{padding:0;border:1px solid var(--line);border-radius:10px;background:var(--paper);overflow:hidden}
+#issues-list .issue-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:14px;min-height:56px;padding:12px 16px;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent;color:var(--ink)}
+#issues-list .issue-row:first-child{border-top:0}
+#issues-list .issue-row:hover{background:var(--surface)}
+#issues-list .issue-row>.priority-pill{min-width:48px;font-size:11px;padding:4px 9px}
+.issue-row-copy{display:grid;gap:3px;min-width:0}
+#issues-list .issue-row-copy strong{font-size:14px;font-weight:600;line-height:1.35}
+#issues-list .issue-row-meta{font-size:12px;color:var(--muted);line-height:1.4}.issue-row-meta:empty{display:none}
+#issues-list .issue-row-state{font-size:11px;color:var(--muted);padding:2px 8px;border:1px solid var(--line);border-radius:999px}
+#issues-list .issue-row-arrow{font-size:12px;color:var(--muted)}
+.issue-list-empty{margin:0;padding:18px 16px;color:var(--muted)}
+.issue-list-panel .issue-pagination{margin:0;padding:10px 16px;border-top:1px solid var(--line);justify-content:flex-end;color:var(--muted)}
+.issue-list-panel .issue-pagination button{height:28px;padding:0 10px;font-size:12px;border-radius:7px}
+@media(max-width:650px){.issues-list-heading{flex-wrap:wrap}#issues-list .issue-row{grid-template-columns:auto minmax(0,1fr);gap:10px;padding:12px}#issues-list .issue-row-state,#issues-list .issue-row-arrow{display:none}}
