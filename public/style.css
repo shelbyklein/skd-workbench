@@ -783,3 +783,21 @@ main.no-topbar .projects-section>.overview-section-heading{margin-top:0}
 .home-hidden-toggle{font-size:12px;color:var(--muted);white-space:nowrap}
 .home-project-card.is-hidden-project{opacity:.55}
 .tag-project-hide{display:flex;align-items:center;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+/* Project dev / live links beside the title (Home cards, list rows, project page). */
+.project-links{display:inline-flex;align-items:center;gap:6px;min-width:0;flex-wrap:wrap}.project-links:empty{display:none}
+.project-link{display:inline-flex;align-items:baseline;gap:5px;max-width:220px;padding:2px 8px;border:1px solid var(--line);border-radius:999px;font-size:11px;color:var(--muted);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.project-link span{font-weight:700;color:var(--ink);font-size:10px;text-transform:uppercase;letter-spacing:.03em}
+.project-link:hover{color:var(--ink);border-color:var(--muted)}
+.project-title-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-width:0}.project-title-row h1{margin:0}
+/* Home: tag colors as stripes on the right edge instead of pills. */
+.home-project-card.has-tag-edge{box-shadow:var(--tag-edge)}
+.home-project-card.has-tag-edge{padding-right:calc(20px + 10px)}
+.home-project-list .home-project-card.has-tag-edge{padding-right:calc(16px + 10px)}
+.home-project-list .home-project-card{grid-template-columns:9px minmax(140px,1fr) minmax(0,1fr) minmax(0,1.5fr) auto auto}
+.home-project-list .project-links{flex-wrap:nowrap;overflow:hidden}
+.home-project-card>header .project-links{margin-right:auto}
+/* Card header: the ⋯ menu pinned top right; the name and its links share the rest and wrap under each other. */
+.home-project-grid:not(.home-project-list) .home-project-card>header{position:relative;flex-wrap:wrap;padding-right:40px;column-gap:10px;row-gap:6px}
+.home-project-grid:not(.home-project-list) .home-project-card>header .project-card{flex:0 1 auto;overflow-wrap:normal}
+.home-project-grid:not(.home-project-list) .home-project-card>header .project-links{margin-right:0}
+.home-project-grid:not(.home-project-list) .home-project-card>header .project-card-menu{position:absolute;top:0;right:0;margin:0}

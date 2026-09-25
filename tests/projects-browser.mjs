@@ -22,10 +22,15 @@ try{
  const original=await(await fetch(url+'/api/state')).json();
  const legacyRun=await(await fetch(url+'/api/runs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({flowID:original.flows[0].id,flowVersion:1,task:'Original project'})})).json();
  await page.locator('[data-add-project]').click();
- await page.getByLabel('Project name',{exact:true}).fill('Newton');await page.getByLabel('Local folder',{exact:true}).fill(repo);
+ await page.getByLabel('Project name',{exact:true}).fill('Newton');await page.getByLabel('Local folder',{exact:true}).fill(repo);await page.getByLabel('Dev URL',{exact:true}).fill('http://localhost:5173');await page.getByLabel('Live URL',{exact:true}).fill('https://newton.example.com');
  await page.locator('#dialog').getByRole('button',{name:'Add project',exact:true}).click();
  await page.waitForFunction(()=>document.querySelector('[data-sidebar-project][aria-current]')?.textContent.replace('▱','').trim()==='Newton');assert.equal(await page.locator('[data-overview-flow]').count(),0);
  const projectA=await page.locator('[data-sidebar-project][aria-current]').getAttribute('data-sidebar-project');
+ // Dev and live links sit beside the title on the project page and on the Home card.
+ {const here=page.url();await page.goto(url+'/#project/'+projectA);await page.locator('.project-title-row .project-link').first().waitFor();
+  assert.deepEqual(await page.locator('.project-title-row .project-link').evaluateAll(a=>a.map(x=>[x.textContent,x.getAttribute('href'),x.target])),[['Devlocalhost:5173','http://localhost:5173/','_blank'],['Livenewton.example.com','https://newton.example.com/','_blank']]);
+  await page.goto(url+'/#home');await page.locator(`[data-home-project="${projectA}"] header .project-link`).nth(1).waitFor();await page.screenshot({path:'output/project-links-home.png'});
+  await page.goto(here);await page.reload();await page.getByRole('button',{name:'Project details',exact:true}).waitFor();}
  await openDetails();
  await page.waitForFunction(()=>document.querySelector('#connection-details').textContent.includes('github.com'));
  assert.match(await page.locator('#connection-details').textContent(),/main/);assert.match(await page.locator('#connection-details').textContent(),/No remote configured|origin/);

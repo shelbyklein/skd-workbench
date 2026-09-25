@@ -19,6 +19,10 @@ try{
  await page.locator('[data-settings-section=appearance]').click();await page.locator('[data-settings-section=tags]').click();assert.equal(await page.getByLabel('Tag 1 name',{exact:true}).inputValue(),'Work');
  mkdirSync('output',{recursive:true});await page.screenshot({path:'output/project-tags-settings-desktop.png'});await save();
  assert.equal(await page.locator(`[data-home-project="${projects[0].id}"] .project-tag`).count(),2);assert.equal(await page.locator(`[data-home-project="${projects[1].id}"] .project-tag`).count(),1);
+ // Tags show as colored stripes on the card's right edge (pills stay in the markup for screen readers).
+ assert.equal(await page.locator(`[data-home-project="${projects[0].id}"] .project-tags`).evaluate(el=>el.classList.contains('visually-hidden')),true);
+ const edge=await page.locator(`[data-home-project="${projects[0].id}"]`).evaluate(el=>getComputedStyle(el).boxShadow);assert.match(edge,/rgb\(191, 80, 47\) -5px 0px 0px 0px inset, rgb\(255, 224, 102\) -10px 0px 0px 0px inset/);
+ assert.equal(await page.locator(`[data-home-project="${projects[0].id}"]`).getAttribute('title'),'Tags: Work, Personal');
  const workFilter=()=>page.getByRole('button',{name:'Filter by Work',exact:true}),personalFilter=()=>page.getByRole('button',{name:'Filter by Personal',exact:true});
  await personalFilter().click();assert.equal(await personalFilter().getAttribute('aria-pressed'),'true');assert.equal(await page.locator('[data-project]').count(),1);
  await workFilter().click();assert.equal(await page.locator('[data-project]').count(),2);await personalFilter().click();assert.equal(await page.locator('[data-project]').count(),2);await workFilter().click();assert.equal(await page.locator('[data-project]').count(),2);
