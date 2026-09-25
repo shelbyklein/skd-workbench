@@ -136,6 +136,12 @@ read-only GitHub browsing with explicit agent proposal and apply actions.
 - Inspect `git status`, branches and `git worktree list` before changes or integration.
   Preserve unrelated work. Use `codex/` for new development branches by default.
   Do not infer permission to publish or deploy from historical delivery instructions.
+- Standing user policy for every project: when a reconciliation is requested, delete
+  merged, unused branches locally and on GitHub without asking again. First verify each
+  branch is merged into the default branch (squash merges count: check the merged PR or
+  that the branch's changes are already on the default branch). Keep default and
+  protected branches, branches checked out in a worktree or used by an active agent or
+  run, unmerged work and unrelated changes. This policy does not start a reconciliation.
 - For GitHub issue execution, use Tracker Trapper: retrieve the existing plan and
   stable todo IDs, start/reuse this session's own run, and link only its verified JSONL
   with `watch_session`; confirm with `watch_status`. Never take another agent's run.
