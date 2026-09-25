@@ -71,11 +71,16 @@ test('gh adapter uses explicit HTTP methods and stdin JSON, preserving literal i
  writeFileSync(binary,'#!/usr/bin/env node\nconsole.error("HTTP 401 authentication required");process.exit(1);',{mode:0o755});await assert.rejects(gh.request('repos/owner/repo/issues'),/sign-in/);
 });
 test('project issue totals use the open issue connection and reject unavailable counts',async()=>{
- let response={data:{repository:{issues:{totalCount:125}}}};
+ let response={data:{repository:{issues:{totalCount:125}}}},search=null;
  const github=new GitHubIssues({inspect:async()=>({git:{remotes:[{name:'origin',webURL:'https://github.com/owner/repo'}]}}),request:async(endpoint,method,payload)=>{
+  if(endpoint.startsWith('search/')){assert.equal(endpoint,'search/issues?q=repo%3Aowner%2Frepo%20is%3Aissue%20is%3Aopen&per_page=1');if(search instanceof Error)throw search;return search;}
   assert.equal(endpoint,'graphql');assert.equal(method,'POST');assert.match(payload.query,/issues\(states:OPEN\)\{totalCount\}/);assert.deepEqual(payload.variables,{owner:'owner',name:'repo'});return response;
  }});
  assert.equal((await github.count({folderPath:'/fixture'})).count,125);
  response={data:{repository:{issues:{totalCount:0}}}};assert.equal((await github.count({folderPath:'/fixture'})).count,0);
  for(const invalid of [{data:{repository:null}},{errors:[{message:'denied'}]}, {data:{repository:{issues:{totalCount:-1}}}}]){response=invalid;await assert.rejects(github.count({folderPath:'/fixture'}),/unavailable/);}
+ // When GraphQL is refused (its rate limit is separate), the REST search count stands in.
+ response={errors:[{type:'RATE_LIMIT'}]};search={total_count:42};assert.equal((await github.count({folderPath:'/fixture'})).count,42);
+ search={total_count:-3};await assert.rejects(github.count({folderPath:'/fixture'}),/unavailable/);
+ search=new Error('search limited');await assert.rejects(github.count({folderPath:'/fixture'}),/count is unavailable/);
 });
