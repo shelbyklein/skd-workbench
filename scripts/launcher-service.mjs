@@ -26,9 +26,10 @@ export async function waitUntilRunning({status=serverStatus,timeoutMs=15000,inte
  while(Date.now()<deadline){if(await status()==='running')return true;await new Promise(r=>setTimeout(r,intervalMs));}
  throw Error('Workbench did not start within 15 seconds. See ~/Library/Logs/SKD Workbench/server-error.log.');
 }
-// The Workbench window: the installed web app when there is one, otherwise the default browser.
+// The Workbench window: the Chrome app (what Workbench is tested in), else another installed web app, else the
+// default browser.
 export function workbenchWindow({home=homedir(),exists=existsSync}={}){
- const app=path.join(home,'Applications','SKD Workbench.app');
- return exists(app)?['-a',app]:['http://127.0.0.1:4390'];
+ const app=[path.join(home,'Applications','Chrome Apps.localized','SKD Workbench.app'),path.join(home,'Applications','SKD Workbench.app')].find(exists);
+ return app?['-a',app]:['http://127.0.0.1:4390'];
 }
 export function openWorkbench(){execFileSync('/usr/bin/open',workbenchWindow(),{stdio:'pipe'});}

@@ -15,6 +15,7 @@ test('the Launcher waits for the server, then opens the web app or the browser',
  const states=['stopped','stopped','running'];let calls=0;
  assert.equal(await waitUntilRunning({status:async()=>states[Math.min(calls++,2)],intervalMs:5}),true);assert.equal(calls,3);
  await assert.rejects(waitUntilRunning({status:async()=>'stopped',timeoutMs:30,intervalMs:5}),/did not start within 15 seconds/);
- assert.deepEqual(workbenchWindow({home:'/Users/x',exists:()=>true}),['-a','/Users/x/Applications/SKD Workbench.app']);
+ assert.deepEqual(workbenchWindow({home:'/Users/x',exists:()=>true}),['-a','/Users/x/Applications/Chrome Apps.localized/SKD Workbench.app'],'The Chrome app comes first.');
+ assert.deepEqual(workbenchWindow({home:'/Users/x',exists:p=>!p.includes('Chrome')}),['-a','/Users/x/Applications/SKD Workbench.app']);
  assert.deepEqual(workbenchWindow({home:'/Users/x',exists:()=>false}),['http://127.0.0.1:4390']);
 });
